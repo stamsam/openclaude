@@ -23,13 +23,17 @@ Use OpenAI-compatible APIs, Gemini, GitHub Models, Codex OAuth, Codex, Ollama, A
 
 ## Quick Start
 
-### Install
+### Install From This Fork
 
 ```bash
-npm install -g @gitlawb/openclaude
+git clone https://github.com/stamsam/openclaude-private.git
+cd openclaude-private
+bun install
+bun run build
+bun run dev
 ```
 
-If the install later reports `ripgrep not found`, install ripgrep system-wide and confirm `rg --version` works in the same terminal before starting OpenClaude.
+If `ripgrep` is missing, install it system-wide and confirm `rg --version` works in the same terminal before starting OpenClaude.
 
 ### Start
 
