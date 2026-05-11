@@ -8,6 +8,7 @@ Use OpenAI-compatible APIs, Gemini, GitHub Models, Codex OAuth, Codex, Ollama, A
 
 ## What's New
 
+- Autonomous goal mode with `/goal <objective>` — set a verifiable goal and the agent loops autonomously (plan -> act -> review -> continue) across turns until complete. Includes token budget tracking, elapsed-time display, and auto-continuation
 - Telegram bridge for live session control, including `/telegram setup`, `/btw`, `/pause`, `/resume`, and model switching from your phone
 - Local learning with `/learn` and `/learn run` for reusable memory and portable skills
 - One CLI across cloud APIs, local models, provider profiles, and agent routing
