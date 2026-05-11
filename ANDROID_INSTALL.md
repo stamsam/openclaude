@@ -42,8 +42,8 @@ node --version  # should be v20+
 ### Step 3 — Clone OpenClaude
 
 ```bash
-git clone https://github.com/Gitlawb/openclaude.git
-cd openclaude
+git clone https://github.com/stamsam/openclaude-private.git
+cd openclaude-private
 npm install
 npm link
 ```

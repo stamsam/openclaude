@@ -18,7 +18,10 @@ npm --version
 ## 2. Install OpenClaude
 
 ```powershell
-npm install -g @gitlawb/openclaude
+git clone https://github.com/stamsam/openclaude-private.git
+cd openclaude-private
+bun install
+bun run build
 ```
 
 ## 3. Pick One Provider
@@ -129,13 +132,14 @@ Check the basics:
 ## 6. Updating OpenClaude
 
 ```powershell
-npm install -g @gitlawb/openclaude@latest
+git pull
+bun run build
 ```
 
 ## 7. Uninstalling OpenClaude
 
 ```powershell
-npm uninstall -g @gitlawb/openclaude
+Remove-Item -Recurse -Force openclaude-private
 ```
 
 ## Need Advanced Setup?

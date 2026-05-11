@@ -115,9 +115,9 @@ function App() {
             <span className="ver">v0.7.0</span>
           </span>
           <span className="sep">|</span>
-          <a href="https://gitlawb.com">gitlawb ↗</a>
+          <a href="https://github.com/stamsam/openclaude-private">github ↗</a>
           <span className="sep">|</span>
-          <a href="https://github.com/Gitlawb/openclaude/blob/main/LICENSE">license</a>
+          <a href="https://github.com/stamsam/openclaude-private/blob/main/LICENSE">license</a>
           <span className="sep">·</span>
           <span>{new Date().getFullYear()}</span>
         </div>
@@ -131,7 +131,7 @@ function Hero() {
     <section className="hero" aria-labelledby="hero-heading">
       <div className="hero-eyebrow">
         <span className="dot" aria-hidden="true" />
-        open source · gitlawb-aligned · model-neutral
+        open source · model-neutral · source-first
       </div>
 
       <h1 id="hero-heading" className="hero-title">
@@ -146,7 +146,7 @@ function Hero() {
 
       <div className="hero-cta">
         <CopyableCommand command={installCommand} variant="hero" />
-        <a className="button button-ghost" href="https://github.com/Gitlawb/openclaude">
+        <a className="button button-ghost" href="https://github.com/stamsam/openclaude-private">
           view on github →
         </a>
       </div>

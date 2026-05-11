@@ -6,8 +6,8 @@ import { afterEach, expect, test } from 'bun:test'
   VERSION: '99.0.0',
   DISPLAY_VERSION: '0.0.0-test',
   BUILD_TIME: new Date().toISOString(),
-  ISSUES_EXPLAINER: 'report the issue at https://github.com/Gitlawb/openclaude/issues',
-  PACKAGE_URL: '@gitlawb/openclaude',
+  ISSUES_EXPLAINER: 'report the issue at https://github.com/stamsam/openclaude-private/issues',
+  PACKAGE_URL: 'openclaude-private',
   NATIVE_PACKAGE_URL: undefined,
 }
 

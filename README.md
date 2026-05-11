@@ -396,8 +396,8 @@ If you believe you found a security issue, see [SECURITY.md](SECURITY.md).
 
 ## Community
 
-- Use [GitHub Discussions](https://github.com/Gitlawb/openclaude/discussions) for Q&A, ideas, and community conversation
-- Use [GitHub Issues](https://github.com/Gitlawb/openclaude/issues) for confirmed bugs and actionable feature work
+- Use [GitHub Discussions](https://github.com/stamsam/openclaude-private/discussions) for Q&A, ideas, and community conversation
+- Use [GitHub Issues](https://github.com/stamsam/openclaude-private/issues) for confirmed bugs and actionable feature work
 
 ## Contributing
 

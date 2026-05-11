@@ -18,7 +18,10 @@ npm --version
 ## 2. Install OpenClaude
 
 ```bash
-npm install -g @gitlawb/openclaude
+git clone https://github.com/stamsam/openclaude-private.git
+cd openclaude-private
+bun install
+bun run build
 ```
 
 ## 3. Pick One Provider
@@ -129,13 +132,14 @@ Check the basics:
 ## 6. Updating OpenClaude
 
 ```bash
-npm install -g @gitlawb/openclaude@latest
+git pull
+bun run build
 ```
 
 ## 7. Uninstalling OpenClaude
 
 ```bash
-npm uninstall -g @gitlawb/openclaude
+rm -rf openclaude-private
 ```
 
 ## Need Advanced Setup?

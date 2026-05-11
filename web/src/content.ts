@@ -1,4 +1,4 @@
-export const installCommand = 'npm install -g @gitlawb/openclaude'
+export const installCommand = 'git clone https://github.com/stamsam/openclaude-private.git && cd openclaude-private && bun install && bun run build'
 
 export const features = [
   {
@@ -30,6 +30,5 @@ export const features = [
 export const navLinks = [
   { href: '#features', label: 'features' },
   { href: '#install', label: 'install' },
-  { href: 'https://github.com/Gitlawb/openclaude', label: 'github' },
-  { href: 'https://gitlawb.com/node/repos/z6MkqDnb/openclaude', label: 'gitlawb' },
+  { href: 'https://github.com/stamsam/openclaude-private', label: 'github' },
 ] as const
