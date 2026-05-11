@@ -277,6 +277,21 @@ For the live REPL path, launch OpenClaude normally and then use:
 
 `/telegram setup` now walks through the bot token and allowed Telegram user ID step by step inside OpenClaude, saves those credentials globally, and uses the current session directory as the default workspace.
 
+The in-session bridge is intended for controlling a live local OpenClaude session from your phone:
+
+- plain Telegram messages default to `/ask <prompt>` and submit work into the live session
+- `/btw <prompt>` is Telegram-native: it answers in Telegram, does not open the local `/btw` modal, and does not interrupt the main conversation
+- `/status` reports bridge state, pause state, active run, model, provider, workspace, and any local overlay
+- `/pause` and `/resume` control whether new Telegram prompts are accepted
+- `/stop` cancels the active Telegram-run prompt
+- `/dismiss` closes the active local OpenClaude overlay only
+- `/model` or `/models` shows the active model
+- `/model <name>` or `/models <name>` switches the live session model after validation
+- Telegram polling skips startup backlog so old messages are not replayed after restart
+- polling state is stabilized so normal React re-renders do not repeatedly restart the bridge
+
+The bridge is local-first: it uses Telegram long polling, accepts messages only from the configured numeric Telegram user ID, does not store secrets in repo files, and keeps tool approvals local for now.
+
 For the standalone bridge, start the gRPC server:
 
 ```bash
@@ -300,6 +315,29 @@ export OPENCLAUDE_GRPC_PORT="50051"
 ```
 
 See [`docs/telegram.md`](docs/telegram.md) for setup, commands, safety notes, and troubleshooting.
+
+### Local learning
+
+OpenClaude includes an experimental local learning loop controlled by `/learn`:
+
+- `/learn` previews pending local memory and skill candidates without mutating files
+- `/learn run` applies safe candidates, writes a report, and archives processed queue items
+- learned project facts are stored under `~/.openclaude/memory/MEMORY.md`
+- optional user facts are gated and do not auto-save sensitive data by default
+- learned skills are stored as portable drafts under `~/.openclaude/skills/`
+- local session evidence, learning queues, reports, memory, and skills are ignored by default through `~/.openclaude/.gitignore`
+- active OpenClaude provider/model settings are reused; no separate learning API key is required
+
+Useful paths and overrides:
+
+```bash
+OPENCLAUDE_HOME=~/.openclaude
+OPENCLAUDE_MEMORY_DIR=~/.openclaude/memory
+OPENCLAUDE_SKILLS_DIR=~/.openclaude/skills
+OPENCLAUDE_LEARN_NUDGE_EVERY=10
+```
+
+See [`docs/learning.md`](docs/learning.md) for behavior, limits, and safety rules.
 
 ---
 
