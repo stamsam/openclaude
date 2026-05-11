@@ -304,6 +304,7 @@ export async function handlePromptSubmit(
           shouldHidePromptInput: false,
           isLocalJSXCommand: true,
           isImmediate: true,
+          localJSXCommandName: immediateCommand.name,
         })
       }
       return

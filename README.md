@@ -261,6 +261,46 @@ npm run dev:grpc:cli
 
 *Note: The gRPC definitions are located in `src/proto/openclaude.proto`. You can use this file to generate clients in Python, Go, Rust, or any other language.*
 
+### Telegram bridge
+
+OpenClaude supports two Telegram paths:
+
+- in-session Telegram access with `/telegram` and `/telegram setup`
+- a standalone local bridge command that talks to the headless gRPC server
+
+For the live REPL path, launch OpenClaude normally and then use:
+
+```text
+/telegram setup
+/telegram
+```
+
+`/telegram setup` now walks through the bot token and allowed Telegram user ID step by step inside OpenClaude, saves those credentials globally, and uses the current session directory as the default workspace.
+
+For the standalone bridge, start the gRPC server:
+
+```bash
+npm run dev:grpc
+```
+
+Then in another terminal:
+
+```bash
+node dist/cli.mjs telegram
+```
+
+Required environment:
+
+```bash
+export TELEGRAM_BOT_TOKEN="123456789:abcdef..."
+export TELEGRAM_ALLOWED_USER_ID="123456789"
+export OPENCLAUDE_WORKSPACE_DIR="/absolute/path/to/project"
+export OPENCLAUDE_GRPC_HOST="127.0.0.1"
+export OPENCLAUDE_GRPC_PORT="50051"
+```
+
+See [`docs/telegram.md`](docs/telegram.md) for setup, commands, safety notes, and troubleshooting.
+
 ---
 
 ## Source Build And Local Development

@@ -6,23 +6,18 @@ import type { CommandResultDisplay } from '../../commands.js';
 import { Markdown } from '../../components/Markdown.js';
 import { SpinnerGlyph } from '../../components/Spinner/SpinnerGlyph.js';
 import { DOWN_ARROW, UP_ARROW } from '../../constants/figures.js';
-import { getSystemPrompt } from '../../constants/prompts.js';
 import { useModalOrTerminalSize } from '../../context/modalContext.js';
-import { getSystemContext, getUserContext } from '../../context.js';
 import { useTerminalSize } from '../../hooks/useTerminalSize.js';
 import ScrollBox, { type ScrollBoxHandle } from '../../ink/components/ScrollBox.js';
 import type { KeyboardEvent } from '../../ink/events/keyboard-event.js';
 import { Box, Text } from '../../ink.js';
 import type { LocalJSXCommandOnDone } from '../../types/command.js';
-import type { Message } from '../../types/message.js';
 import { createAbortController } from '../../utils/abortController.js';
 import { saveGlobalConfig } from '../../utils/config.js';
 import { errorMessage } from '../../utils/errors.js';
-import { type CacheSafeParams, getLastCacheSafeParams } from '../../utils/forkedAgent.js';
-import { getMessagesAfterCompactBoundary } from '../../utils/messages.js';
+import { buildSideQuestionCacheSafeParams } from '../../utils/sideQuestion.js';
 import type { ProcessUserInputContext } from '../../utils/processUserInput/processUserInput.js';
 import { runSideQuestion } from '../../utils/sideQuestion.js';
-import { asSystemPrompt } from '../../utils/systemPromptType.js';
 type BtwComponentProps = {
   question: string;
   context: ProcessUserInputContext;
@@ -88,7 +83,7 @@ function BtwSideQuestion(t0) {
       const fetchResponse = async function fetchResponse() {
         ;
         try {
-          const cacheSafeParams = await buildCacheSafeParams(context);
+          const cacheSafeParams = await buildSideQuestionCacheSafeParams(context);
           const result = await runSideQuestion({
             question,
             cacheSafeParams
@@ -197,34 +192,6 @@ function BtwSideQuestion(t0) {
  */
 function _temp(f) {
   return f + 1;
-}
-function stripInProgressAssistantMessage(messages: Message[]): Message[] {
-  const last = messages.at(-1);
-  if (last?.type === 'assistant' && last.message.stop_reason === null) {
-    return messages.slice(0, -1);
-  }
-  return messages;
-}
-async function buildCacheSafeParams(context: ProcessUserInputContext): Promise<CacheSafeParams> {
-  const forkContextMessages = getMessagesAfterCompactBoundary(stripInProgressAssistantMessage(context.messages));
-  const saved = getLastCacheSafeParams();
-  if (saved) {
-    return {
-      systemPrompt: saved.systemPrompt,
-      userContext: saved.userContext,
-      systemContext: saved.systemContext,
-      toolUseContext: context,
-      forkContextMessages
-    };
-  }
-  const [rawSystemPrompt, userContext, systemContext] = await Promise.all([getSystemPrompt(context.options.tools, context.options.mainLoopModel, [], context.options.mcpClients), getUserContext(), getSystemContext()]);
-  return {
-    systemPrompt: asSystemPrompt(rawSystemPrompt),
-    userContext,
-    systemContext,
-    toolUseContext: context,
-    forkContextMessages
-  };
 }
 export async function call(onDone: LocalJSXCommandOnDone, context: ProcessUserInputContext, args: string): Promise<React.ReactNode> {
   const question = args?.trim();

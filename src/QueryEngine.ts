@@ -31,6 +31,11 @@ import {
 } from './cost-tracker.js'
 import type { CanUseToolFn } from './hooks/useCanUseTool.js'
 import { loadMemoryPrompt } from './memdir/memdir.js'
+import {
+  recordLearningSessionEvent,
+  recordPassiveLearningCandidate,
+} from './learning/core.js'
+import { redactLearningText } from './learning/redact.js'
 import { hasAutoMemPathOverride } from './memdir/paths.js'
 import { query } from './query.js'
 import { categorizeRetryableAPIError } from './services/api/errors.js'
@@ -208,6 +213,13 @@ export class QueryEngine {
     prompt: string | ContentBlockParam[],
     options?: { uuid?: string; isMeta?: boolean },
   ): AsyncGenerator<SDKMessage, void, unknown> {
+    const sessionId = getSessionId()
+    void recordLearningSessionEvent(sessionId, {
+      type: 'session.start',
+      cwd: this.config.cwd,
+      model: this.config.userSpecifiedModel ?? getMainLoopModel(),
+    })
+
     const {
       cwd,
       commands,
@@ -427,6 +439,16 @@ export class QueryEngine {
 
     // Push new messages, including user input and any attachments
     this.mutableMessages.push(...messagesFromUserInput)
+    if (messagesFromUserInput.length > 0) {
+      const evidence = redactLearningText(
+        messagesFromUserInput.map(msg => JSON.stringify(msg)).join('\n'),
+      )
+      void recordLearningSessionEvent(sessionId, {
+        type: 'user.messages',
+        count: messagesFromUserInput.length,
+      })
+      void recordPassiveLearningCandidate(sessionId, evidence, 'user message accepted')
+    }
 
     // Update params to reflect updates from processing /slash commands
     const messages = [...this.mutableMessages]
@@ -633,6 +655,11 @@ export class QueryEngine {
         ),
         uuid: randomUUID(),
       }
+      void recordLearningSessionEvent(sessionId, {
+        type: 'session.end',
+        mode: 'local-command',
+        result: resultText ?? '',
+      })
       return
     }
 
@@ -794,6 +821,14 @@ export class QueryEngine {
           break
         case 'user':
           this.mutableMessages.push(message)
+          if (JSON.stringify(message).includes('tool_result')) {
+            const evidence = redactLearningText(JSON.stringify(message))
+            void recordLearningSessionEvent(sessionId, {
+              type: 'tool.results',
+              bytes: evidence.length,
+            })
+            void recordPassiveLearningCandidate(sessionId, evidence, 'tool result observed')
+          }
           yield* normalizeMessage(message)
           break
         case 'stream_event':
@@ -1092,6 +1127,11 @@ export class QueryEngine {
     }
 
     if (!isResultSuccessful(result, lastStopReason)) {
+      void recordLearningSessionEvent(sessionId, {
+        type: 'session.end',
+        mode: 'error',
+        stop_reason: lastStopReason,
+      })
       yield {
         type: 'result',
         subtype: 'error_during_execution',
@@ -1143,6 +1183,13 @@ export class QueryEngine {
       }
       isApiError = Boolean(result.isApiErrorMessage)
     }
+
+    void recordLearningSessionEvent(sessionId, {
+      type: 'session.end',
+      mode: 'success',
+      stop_reason: lastStopReason,
+      result: textResult,
+    })
 
     yield {
       type: 'result',

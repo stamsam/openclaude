@@ -156,6 +156,15 @@ export type AppState = DeepImmutable<{
   replBridgeInitialName: string | undefined
   // Always-on bridge: first-time remote dialog pending (set by /remote-control command)
   showRemoteCallout: boolean
+  // In-session Telegram bridge toggle for live phone access.
+  telegramBridgeEnabled?: boolean
+  telegramBridgeConnected?: boolean
+  telegramBridgePaused?: boolean
+  telegramBridgeError?: string
+  telegramBridgeWorkspaceDir?: string
+  activeLocalOverlayKind?: string
+  activeLocalOverlaySequence?: number
+  dismissLocalOverlayRequestNonce?: number
 }> & {
   // Unified task state - excluded from DeepImmutable because TaskState contains function types
   tasks: { [taskId: string]: TaskState }
@@ -494,6 +503,14 @@ export function getDefaultAppState(): AppState {
     replBridgeError: undefined,
     replBridgeInitialName: undefined,
     showRemoteCallout: false,
+    telegramBridgeEnabled: false,
+    telegramBridgeConnected: false,
+    telegramBridgePaused: false,
+    telegramBridgeError: undefined,
+    telegramBridgeWorkspaceDir: undefined,
+    activeLocalOverlayKind: undefined,
+    activeLocalOverlaySequence: 0,
+    dismissLocalOverlayRequestNonce: 0,
     toolPermissionContext: {
       ...getEmptyToolPermissionContext(),
       mode: initialMode,

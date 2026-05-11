@@ -9,8 +9,14 @@
 import { formatAPIError } from '../services/api/errorUtils.js'
 import type { NonNullableUsage } from '../services/api/logging.js'
 import type { Message, SystemAPIErrorMessage } from '../types/message.js'
+import { getSystemPrompt } from '../constants/prompts.js'
+import { getSystemContext, getUserContext } from '../context.js'
 import { type CacheSafeParams, runForkedAgent } from './forkedAgent.js'
+import { getLastCacheSafeParams } from './forkedAgent.js'
+import { getMessagesAfterCompactBoundary } from './messages.js'
 import { createUserMessage, extractTextContent } from './messages.js'
+import type { ProcessUserInputContext } from './processUserInput/processUserInput.js'
+import { asSystemPrompt } from './systemPromptType.js'
 
 // Pattern to detect "/btw" at start of input (case-insensitive, word boundary)
 const BTW_PATTERN = /^\/btw\b/gi
@@ -43,6 +49,51 @@ export function findBtwTriggerPositions(text: string): Array<{
 export type SideQuestionResult = {
   response: string | null
   usage: NonNullableUsage
+}
+
+function stripInProgressAssistantMessage(messages: Message[]): Message[] {
+  const last = messages.at(-1)
+  if (last?.type === 'assistant' && last.message.stop_reason === null) {
+    return messages.slice(0, -1)
+  }
+  return messages
+}
+
+export async function buildSideQuestionCacheSafeParams(
+  context: ProcessUserInputContext,
+): Promise<CacheSafeParams> {
+  const forkContextMessages = getMessagesAfterCompactBoundary(
+    stripInProgressAssistantMessage(context.messages),
+  )
+  const saved = getLastCacheSafeParams()
+  if (saved) {
+    return {
+      systemPrompt: saved.systemPrompt,
+      userContext: saved.userContext,
+      systemContext: saved.systemContext,
+      toolUseContext: context,
+      forkContextMessages,
+    }
+  }
+
+  const [rawSystemPrompt, userContext, systemContext] = await Promise.all([
+    getSystemPrompt(
+      context.options.tools,
+      context.options.mainLoopModel,
+      [],
+      context.options.mcpClients,
+    ),
+    getUserContext(),
+    getSystemContext(),
+  ])
+
+  return {
+    systemPrompt: asSystemPrompt(rawSystemPrompt),
+    userContext,
+    systemContext,
+    toolUseContext: context,
+    forkContextMessages,
+  }
 }
 
 /**

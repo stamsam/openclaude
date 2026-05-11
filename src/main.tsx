@@ -888,6 +888,22 @@ async function getInputPrompt(prompt: string, inputFormat: 'text' | 'stream-json
 async function run(): Promise<CommanderCommand> {
   profileCheckpoint('run_function_start');
 
+  const argv = process.argv.slice(2);
+  if (argv[0] === 'telegram' && !argv.includes('-h') && !argv.includes('--help')) {
+    let telegramExitCode = 0;
+    try {
+      const { telegramMain } = await import('./telegram/bridge.js');
+      await telegramMain();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Telegram bridge failed';
+      writeToStderr(`${message}\n`);
+      telegramExitCode = 1;
+    }
+    profileCheckpoint('main_after_run');
+    profileReport();
+    process.exit(telegramExitCode);
+  }
+
   // Create help config that sorts options by long option name.
   // Commander supports compareOptions at runtime but @commander-js/extra-typings
   // doesn't include it in the type definitions, so we use Object.assign to add it.
@@ -909,6 +925,10 @@ async function run(): Promise<CommanderCommand> {
   // Use preAction hook to run initialization only when executing a command,
   // not when displaying help. This avoids the need for env variable signaling.
   program.hook('preAction', async thisCommand => {
+    if (thisCommand.name() === 'telegram') {
+      return;
+    }
+
     await Promise.all([ensureMdmSettingsLoaded(), ensureKeychainPrefetchCompleted()]);
     await init();
     profileCheckpoint('preAction_after_init');
@@ -4330,6 +4350,12 @@ async function run(): Promise<CommanderCommand> {
       process.exit(1);
     });
   }
+  program.command('telegram').description('Run a local Telegram bridge against the headless OpenClaude gRPC server').action(async () => {
+    const {
+      telegramMain
+    } = await import('./telegram/bridge.js');
+    await telegramMain();
+  });
 
   // Doctor command - check installation health
   program.command('doctor').description('Check the health of your OpenClaude auto-updater. Note: The workspace trust dialog is skipped and stdio servers from .mcp.json are spawned for health checks. Only use this command in directories you trust.').action(async () => {

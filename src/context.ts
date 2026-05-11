@@ -5,6 +5,7 @@ import {
   setCachedClaudeMdContent,
 } from './bootstrap/state.js'
 import { getLocalISODate } from './constants/common.js'
+import { loadLearningPromptSnapshot } from './learning/core.js'
 import {
   filterInjectedMemoryFiles,
   getClaudeMds,
@@ -181,8 +182,13 @@ export const getUserContext = memoize(
       claudemd_disabled: Boolean(shouldDisableClaudeMd),
     })
 
+    const learningSnapshot = await loadLearningPromptSnapshot().catch(() => [])
+
     return {
       ...(claudeMd && { claudeMd }),
+      ...(learningSnapshot.length > 0 && {
+        openclaudeLearning: learningSnapshot.join('\n\n'),
+      }),
       currentDate: `Today's date is ${getLocalISODate()}.`,
     }
   },

@@ -144,6 +144,7 @@ import { gracefulShutdownSync, isShuttingDown } from '../utils/gracefulShutdown.
 import { handlePromptSubmit, type PromptInputHelpers } from '../utils/handlePromptSubmit.js';
 import { useQueueProcessor } from '../hooks/useQueueProcessor.js';
 import { useMailboxBridge } from '../hooks/useMailboxBridge.js';
+import { useTelegramBridge } from '../hooks/useTelegramBridge.js';
 import { queryCheckpoint, logQueryProfileReport } from '../utils/queryProfiler.js';
 import type { Message as MessageType, UserMessage, ProgressMessage, HookResultMessage, PartialCompactDirection } from '../types/message.js';
 import { query } from '../query.js';
@@ -1052,6 +1053,7 @@ export function REPL({
     showSpinner?: boolean;
     isLocalJSXCommand: true;
   } | null>(null);
+  const localJSXCommandNameRef = useRef<string | null>(null);
 
   // Wrapper for setToolJSX that preserves local JSX commands (like /btw).
   // When a local JSX command is active, we ignore updates from tools
@@ -1068,18 +1070,26 @@ export function REPL({
     shouldContinueAnimation?: true;
     showSpinner?: boolean;
     isLocalJSXCommand?: boolean;
+    localJSXCommandName?: string;
     clearLocalJSX?: boolean;
   } | null) => {
     // If setting a local JSX command, store it in the ref
     if (args?.isLocalJSXCommand) {
       const {
         clearLocalJSX: _,
+        localJSXCommandName,
         ...rest
       } = args;
       localJSXCommandRef.current = {
         ...rest,
         isLocalJSXCommand: true
       };
+      localJSXCommandNameRef.current = localJSXCommandName ?? null;
+      setAppState(prev => ({
+        ...prev,
+        activeLocalOverlayKind: localJSXCommandName ?? 'overlay',
+        activeLocalOverlaySequence: (prev.activeLocalOverlaySequence ?? 0) + 1
+      }));
       setToolJSXInternal(rest);
       return;
     }
@@ -1089,6 +1099,11 @@ export function REPL({
       // Allow clearing only if explicitly requested (from onDone callbacks)
       if (args?.clearLocalJSX) {
         localJSXCommandRef.current = null;
+        localJSXCommandNameRef.current = null;
+        setAppState(prev => prev.activeLocalOverlayKind === undefined ? prev : {
+          ...prev,
+          activeLocalOverlayKind: undefined
+        });
         setToolJSXInternal(null);
         return;
       }
@@ -1098,11 +1113,32 @@ export function REPL({
 
     // No active local JSX command, allow any update
     if (args?.clearLocalJSX) {
+      localJSXCommandNameRef.current = null;
+      setAppState(prev => prev.activeLocalOverlayKind === undefined ? prev : {
+        ...prev,
+        activeLocalOverlayKind: undefined
+      });
       setToolJSXInternal(null);
       return;
     }
     setToolJSXInternal(args);
-  }, []);
+  }, [setAppState]);
+  const dismissLocalOverlayRequestNonce = useAppState(s => s.dismissLocalOverlayRequestNonce ?? 0);
+  const lastDismissLocalOverlayRequestNonceRef = useRef(dismissLocalOverlayRequestNonce);
+  useEffect(() => {
+    if (dismissLocalOverlayRequestNonce === lastDismissLocalOverlayRequestNonceRef.current) {
+      return;
+    }
+    lastDismissLocalOverlayRequestNonceRef.current = dismissLocalOverlayRequestNonce;
+    if (!localJSXCommandRef.current) {
+      return;
+    }
+    setToolJSX({
+      jsx: null,
+      shouldHidePromptInput: false,
+      clearLocalJSX: true
+    });
+  }, [dismissLocalOverlayRequestNonce, setToolJSX]);
   const [toolUseConfirmQueue, setToolUseConfirmQueue] = useState<ToolUseConfirm[]>([]);
   // Sticky footer JSX registered by permission request components (currently
   // only ExitPlanModePermissionRequest). Renders in FullscreenLayout's `bottom`
@@ -3347,7 +3383,8 @@ export function REPL({
             setToolJSX({
               jsx,
               shouldHidePromptInput: false,
-              isLocalJSXCommand: true
+              isLocalJSXCommand: true,
+              localJSXCommandName: matchingCommand.name
             });
           }
         };
@@ -4080,6 +4117,19 @@ export function REPL({
     void onQuery([userMessage], newAbortController, true, [], mainLoopModel);
     return true;
   }, [onQuery, mainLoopModel, store]);
+  const handleIncomingTelegramPrompt = useCallback((content: string): boolean => {
+    if (queryGuard.isActive) return false;
+    if (getCommandQueue().some(cmd => cmd.mode === 'prompt' || cmd.mode === 'bash')) {
+      return false;
+    }
+    void onSubmitRef.current(content, {
+      setCursorOffset: () => { },
+      clearBuffer: () => { },
+      resetHistory: () => { }
+    });
+    return true;
+  }, [queryGuard]);
+  const getTelegramSideQuestionContext = useCallback(() => getToolUseContext(messagesRef.current, [], createAbortController(), mainLoopModel), [getToolUseContext, mainLoopModel]);
 
   // Voice input integration (VOICE_MODE builds only)
   const voice = feature('VOICE_MODE') ?
@@ -4103,6 +4153,13 @@ export function REPL({
   useMailboxBridge({
     isLoading,
     onSubmitMessage: handleIncomingPrompt
+  });
+  useTelegramBridge({
+    isLoading,
+    messages,
+    onSubmitMessage: handleIncomingTelegramPrompt,
+    onAbortCurrent: () => abortControllerRef.current?.abort('user-cancel'),
+    getSideQuestionContext: getTelegramSideQuestionContext,
   });
 
   // Scheduled tasks from .claude/scheduled_tasks.json (CronCreate/Delete/List)

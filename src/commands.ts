@@ -12,6 +12,7 @@ import commit from './commands/commit.js'
 import commitMessage from './commands/commit-message/index.js'
 import copy from './commands/copy/index.js'
 import desktop from './commands/desktop/index.js'
+import dismiss from './commands/dismiss/index.js'
 import commitPushPr from './commands/commit-push-pr.js'
 import compact from './commands/compact/index.js'
 import config from './commands/config/index.js'
@@ -23,6 +24,7 @@ import ctx_viz from './commands/ctx_viz/index.js'
 import doctor from './commands/doctor/index.js'
 import onboardGithub from './commands/onboard-github/index.js'
 import knowledge from './commands/knowledge/index.js'
+import learn from './commands/learn/index.js'
 import memory from './commands/memory/index.js'
 import help from './commands/help/index.js'
 import ide from './commands/ide/index.js'
@@ -60,6 +62,7 @@ const agentsPlatform =
 import securityReview from './commands/security-review.js'
 import bughunter from './commands/bughunter/index.js'
 import terminalSetup from './commands/terminalSetup/index.js'
+import telegram from './commands/telegram/index.js'
 import usage from './commands/usage/index.js'
 import theme from './commands/theme/index.js'
 import logo from './commands/logo/index.js'
@@ -284,6 +287,7 @@ const COMMANDS = memoize((): Command[] => [
   config,
   copy,
   desktop,
+  dismiss,
   context,
   contextNonInteractive,
   cost,
@@ -300,6 +304,7 @@ const COMMANDS = memoize((): Command[] => [
   init,
   keybindings,
   knowledge,
+  learn,
   lsp,
   installGitHubApp,
   installSlackApp,
@@ -324,6 +329,7 @@ const COMMANDS = memoize((): Command[] => [
   statusline,
   stickers,
   tag,
+  telegram,
   theme,
   logo,
   feedback,

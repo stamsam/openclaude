@@ -202,6 +202,11 @@ export type ProviderProfile = {
   customHeaders?: Record<string, string>
 }
 
+export type TelegramBridgeStoredConfig = {
+  botToken: string
+  allowedUserId: string
+}
+
 export type GlobalConfig = {
   /**
    * @deprecated Use settings.apiKeyHelper instead.
@@ -630,6 +635,7 @@ export type GlobalConfig = {
   // plain string (validated on read) to avoid pulling a UI module into the
   // config layer. Falls back to 'sunset' if missing or unrecognized.
   logoColor?: string
+  telegramBridgeConfig?: TelegramBridgeStoredConfig
 }
 
 /**
