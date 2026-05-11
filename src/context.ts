@@ -6,6 +6,7 @@ import {
 } from './bootstrap/state.js'
 import { getLocalISODate } from './constants/common.js'
 import { loadLearningPromptSnapshot } from './learning/core.js'
+import { loadGoal, buildContinuationPrompt } from './goal/core.js'
 import {
   filterInjectedMemoryFiles,
   getClaudeMds,
@@ -184,11 +185,17 @@ export const getUserContext = memoize(
 
     const learningSnapshot = await loadLearningPromptSnapshot().catch(() => [])
 
+    const activeGoal = await loadGoal()
+    const goalContinuation = activeGoal && activeGoal.status === 'active'
+      ? buildContinuationPrompt(activeGoal)
+      : ''
+
     return {
       ...(claudeMd && { claudeMd }),
       ...(learningSnapshot.length > 0 && {
         openclaudeLearning: learningSnapshot.join('\n\n'),
       }),
+      ...(goalContinuation && { openclaudeGoal: goalContinuation }),
       currentDate: `Today's date is ${getLocalISODate()}.`,
     }
   },

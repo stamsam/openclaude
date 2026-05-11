@@ -20,6 +20,10 @@ function nowIso(): string {
   return new Date().toISOString()
 }
 
+function safeSessionId(sessionId: string): string {
+  return sessionId.replace(/[^a-zA-Z0-9._-]/g, '_') || 'session'
+}
+
 async function exists(path: string): Promise<boolean> {
   try {
     await stat(path)
@@ -53,6 +57,7 @@ async function writeJson(path: string, value: unknown): Promise<void> {
 
 function learningNudgeEvery(): number {
   const value = Number(process.env.OPENCLAUDE_LEARN_NUDGE_EVERY ?? 10)
+  if (value === 0) return 0
   return Number.isFinite(value) && value > 0 ? value : 10
 }
 
@@ -130,7 +135,7 @@ export async function addLearnCandidate(
   paths = getLearningPaths(),
 ): Promise<LearnQueueItem> {
   await ensureLearningStorage(paths)
-  const file = join(paths.queueDir, `${sessionId}.json`)
+  const file = join(paths.queueDir, `${safeSessionId(sessionId)}.json`)
   const data = await readJson<{ session_id: string; items: LearnQueueItem[] }>(file, {
     session_id: sessionId,
     items: [],
@@ -151,7 +156,6 @@ export async function addLearnCandidate(
 }
 
 export async function loadPendingLearnItems(paths = getLearningPaths()): Promise<LearnQueueItem[]> {
-  await ensureLearningStorage(paths)
   const entries = await readdir(paths.queueDir, { withFileTypes: true }).catch(() => [])
   const items: LearnQueueItem[] = []
   for (const entry of entries) {
@@ -253,14 +257,14 @@ function candidateLabel(item: LearnQueueItem, index: number): string {
 }
 
 export async function reviewLearning(paths = getLearningPaths()): Promise<string> {
-  await ensureLearningStorage(paths)
   const items = await loadPendingLearnItems(paths)
   const lines = ['Learning review:', '']
   let index = 1
   for (const item of items) lines.push(candidateLabel(item, index++), '')
   if (!items.length) lines.push('No pending learning candidates found.', '')
   const state = await loadLearnState(paths)
-  if (state.sessions_since_run >= learningNudgeEvery()) {
+  const nudgeEvery = learningNudgeEvery()
+  if (nudgeEvery > 0 && state.sessions_since_run >= nudgeEvery) {
     lines.push(
       `Nudge: ${state.sessions_since_run} sessions have completed since the last /learn run.`,
       '',
@@ -304,7 +308,11 @@ export async function recordLearningSessionEvent(
   paths = getLearningPaths(),
 ): Promise<void> {
   await ensureLearningStorage(paths)
-  await appendFile(join(paths.sessionsDir, `${sessionId}.jsonl`), `${JSON.stringify({ at: nowIso(), ...event })}\n`)
+  const payload = JSON.stringify(
+    { at: nowIso(), ...event },
+    (_key, value) => (typeof value === 'string' ? redactLearningText(value) : value),
+  )
+  await appendFile(join(paths.sessionsDir, `${safeSessionId(sessionId)}.jsonl`), `${payload}\n`)
   if (event.type === 'session.end') {
     const state = await loadLearnState(paths)
     await writeLearnState(paths, {

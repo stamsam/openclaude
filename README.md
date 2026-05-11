@@ -13,6 +13,8 @@ Use OpenAI-compatible APIs, Gemini, GitHub Models, Codex OAuth, Codex, Ollama, A
 - One CLI across cloud APIs, local models, provider profiles, and agent routing
 - Bundled VS Code extension for launch integration and theme support
 
+Fork map: [`docs/fork-map.md`](docs/fork-map.md)
+
 ## Why OpenClaude
 
 - Use one CLI across cloud APIs and local model backends

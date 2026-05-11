@@ -22,24 +22,11 @@ async function tempPaths() {
 
 describe('learning', () => {
   test('/learn preview mutates nothing', async () => {
-    const paths = await tempPaths()
-    await addLearnCandidate(
-      's1',
-      {
-        candidate_type: 'memory',
-        confidence: 'high',
-        proposed_text: 'Project uses Bun.',
-        evidence_summary: 'bun test succeeded',
-        target: 'MEMORY.md',
-        sensitive: false,
-      },
-      paths,
-    )
-    const before = await readFile(join(paths.memoryDir, 'MEMORY.md'), 'utf8')
+    const home = await mkdtemp(join(tmpdir(), 'openclaude-learn-'))
+    const paths = getLearningPaths({ OPENCLAUDE_HOME: home } as NodeJS.ProcessEnv)
     const report = await reviewLearning(paths)
-    const after = await readFile(join(paths.memoryDir, 'MEMORY.md'), 'utf8')
     expect(report).toContain('Learning review:')
-    expect(after).toBe(before)
+    expect(await readdir(home)).toHaveLength(0)
   })
 
   test('duplicates are suppressed within a session queue', async () => {
@@ -68,6 +55,20 @@ describe('learning', () => {
       await recordLearningSessionEvent('s2', { type: 'session.end' }, paths)
       expect(await reviewLearning(paths)).toContain('Nudge: 2 sessions')
       await runLearning(paths)
+      expect(await reviewLearning(paths)).not.toContain('Nudge:')
+    } finally {
+      if (previous === undefined) delete process.env.OPENCLAUDE_LEARN_NUDGE_EVERY
+      else process.env.OPENCLAUDE_LEARN_NUDGE_EVERY = previous
+    }
+  })
+
+  test('session nudge can be disabled with zero', async () => {
+    const paths = await tempPaths()
+    const previous = process.env.OPENCLAUDE_LEARN_NUDGE_EVERY
+    process.env.OPENCLAUDE_LEARN_NUDGE_EVERY = '0'
+    try {
+      await recordLearningSessionEvent('s1', { type: 'session.end' }, paths)
+      await recordLearningSessionEvent('s2', { type: 'session.end' }, paths)
       expect(await reviewLearning(paths)).not.toContain('Nudge:')
     } finally {
       if (previous === undefined) delete process.env.OPENCLAUDE_LEARN_NUDGE_EVERY
@@ -132,6 +133,22 @@ describe('learning', () => {
     const skillDir = join(paths.skillsDir, 'reusable-workflow-git-status-bun-test')
     expect(await readdir(skillDir)).toContain('SKILL.md')
     expect((await readdir(skillDir)).some(name => name.startsWith('proposed_patch-'))).toBe(true)
+  })
+
+  test('session event payloads are redacted', async () => {
+    const paths = await tempPaths()
+    await recordLearningSessionEvent(
+      's1',
+      {
+        type: 'session.end',
+        result: 'Bearer secret-token-12345 and sk-1234567890abcdef',
+      },
+      paths,
+    )
+    const log = await readFile(join(paths.sessionsDir, 's1.jsonl'), 'utf8')
+    expect(log).not.toContain('secret-token-12345')
+    expect(log).not.toContain('sk-1234567890abcdef')
+    expect(log).toContain('[REDACTED]')
   })
 
   test('prompt snapshot excludes archived skills', async () => {
