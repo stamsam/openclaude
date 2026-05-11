@@ -1,9 +1,52 @@
-import { mkdir, readFile, writeFile } from 'fs/promises'
+import { mkdir, readFile, writeFile, rename } from 'fs/promises'
+import { join } from 'path'
+import { randomUUID } from 'crypto'
 import { goalSchema, type GoalState, CONTINUATION_PROMPT } from './schema.js'
 import { getGoalPaths } from './paths.js'
 
+let memoryCache: { goal: GoalState; timestamp: number } | null = null
+const CACHE_TTL_MS = 200
+
 function nowIso(): string {
   return new Date().toISOString()
+}
+
+function nowSeconds(): number {
+  return Math.floor(Date.now() / 1000)
+}
+
+export function isGoalFeatureEnabled(): boolean {
+  if (process.env.OPENCLAUDE_DISABLE_GOALS === '1') return false
+  return true
+}
+
+export async function loadGoal(): Promise<GoalState | null> {
+  if (!isGoalFeatureEnabled()) return null
+
+  if (memoryCache && Date.now() - memoryCache.timestamp < CACHE_TTL_MS) {
+    return memoryCache.goal
+  }
+
+  const paths = getGoalPaths()
+  try {
+    const raw = await readFile(paths.stateFile, 'utf8')
+    if (!raw.trim()) { memoryCache = null; return null }
+    const goal = goalSchema.parse(JSON.parse(raw))
+    memoryCache = { goal, timestamp: Date.now() }
+    return goal
+  } catch {
+    memoryCache = null
+    return null
+  }
+}
+
+export async function saveGoal(goal: GoalState, pathsOverride?: ReturnType<typeof getGoalPaths>): Promise<void> {
+  const paths = pathsOverride || getGoalPaths()
+  await mkdir(paths.home, { recursive: true })
+  const tmpFile = join(paths.home, `.goal-state-${randomUUID()}.tmp`)
+  await writeFile(tmpFile, `${JSON.stringify(goal, null, 2)}\n`)
+  await rename(tmpFile, paths.stateFile)
+  memoryCache = { goal, timestamp: Date.now() }
 }
 
 function nowSeconds(): number {
@@ -59,6 +102,7 @@ export async function setGoal(
 
 export async function clearGoal(): Promise<void> {
   const paths = getGoalPaths()
+  memoryCache = null
   try {
     await writeFile(paths.stateFile, '')
   } catch {
@@ -129,8 +173,9 @@ export async function goalStatus(): Promise<string> {
 }
 
 export function buildContinuationPrompt(goal: GoalState): string {
+  if (!goal || !goal.objective) return ''
   return CONTINUATION_PROMPT
     .replace('{objective}', goal.objective)
     .replace('{progress_summary}', goal.progress_log || 'Initial exploration has begun.')
-    .replace('{verifiable_end_state}', goal.success_criteria)
+    .replace('{verifiable_end_state}', goal.success_criteria || '')
 }
