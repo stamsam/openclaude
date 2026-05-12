@@ -57,14 +57,17 @@ import {
 import { isModelAllowed } from '../../utils/model/modelAllowlist.js'
 import { validateModel } from '../../utils/model/validateModel.js'
 import {
+  getOmlxApiKey,
   getLocalOpenAICompatibleProviderLabel,
   isLikelyOmlxBaseUrl,
 } from '../../utils/providerDiscovery.js'
 import { isEssentialTrafficOnly } from '../../utils/privacyLevel.js'
 import { parseCustomHeadersEnv } from '../../utils/providerCustomHeaders.js'
 import {
+  applyProviderProfileToProcessEnv,
   getActiveOpenAIModelOptionsCache,
   getActiveProviderProfile,
+  persistActiveProviderProfileModel,
   setActiveOpenAIModelOptionsCache,
 } from '../../utils/providerProfiles.js'
 
@@ -129,7 +132,12 @@ function getOpenAIDiscoveryRequestOptions(routeId?: string | null): {
   })
   const descriptor = routeId ? getRouteDescriptor(routeId) : null
   const baseUrl =
-    routeId === 'omlx' && !isLikelyOmlxBaseUrl(request.baseUrl)
+    routeId === 'omlx-anthropic'
+      ? process.env.ANTHROPIC_BASE_URL ||
+        (descriptor && 'defaultBaseUrl' in descriptor
+          ? descriptor.defaultBaseUrl
+          : request.baseUrl)
+      : routeId === 'omlx' && !isLikelyOmlxBaseUrl(request.baseUrl)
       ? descriptor && 'defaultBaseUrl' in descriptor
         ? descriptor.defaultBaseUrl
         : request.baseUrl
@@ -143,6 +151,59 @@ function getOpenAIDiscoveryRequestOptions(routeId?: string | null): {
     }),
     baseUrl,
     headers: parseCustomHeadersEnv(process.env.ANTHROPIC_CUSTOM_HEADERS),
+  }
+}
+
+function applyDiscoveredRouteModelSelection(
+  discoveryContext: ModelDiscoveryContext | null,
+  model: string | null,
+): void {
+  if (!model || discoveryContext?.kind !== 'descriptor') {
+    return
+  }
+
+  const persistedProfile = persistActiveProviderProfileModel(model)
+  if (persistedProfile?.provider === discoveryContext.routeId) {
+    applyProviderProfileToProcessEnv(persistedProfile)
+  }
+
+  const descriptor = getRouteDescriptor(discoveryContext.routeId)
+  const defaultBaseUrl =
+    descriptor && 'defaultBaseUrl' in descriptor
+      ? descriptor.defaultBaseUrl
+      : undefined
+
+  if (discoveryContext.routeId === 'omlx') {
+    process.env.CLAUDE_CODE_USE_OPENAI = '1'
+    delete process.env.CLAUDE_CODE_USE_GEMINI
+    delete process.env.CLAUDE_CODE_USE_MISTRAL
+    delete process.env.CLAUDE_CODE_USE_GITHUB
+    delete process.env.CLAUDE_CODE_USE_BEDROCK
+    delete process.env.CLAUDE_CODE_USE_VERTEX
+    process.env.OPENAI_BASE_URL = defaultBaseUrl ?? 'http://127.0.0.1:8000/v1'
+    process.env.OPENAI_MODEL = model
+    const key = getOmlxApiKey()
+    if (key) {
+      process.env.OMLX_API_KEY = key
+      process.env.OPENAI_API_KEY = key
+    }
+    return
+  }
+
+  if (discoveryContext.routeId === 'omlx-anthropic') {
+    delete process.env.CLAUDE_CODE_USE_OPENAI
+    delete process.env.CLAUDE_CODE_USE_GEMINI
+    delete process.env.CLAUDE_CODE_USE_MISTRAL
+    delete process.env.CLAUDE_CODE_USE_GITHUB
+    delete process.env.CLAUDE_CODE_USE_BEDROCK
+    delete process.env.CLAUDE_CODE_USE_VERTEX
+    process.env.ANTHROPIC_BASE_URL = defaultBaseUrl ?? 'http://127.0.0.1:8000'
+    process.env.ANTHROPIC_MODEL = model
+    const key = getOmlxApiKey()
+    if (key) {
+      process.env.OMLX_API_KEY = key
+      process.env.ANTHROPIC_API_KEY = key
+    }
   }
 }
 
@@ -394,6 +455,8 @@ function ModelPickerWrapper({
       from_model: String(mainLoopModel) as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
       to_model: String(model) as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
     })
+
+    applyDiscoveredRouteModelSelection(discoveryContext, model)
 
     setAppState(prev => ({
       ...prev,

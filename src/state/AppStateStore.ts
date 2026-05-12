@@ -162,6 +162,7 @@ export type AppState = DeepImmutable<{
   telegramBridgePaused?: boolean
   telegramBridgeError?: string
   telegramBridgeWorkspaceDir?: string
+  telegramBridgeConfigVersion?: number
   activeLocalOverlayKind?: string
   activeLocalOverlaySequence?: number
   dismissLocalOverlayRequestNonce?: number
@@ -508,6 +509,7 @@ export function getDefaultAppState(): AppState {
     telegramBridgePaused: false,
     telegramBridgeError: undefined,
     telegramBridgeWorkspaceDir: undefined,
+    telegramBridgeConfigVersion: 0,
     activeLocalOverlayKind: undefined,
     activeLocalOverlaySequence: 0,
     dismissLocalOverlayRequestNonce: 0,

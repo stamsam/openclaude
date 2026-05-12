@@ -22,6 +22,7 @@ import {
   markRunCompleted,
   markRunStarted,
   markRunStopped,
+  shouldAbortTelegramRun,
   shouldIgnoreUpdate,
   shouldSendOverlayNotice,
   shouldSendBusyNotice,
@@ -35,6 +36,7 @@ import { validateWorkspaceDir } from '../telegram/workspace.js'
 import type { TelegramChatRunState } from '../telegram/types.js'
 import { getCwd } from '../utils/cwd.js'
 import { logForDebugging } from '../utils/debug.js'
+import { getTaskListId, listTasks, type Task } from '../utils/tasks.js'
 import type { ProcessUserInputContext } from '../utils/processUserInput/processUserInput.js'
 import {
   buildSideQuestionCacheSafeParams,
@@ -53,6 +55,12 @@ type TelegramRuntimeConfig = {
   botToken: string
   allowedUserId: string
   workspace: string
+}
+
+type TelegramSideQuestionRun = {
+  runId: string
+  statusMessageId: number | null
+  abortController: AbortController
 }
 
 const POLL_TIMEOUT_SECONDS = 30
@@ -129,10 +137,20 @@ function formatStatus(params: {
     .join('\n')
 }
 
-function formatLiveTaskSummary(
-  tasks: Record<string, unknown> | undefined,
-): string {
-  const taskItems = Object.entries(tasks ?? {}).map(([taskId, raw]) => {
+function toTelegramTaskItem(task: Task): TelegramTaskVisibilityItem {
+  return {
+    id: task.id,
+    status: task.status,
+    subject: task.subject || task.description || 'Task',
+    owner: task.owner,
+    blockedBy: task.blockedBy,
+  }
+}
+
+async function formatCombinedTaskSummary(
+  liveTasks: Record<string, unknown> | undefined,
+): Promise<string> {
+  const liveTaskItems = Object.entries(liveTasks ?? {}).map(([taskId, raw]) => {
     const task = raw as {
       id?: string
       status?: string
@@ -149,10 +167,35 @@ function formatLiveTaskSummary(
       blockedBy: task.blockedBy,
     } satisfies TelegramTaskVisibilityItem
   })
-  return formatTelegramTaskVisibility(taskItems, {
-    heading: 'Tasks',
-    maxItems: 5,
-  })
+
+  try {
+    const persistentTasks = await listTasks(getTaskListId())
+    const taskItems = [
+      ...persistentTasks.map(toTelegramTaskItem),
+      ...liveTaskItems,
+    ]
+    return formatTelegramTaskVisibility(taskItems, {
+      heading: 'Tasks',
+      maxItems: 5,
+    })
+  } catch (error) {
+    const detail =
+      error instanceof Error ? error.message : 'Task list could not be read.'
+    if (liveTaskItems.length > 0) {
+      return [
+        formatTelegramTaskVisibility(liveTaskItems, {
+          heading: 'Tasks',
+          maxItems: 5,
+        }),
+        `Persistent task list unavailable: ${detail}`,
+      ].join('\n')
+    }
+    return formatTelegramTaskVisibility([], {
+      heading: 'Tasks',
+      maxItems: 5,
+      unavailableReason: detail,
+    })
+  }
 }
 
 function getProviderLabel(): string | undefined {
@@ -223,6 +266,7 @@ export function useTelegramBridge({
   const enabled = useAppState(s => s.telegramBridgeEnabled ?? false)
   const paused = useAppState(s => s.telegramBridgePaused ?? false)
   const workspaceOverride = useAppState(s => s.telegramBridgeWorkspaceDir)
+  const configVersion = useAppState(s => s.telegramBridgeConfigVersion ?? 0)
   const currentModel = useAppState(s => s.mainLoopModel)
   const error = useAppState(s => s.telegramBridgeError)
   const tasks = useAppState(s => s.tasks)
@@ -240,6 +284,9 @@ export function useTelegramBridge({
   const latestMessagesRef = useRef(messages)
   latestMessagesRef.current = messages
   const chatStatesRef = useRef<Map<number, TelegramChatRunState>>(new Map())
+  const sideQuestionRunsRef = useRef<Map<number, TelegramSideQuestionRun>>(
+    new Map(),
+  )
   const activeChatIdRef = useRef<number | null>(null)
   const activeRunIdRef = useRef<string | null>(null)
   const runSequenceRef = useRef(0)
@@ -464,34 +511,70 @@ export function useTelegramBridge({
         await sendChunkedMessage(client, chatId, 'Bridge is paused. Use /resume first.')
         return
       }
+      if (sideQuestionRunsRef.current.has(chatId)) {
+        await sendBusyNoticeIfNeeded(chatId)
+        return
+      }
 
       const statusMessageId = await sendChunkedMessage(
         client,
         chatId,
-        'Answering side question...',
+        'Answering side question... Use /stop to cancel.',
       )
-      try {
-        const sideContext = getSideQuestionContextRef.current()
-        const cacheSafeParams = await buildSideQuestionCacheSafeParams(sideContext)
-        const result = await runSideQuestion({
-          question: buildBtwPrompt(prompt),
-          cacheSafeParams,
-        })
-        await finalizeResponse(
-          client,
-          chatId,
+      const runId = `tg-btw-${Date.now()}-${++runSequenceRef.current}`
+      const abortController = new AbortController()
+      sideQuestionRunsRef.current.set(chatId, {
+        runId,
+        statusMessageId,
+        abortController,
+      })
+      saveChatState(
+        chatId,
+        markRunStarted(
+          getChatState(chatId),
+          runId,
+          latestMessagesRef.current.length,
           statusMessageId,
-          result.response ?? 'No side-question response received.',
-        )
-      } catch (sideError) {
-        const detail =
-          sideError instanceof Error ? sideError.message : 'Side question failed.'
-        await finalizeResponse(client, chatId, statusMessageId, detail)
-      }
+        ),
+      )
+
+      void (async () => {
+        try {
+          const sideContext = getSideQuestionContextRef.current()
+          const cacheSafeParams =
+            await buildSideQuestionCacheSafeParams(sideContext)
+          const result = await runSideQuestion({
+            question: buildBtwPrompt(prompt),
+            cacheSafeParams,
+            abortController,
+          })
+          if (abortController.signal.aborted) return
+          await finalizeResponse(
+            client,
+            chatId,
+            statusMessageId,
+            result.response ?? 'No side-question response received.',
+          )
+        } catch (sideError) {
+          if (abortController.signal.aborted) return
+          const detail =
+            sideError instanceof Error ? sideError.message : 'Side question failed.'
+          await finalizeResponse(client, chatId, statusMessageId, detail)
+        } finally {
+          const current = sideQuestionRunsRef.current.get(chatId)
+          if (current?.runId !== runId) return
+          sideQuestionRunsRef.current.delete(chatId)
+          const state = getChatState(chatId)
+          if (state.activeRunId === runId) {
+            saveChatState(chatId, markRunStopped(state))
+          }
+        }
+      })()
     }
 
     async function handleCommand(command: TelegramCommand, chatId: number): Promise<void> {
       const state = getChatState(chatId)
+      const taskSummary = await formatCombinedTaskSummary(tasksRef.current)
       const status = formatStatus({
         enabled: true,
         connected: true,
@@ -502,7 +585,7 @@ export function useTelegramBridge({
         localOverlayKind: activeLocalOverlayKindRef.current,
         modelLabel: modelLabelRef.current,
         providerLabel: providerLabelRef.current,
-        taskSummary: formatLiveTaskSummary(tasksRef.current),
+        taskSummary,
       })
 
       switch (command.type) {
@@ -531,7 +614,30 @@ export function useTelegramBridge({
           await dismissLocalOverlay(chatId)
           return
         case 'stop':
-          onAbortCurrentRef.current()
+          {
+            const sideQuestionRun = sideQuestionRunsRef.current.get(chatId)
+            if (sideQuestionRun) {
+              sideQuestionRun.abortController.abort('telegram-stop')
+              sideQuestionRunsRef.current.delete(chatId)
+              if (sideQuestionRun.statusMessageId !== null) {
+                await client.editMessageText(
+                  chatId,
+                  sideQuestionRun.statusMessageId,
+                  'Stopped.',
+                )
+              } else {
+                await sendChunkedMessage(client, chatId, 'Stopped.')
+              }
+              saveChatState(chatId, markRunStopped(state))
+              logForDebugging(
+                `[telegram:session] side question stopped chat=${chatId} run=${sideQuestionRun.runId}`,
+              )
+              return
+            }
+          }
+          if (shouldAbortTelegramRun(state, activeRunIdRef.current)) {
+            onAbortCurrentRef.current()
+          }
           if (state.activeRunId && state.activeStatusMessageId !== null) {
             await client.editMessageText(chatId, state.activeStatusMessageId, 'Stopped.')
           } else if (state.activeRunId) {
@@ -718,5 +824,5 @@ export function useTelegramBridge({
           : prev,
       )
     }
-  }, [addNotification, enabled, setAppState])
+  }, [addNotification, configVersion, enabled, setAppState, workspaceOverride])
 }

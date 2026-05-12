@@ -5,6 +5,7 @@ import {
   getRouteCredentialValue,
   getRouteProviderTypeLabel,
   resolveActiveRouteIdFromEnv,
+  resolveRouteCredentialValue,
 } from './routeMetadata.js'
 
 test('getRouteProviderTypeLabel uses descriptor transport kinds for provider labels', () => {
@@ -55,6 +56,43 @@ test('getRouteCredentialValue reads the first configured route credential', () =
       OPENAI_API_KEY: 'sk-openai-fallback',
     }),
   ).toBe('sk-openai-fallback')
+})
+
+test('resolveRouteCredentialValue recognizes oMLX credentials on local routes', () => {
+  expect(
+    resolveRouteCredentialValue({
+      routeId: 'omlx',
+      processEnv: { OMLX_API_KEY: 'omlx-key' },
+    }),
+  ).toBe('omlx-key')
+  expect(
+    resolveRouteCredentialValue({
+      routeId: 'omlx-anthropic',
+      processEnv: { OMLX_API_KEY: 'omlx-key' },
+    }),
+  ).toBe('omlx-key')
+  expect(
+    resolveRouteCredentialValue({
+      baseUrl: 'http://127.0.0.1:8000/v1',
+      processEnv: { OMLX_API_KEY: 'omlx-key' },
+    }),
+  ).toBe('omlx-key')
+})
+
+test('resolveActiveRouteIdFromEnv recognizes oMLX Anthropic proxy profiles and base URLs', () => {
+  expect(
+    resolveActiveRouteIdFromEnv(
+      {
+        CLAUDE_CODE_PROVIDER_PROFILE_ENV_APPLIED: '1',
+      },
+      { activeProfileProvider: 'omlx-anthropic' },
+    ),
+  ).toBe('omlx-anthropic')
+  expect(
+    resolveActiveRouteIdFromEnv({
+      ANTHROPIC_BASE_URL: 'http://127.0.0.1:8000',
+    }),
+  ).toBe('omlx-anthropic')
 })
 
 test('resolveActiveRouteIdFromEnv treats MiniMax credential-only env as MiniMax', () => {

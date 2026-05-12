@@ -110,8 +110,40 @@ Requested output:
 
 ## Manual Live Test List
 
-- Telegram bridge: in a real running session with bot config loaded, send
-  `/status`, `/tasks`, `/task`, `/btw <prompt>`, `/approve <id>`, `/dismiss`,
-  and `/stop`; verify task visibility appears, busy/idle state is accurate,
-  approvals still require explicit confirmation, and long responses are chunked
-  safely.
+- Telegram bridge, basic commands: in a real running terminal session with bot
+  config loaded, send `/status`, `/tasks`, `/task`, `/btw <prompt>`,
+  `/approve <id>`, `/dismiss`, and `/stop`; verify task visibility appears,
+  busy/idle state is accurate, approvals still require explicit confirmation,
+  and long responses are chunked safely.
+- Telegram bridge, live session routing: send a normal prompt from Telegram and
+  verify it reaches the active terminal session and replies back to Telegram.
+  Then send `/btw <prompt>` and verify it replies only through Telegram without
+  opening the local `/btw` modal. During a slow `/btw`, send `/stop` and verify
+  it cancels the Telegram side question cleanly.
+- Telegram bridge, stop semantics: while a Telegram-owned run is active, send
+  `/stop` and verify that run cancels. While local terminal work is active but
+  Telegram does not own the run, send `/stop` and verify it does not abort local
+  work.
+- Telegram bridge, config refresh: run `/telegram setup` or toggle `/telegram
+  on` after changing workspace/config, then send `/status` again and verify the
+  bridge reflects the new workspace without restarting OpenClaude.
+- `/goal` live footer: start a goal, let it run long enough for the bottom-right
+  footer to update, then complete, pause, clear, or end the session and verify
+  the goal timer/token footer stops instead of continuing after the session.
+- `/goal` plan semantics: have the assistant emit a `GOAL_PLAN:` block with all
+  items marked done and verify `/goal` still stays active. Then complete with
+  `GOAL_COMPLETE` plus `Evidence:` and verify the goal becomes complete only at
+  that point.
+- `/learn` preview/run: use `/learn` to preview candidates and verify preview
+  does not write memory or skill files. Then run `/learn run` and verify safe
+  repeated items promote while one-off or uncertain items stay queued for the
+  next `/learn` review.
+- oMLX `/model` refresh: add or remove an oMLX model, open `/model` on the
+  `omlx` preset, and verify the model list refreshes on open. Repeat on the
+  `omlx-anthropic` preset and verify the same local model catalog is available.
+- oMLX benchmark: from a normal OpenClaude session, run `/benchmark <local
+  model name>` with the OpenAI-compatible oMLX route and verify it reports TPS,
+  first-token latency, and a success mark without requiring `OPENAI_API_KEY`.
+- oMLX settings fallback: start OpenClaude without `OMLX_API_KEY` in the shell,
+  with valid `~/.omlx/settings.json`, and verify model discovery/doctor still
+  works through the stored oMLX settings.

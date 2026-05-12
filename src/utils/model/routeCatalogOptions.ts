@@ -1,5 +1,6 @@
 import type { ModelCatalogEntry } from '../../integrations/descriptors.js'
 import type { ModelOption } from './modelOptions.js'
+import { isLikelyVisionModelName } from './vision.js'
 
 function toDescription(
   entry: ModelCatalogEntry,
@@ -15,6 +16,14 @@ function toDescription(
   if (isRecommended) {
     parts.push('Recommended')
   }
+
+  if (
+    isLikelyVisionModelName(entry.apiName) ||
+    isLikelyVisionModelName(entry.label)
+  ) {
+    parts.push('Vision')
+  }
+
   parts.push(`Provider: ${routeLabel}`)
 
   return parts.join(' · ')

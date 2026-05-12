@@ -26,6 +26,7 @@ import { fileHistoryEnabled, fileHistoryMakeSnapshot } from './fileHistory.js'
 import { gracefulShutdownSync } from './gracefulShutdown.js'
 import { enqueue } from './messageQueueManager.js'
 import { resolveSkillModelOverride } from './model/model.js'
+import { shouldWarnAboutImageModelSupport } from './model/vision.js'
 import type { ProcessUserInputContext } from './processUserInput/processUserInput.js'
 import { processUserInput } from './processUserInput/processUserInput.js'
 import type { QueryGuard } from './QueryGuard.js'
@@ -34,6 +35,23 @@ import { runWithWorkload } from './workloadContext.js'
 
 function exit(): void {
   gracefulShutdownSync(0)
+}
+
+function isLikelyLocalImageRuntime(): boolean {
+  const baseUrls = [
+    process.env.OPENAI_BASE_URL,
+    process.env.ANTHROPIC_BASE_URL,
+    process.env.CLAUDE_CODE_OPENAI_BASE_URL,
+  ]
+
+  return (
+    process.env.CLAUDE_CODE_USE_OPENAI === '1' ||
+    Boolean(process.env.OMLX_API_KEY) ||
+    baseUrls.some(baseUrl => {
+      if (!baseUrl) return false
+      return /(?:localhost|127\.0\.0\.1|\[::1\]|0\.0\.0\.0)/i.test(baseUrl)
+    })
+  )
 }
 
 type BaseExecutionParams = {
@@ -185,6 +203,21 @@ export async function handlePromptSubmit(
   )
 
   const hasImages = Object.values(pastedContents).some(isValidImagePaste)
+  if (
+    shouldWarnAboutImageModelSupport({
+      hasImages,
+      model: mainLoopModel,
+      isLocalRuntime: isLikelyLocalImageRuntime(),
+    })
+  ) {
+    params.addNotification?.({
+      key: `image-model-support-${mainLoopModel || 'default'}`,
+      text:
+        'This local model may not support images. Pick a /model entry marked Vision if it answers with [Image #N] instead of the screenshot.',
+      priority: 'medium',
+    })
+  }
+
   if (input.trim() === '') {
     return
   }

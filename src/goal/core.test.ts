@@ -16,7 +16,9 @@ import {
   buildContinuationPrompt,
   isGoalFeatureEnabled,
   parseGoalCompletionSignal,
+  parseGoalPlanSignal,
   resetGoalMemoryCache,
+  updateGoalAdvisoryPlanFromText,
 } from './core.js'
 import { getGoalPaths } from './paths.js'
 import {
@@ -254,6 +256,8 @@ describe('goal system', () => {
     expect(prompt).toContain('CONTINUE')
     expect(prompt).toContain('The goal is NOT complete merely because a plan or checklist is complete')
     expect(prompt).toContain('Plans are disposable working state')
+    expect(prompt).toContain('GOAL_PLAN:')
+    expect(prompt).toContain('A fully done GOAL_PLAN is not goal completion')
     expect(prompt).toContain('Never ask the user what to do next')
   })
 
@@ -290,6 +294,47 @@ describe('goal system', () => {
         'GOAL_COMPLETE\nReason: done\nEvidence: bun test passed\nRemaining risk: none known',
       ),
     ).toContain('Evidence: bun test passed')
+  })
+
+  test('parseGoalPlanSignal reads only explicit advisory plan blocks', () => {
+    expect(parseGoalPlanSignal('- [done] checklist only')).toBeNull()
+    expect(
+      parseGoalPlanSignal(
+        [
+          'Continuing.',
+          'GOAL_PLAN:',
+          '- [done] Inspect current behavior',
+          '- [in_progress] Patch the integration',
+          '- [pending] Run focused tests',
+          '',
+          'Next: keep going.',
+        ].join('\n'),
+      ),
+    ).toEqual([
+      { status: 'done', text: 'Inspect current behavior' },
+      { status: 'in_progress', text: 'Patch the integration' },
+      { status: 'pending', text: 'Run focused tests' },
+    ])
+  })
+
+  test('updateGoalAdvisoryPlanFromText persists plan without completing goal', async () => {
+    await setGoal('Keep working until tests are green')
+    await updateGoalAdvisoryPlanFromText(
+      [
+        'CONTINUE',
+        'GOAL_PLAN:',
+        '- [done] Finish checklist',
+        '- [pending] Verify success criteria',
+      ].join('\n'),
+    )
+
+    const goal = await loadGoal()
+    expect(goal?.status).toBe('active')
+    expect(goal?.advisory_plan).toEqual([
+      { status: 'done', text: 'Finish checklist' },
+      { status: 'pending', text: 'Verify success criteria' },
+    ])
+    expect(goal?.progress_log).toContain('[plan updated')
   })
 
   test('setGoal uses default success criteria when none provided', async () => {

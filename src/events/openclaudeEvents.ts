@@ -16,6 +16,11 @@ export type OpenClaudeEvent =
       at: string
     }
   | {
+      type: 'goal.plan'
+      objective: string
+      at: string
+    }
+  | {
       type: 'goal.tokens'
       objective: string
       tokensUsed: number

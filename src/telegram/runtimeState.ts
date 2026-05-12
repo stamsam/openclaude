@@ -90,4 +90,11 @@ export function markRunStopped(state: TelegramChatRunState): TelegramChatRunStat
   }
 }
 
+export function shouldAbortTelegramRun(
+  state: TelegramChatRunState,
+  activeRunId: string | null,
+): boolean {
+  return state.activeRunId !== null && state.activeRunId === activeRunId
+}
+
 export const markRunCompleted = markRunStopped

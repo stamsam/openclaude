@@ -69,6 +69,13 @@ Remaining risk: <short note, or "none known">
 
 If you cannot provide concrete Evidence, do not complete.
 
-If CONTINUE: output a compact progress log, any advisory plan changes, and your next concrete actions (tools, edits, tests).
+If CONTINUE: output a compact progress log and your next concrete actions (tools, edits, tests).
+If you create or revise the advisory plan, include this exact machine-readable block:
+GOAL_PLAN:
+- [pending] <next action>
+- [in_progress] <current action>
+- [done] <completed action>
+
+Only use statuses: pending, in_progress, done, skipped, replaced. A fully done GOAL_PLAN is not goal completion.
 
 Never ask the user what to do next. Keep working autonomously until the goal is verifiably done or you hit a hard blocker.`

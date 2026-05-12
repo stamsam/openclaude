@@ -16,6 +16,7 @@ import {
   resolveProfileRoute,
 } from './index.js'
 import { isEnvTruthy } from '../utils/envUtils.js'
+import { getOmlxApiKey, isLikelyOmlxBaseUrl } from '../utils/omlxSettings.js'
 
 export type RouteDescriptor =
   | AnthropicProxyDescriptor
@@ -364,10 +365,21 @@ export function resolveRouteCredentialValue(
     (options?.baseUrl ? 'custom' : null)
 
   if (!routeId || routeId === 'anthropic') {
-    return undefined
+    return isLikelyOmlxBaseUrl(options?.baseUrl)
+      ? getOmlxApiKey(undefined, processEnv)
+      : undefined
   }
 
-  return getRouteCredentialValue(routeId, processEnv)
+  const credential = getRouteCredentialValue(routeId, processEnv)
+  if (credential) return credential
+  if (
+    routeId === 'omlx' ||
+    routeId === 'omlx-anthropic' ||
+    isLikelyOmlxBaseUrl(options?.baseUrl)
+  ) {
+    return getOmlxApiKey(undefined, processEnv)
+  }
+  return undefined
 }
 
 export function routeSupportsCustomHeaders(
@@ -517,6 +529,20 @@ export function resolveActiveRouteIdFromEnv(
     return 'vertex'
   }
 
+  if (
+    processEnv.CLAUDE_CODE_PROVIDER_PROFILE_ENV_APPLIED === '1' &&
+    options?.activeProfileProvider
+  ) {
+    const route = resolveProfileRoute(options.activeProfileProvider)
+    if (
+      route.routeId !== 'unknown-fallback' &&
+      route.routeId !== 'openai' &&
+      route.routeId !== 'custom'
+    ) {
+      return route.routeId
+    }
+  }
+
   if (isEnvTruthy(processEnv.CLAUDE_CODE_USE_OPENAI)) {
     const baseUrl =
       processEnv.OPENAI_BASE_URL ?? processEnv.OPENAI_API_BASE
@@ -554,6 +580,17 @@ export function resolveActiveRouteIdFromEnv(
 
   const envOnlyRouteId = resolveEnvOnlyProviderRouteId(processEnv)
   if (envOnlyRouteId) return envOnlyRouteId
+
+  const anthropicProxyRouteId = resolveRouteIdFromBaseUrl(
+    processEnv.ANTHROPIC_BASE_URL,
+  )
+  if (
+    anthropicProxyRouteId &&
+    getRouteDescriptor(anthropicProxyRouteId)?.transportConfig.kind ===
+      'anthropic-proxy'
+  ) {
+    return anthropicProxyRouteId
+  }
 
   return 'anthropic'
 }

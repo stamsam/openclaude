@@ -24,6 +24,16 @@ export default defineAnthropicProxy({
   transportConfig: {
     kind: 'anthropic-proxy',
   },
+  catalog: {
+    source: 'dynamic',
+    discovery: {
+      kind: 'openai-compatible',
+      requiresAuth: false,
+    },
+    discoveryCacheTtl: '1d',
+    discoveryRefreshMode: 'on-open',
+    allowManualRefresh: true,
+  },
   preset: {
     id: 'omlx-anthropic',
     description: 'Local oMLX Anthropic-compatible endpoint',

@@ -192,6 +192,40 @@ describe('discoverModelsForRoute', () => {
     ])
   })
 
+  test('oMLX Anthropic discovery refreshes through the local models endpoint', async () => {
+    const { discoverModelsForRoute } = await loadDiscoveryServiceModule()
+
+    setMockFetch(mock((input: string | URL | Request, init?: RequestInit) => {
+      const url =
+        typeof input === 'string'
+          ? input
+          : input instanceof URL
+            ? input.toString()
+            : input.url
+      expect(url).toBe('http://127.0.0.1:8000/v1/models')
+      expect(init?.headers).toEqual({ Authorization: 'Bearer local-omlx-key' })
+
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            data: [{ id: 'Qwenjamin_Franklin_V2_4bit' }],
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        ),
+      )
+    }) as unknown as typeof globalThis.fetch)
+
+    const result = await discoverModelsForRoute('omlx-anthropic', {
+      apiKey: 'local-omlx-key',
+      forceRefresh: true,
+    })
+
+    expect(result?.source).toBe('network')
+    expect(result?.models.map(model => model.apiName)).toEqual([
+      'Qwenjamin_Franklin_V2_4bit',
+    ])
+  })
+
   test('partitions cached discovery results by endpoint base URL', async () => {
     const { discoverModelsForRoute } = await loadDiscoveryServiceModule()
 

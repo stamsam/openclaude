@@ -162,6 +162,46 @@ describe('learning', () => {
     expect(await readFile(join(paths.memoryDir, 'MEMORY.md'), 'utf8')).not.toContain('Project uses TypeScript.')
   })
 
+  test('/learn run preserves held-back candidates when archiving promotable siblings', async () => {
+    const paths = await tempPaths()
+    await addLearnCandidate(
+      's1',
+      {
+        candidate_type: 'memory',
+        confidence: 'high',
+        proposed_text: 'Project uses TypeScript.',
+        evidence_summary: 'tsconfig.json detected twice',
+        target: 'MEMORY.md',
+        sensitive: false,
+        repeat_count: 2,
+      },
+      paths,
+    )
+    await addLearnCandidate(
+      's1',
+      {
+        candidate_type: 'memory',
+        confidence: 'high',
+        proposed_text: 'Project uses Vitest.',
+        evidence_summary: 'single package.json observation',
+        target: 'MEMORY.md',
+        sensitive: false,
+        repeat_count: 1,
+      },
+      paths,
+    )
+
+    const report = await runLearning(paths)
+    const pending = await loadPendingLearnItems(paths)
+    const memory = await readFile(join(paths.memoryDir, 'MEMORY.md'), 'utf8')
+
+    expect(report).toContain('processed_items: 1')
+    expect(memory).toContain('Project uses TypeScript.')
+    expect(memory).not.toContain('Project uses Vitest.')
+    expect(pending).toHaveLength(1)
+    expect(pending[0].proposed_text).toBe('Project uses Vitest.')
+  })
+
   test('sensitive USER.md protection', async () => {
     const paths = await tempPaths()
     await addLearnCandidate(

@@ -871,7 +871,7 @@ export class QueryEngine {
             )
             const goalTokens = countUsageTokens(currentMessageUsage)
             if (!processUserInputContext.agentId && goalTokens > 0) {
-              void accountGoalTokens(goalTokens)
+              await accountGoalTokens(goalTokens)
             }
           }
 

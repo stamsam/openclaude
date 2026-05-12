@@ -7,6 +7,7 @@ import {
   markRunCompleted,
   markRunStarted,
   markRunStopped,
+  shouldAbortTelegramRun,
   shouldIgnoreUpdate,
   shouldSendOverlayNotice,
   shouldSendBusyNotice,
@@ -34,6 +35,14 @@ describe('telegram runtime state', () => {
     expect(stopped.activeRunId).toBeNull()
     expect(stopped.activeStatusMessageId).toBeNull()
     expect(stopped.busyNoticeSentForRun).toBe(false)
+  })
+
+  test('/stop only aborts the Telegram-owned active run', () => {
+    const started = markRunStarted(createInitialChatRunState(), 'run-1', 4, 123)
+    expect(shouldAbortTelegramRun(started, 'run-1')).toBe(true)
+    expect(shouldAbortTelegramRun(started, 'other-run')).toBe(false)
+    expect(shouldAbortTelegramRun(started, null)).toBe(false)
+    expect(shouldAbortTelegramRun(createInitialChatRunState(), 'run-1')).toBe(false)
   })
 
   test('run completion resets state', () => {

@@ -30,6 +30,56 @@ export function parseGoalCompletionSignal(text: string): string | null {
   return details
 }
 
+export function parseGoalPlanSignal(
+  text: string,
+): GoalState['advisory_plan'] | null {
+  const lines = text.split(/\r?\n/)
+  const start = lines.findIndex(line => /^GOAL_PLAN\s*:\s*$/i.test(line.trim()))
+  if (start === -1) return null
+
+  const items: GoalState['advisory_plan'] = []
+  for (const line of lines.slice(start + 1)) {
+    const trimmed = line.trim()
+    if (!trimmed) {
+      if (items.length > 0) break
+      continue
+    }
+    if (/^[A-Z][A-Z_ ]+\s*:/.test(trimmed) && items.length > 0) break
+
+    const match = trimmed.match(
+      /^[-*]\s*\[(pending|in_progress|done|skipped|replaced)\]\s+(.+)$/i,
+    )
+    if (!match) continue
+    const status = match[1]!.toLowerCase() as GoalState['advisory_plan'][number]['status']
+    const itemText = match[2]!.trim()
+    if (itemText) {
+      items.push({ status, text: itemText })
+    }
+  }
+
+  return items.length > 0 ? items : null
+}
+
+export async function updateGoalAdvisoryPlanFromText(
+  text: string,
+): Promise<GoalState | null> {
+  const nextPlan = parseGoalPlanSignal(text)
+  if (!nextPlan) return null
+  const goal = await loadGoal()
+  if (!goal || goal.status !== 'active') return goal
+
+  goal.advisory_plan = nextPlan
+  goal.last_updated = nowIso()
+  goal.progress_log += `\n[plan updated at ${goal.last_updated}: ${nextPlan.length} item${nextPlan.length === 1 ? '' : 's'}]`
+  await saveGoal(goal)
+  emitOpenClaudeEvent({
+    type: 'goal.plan',
+    objective: goal.objective,
+    at: goal.last_updated,
+  })
+  return goal
+}
+
 export async function ensureGoalStorage(): Promise<void> {
   await mkdir(getGoalPaths().home, { recursive: true })
 }

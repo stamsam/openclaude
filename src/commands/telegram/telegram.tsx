@@ -128,6 +128,8 @@ function TelegramSetupWizard({
         telegramBridgePaused: false,
         telegramBridgeError: undefined,
         telegramBridgeWorkspaceDir: validatedWorkspace,
+        telegramBridgeConfigVersion:
+          (prev.telegramBridgeConfigVersion ?? 0) + 1,
       }))
       context.addNotification?.({
         key: 'telegram-setup-complete',
@@ -367,6 +369,9 @@ function TelegramImmediateAction({
       telegramBridgeWorkspaceDir: nextEnabled
         ? prev.telegramBridgeWorkspaceDir || workspace
         : prev.telegramBridgeWorkspaceDir,
+      telegramBridgeConfigVersion: nextEnabled
+        ? (prev.telegramBridgeConfigVersion ?? 0) + 1
+        : prev.telegramBridgeConfigVersion,
     }))
 
     context.addNotification?.({

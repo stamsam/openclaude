@@ -6,6 +6,7 @@
  */
 
 import { getAPIProvider } from './providers.js'
+import { getOmlxApiKey, isLikelyOmlxBaseUrl } from '../omlxSettings.js'
 
 export interface BenchmarkResult {
   model: string
@@ -40,9 +41,27 @@ function getBenchmarkEndpoint(): string | null {
   return null
 }
 
-function getBenchmarkAuthHeader(): string | null {
-  const apiKey = process.env.OPENAI_API_KEY
-  if (!apiKey) return null
+function isLocalBenchmarkEndpoint(): boolean {
+  const baseUrl = process.env.OPENAI_BASE_URL
+  if (!baseUrl) return false
+  try {
+    const parsed = new URL(baseUrl)
+    return (
+      parsed.hostname === 'localhost' ||
+      parsed.hostname === '127.0.0.1' ||
+      parsed.hostname === '::1' ||
+      isLikelyOmlxBaseUrl(baseUrl)
+    )
+  } catch {
+    return isLikelyOmlxBaseUrl(baseUrl)
+  }
+}
+
+function getBenchmarkAuthHeader(): string | undefined {
+  const apiKey = isLikelyOmlxBaseUrl(process.env.OPENAI_BASE_URL)
+    ? getOmlxApiKey()
+    : process.env.OPENAI_API_KEY?.trim()
+  if (!apiKey) return undefined
   return `Bearer ${apiKey}`
 }
 
@@ -53,7 +72,7 @@ export async function benchmarkModel(
   const endpoint = getBenchmarkEndpoint()
   const authHeader = getBenchmarkAuthHeader()
   
-  if (!endpoint || !authHeader) {
+  if (!endpoint || (!authHeader && !isLocalBenchmarkEndpoint())) {
     return {
       model,
       provider: getAPIProvider(),
@@ -74,7 +93,7 @@ export async function benchmarkModel(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': authHeader,
+        ...(authHeader ? { Authorization: authHeader } : {}),
       },
       body: JSON.stringify({
         model,
@@ -201,5 +220,5 @@ export function formatBenchmarkResults(results: BenchmarkResult[]): string {
 export function isBenchmarkSupported(): boolean {
   const endpoint = getBenchmarkEndpoint()
   const authHeader = getBenchmarkAuthHeader()
-  return endpoint !== null && authHeader !== null
+  return endpoint !== null && (authHeader !== undefined || isLocalBenchmarkEndpoint())
 }

@@ -10,13 +10,23 @@ Use OpenAI-compatible APIs, Gemini, GitHub Models, Codex OAuth, Codex, Ollama, A
 
 - First-class oMLX local model support with saved provider profiles, `OMLX_API_KEY`, `/v1/models` discovery, `dev:omlx`, `profile:doctor`, and `profile:benchmark`
 - Optional `omlx-anthropic` fast path for oMLX Anthropic-compatible `/v1/messages` servers, kept separate from the default oMLX preset for safer tool behavior
-- Autonomous goal mode with `/goal <objective>` — set a verifiable goal and the agent loops autonomously (plan -> act -> review -> continue) across turns until complete. Includes token budget tracking, elapsed-time display, and auto-continuation
+- Autonomous goal mode with `/goal <objective>` — set a verifiable goal and the agent immediately starts work without a second prompt. It loops autonomously (plan -> act -> review -> continue) across turns until complete. Includes token budget tracking, elapsed-time display, footer status, advisory plans, checkpoints, and auto-completion signals
 - Telegram bridge for live session control, including `/telegram setup`, `/btw`, `/pause`, `/resume`, and model switching from your phone
 - Local learning with `/learn` and `/learn run` for reusable memory and portable skills
 - One CLI across cloud APIs, local models, provider profiles, and agent routing
 - Bundled VS Code extension for launch integration and theme support
 
 Fork map: [`docs/fork-map.md`](docs/fork-map.md)
+
+## Current Fork Additions
+
+- `/goal <objective>` now starts the continuation turn automatically. Use `/goal plan` only when you explicitly want plan mode, `/goal act` to force another autonomous step, and `/goal checkpoint` / `/goal restore` around risky edits.
+- oMLX model discovery reads the local oMLX settings/API key, ignores stale non-oMLX cache entries, and refreshes `/model` from the live local server. Selecting an oMLX model applies the provider route for the current process.
+- `/model` marks likely multimodal entries as `Vision`, and image paste warns when a local text-only model is selected.
+- `/learn` stores durable reusable lessons and `/learn run` applies pending learning work.
+- Telegram session control keeps runtime pause/resume/model state in sync so phone commands match the active CLI session.
+- `/benchmark` is split into a command module with local model benchmark helpers and tests.
+- Practical feature backlog and comparison notes live in [`docs/planning/implementation-list.md`](docs/planning/implementation-list.md).
 
 ## Why OpenClaude
 

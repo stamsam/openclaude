@@ -51,11 +51,10 @@ export async function call(
       case 'resume': {
         const goal = await resumeGoal()
         if (!goal) return { type: 'text', value: 'No paused goal to resume.' }
-        const interactive = canUseInteractiveGoalCommands(context)
         return {
           type: 'text',
           value: `Goal resumed: "${goal.objective}"`,
-          nextInput: interactive ? GOAL_PLAN_PROMPT : GOAL_AUTOSTART_PROMPT,
+          nextInput: GOAL_AUTOSTART_PROMPT,
           submitNextInput: true,
         }
       }
@@ -138,11 +137,10 @@ export async function call(
       }
       default: {
         const goal = await setGoal(trimmed)
-        const interactive = canUseInteractiveGoalCommands(context)
         return {
           type: 'text',
-          value: `Goal set: "${goal.objective}"\nStatus: active\nStart time: ${goal.start_time}\nRun /goal to check progress.`,
-          nextInput: interactive ? GOAL_PLAN_PROMPT : GOAL_AUTOSTART_PROMPT,
+          value: `Goal set: "${goal.objective}"\nStatus: active\nStart time: ${goal.start_time}\nStarting now.`,
+          nextInput: GOAL_AUTOSTART_PROMPT,
           submitNextInput: true,
         }
       }

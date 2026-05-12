@@ -28,4 +28,22 @@ describe('buildRouteCatalogModelOptions', () => {
       },
     ])
   })
+
+  test('marks likely multimodal local models as vision capable', () => {
+    const options = buildRouteCatalogModelOptions('oMLX', [
+      {
+        id: 'gemma-mm',
+        apiName: 'Gemma-E2B-Chimera-Multimodal-v4-MLX-4bit',
+        label: 'Gemma-E2B-Chimera-Multimodal-v4-MLX-4bit',
+      },
+      {
+        id: 'gemma-text',
+        apiName: 'Gemma-E2B-Chimera v4',
+        label: 'Gemma-E2B-Chimera v4',
+      },
+    ])
+
+    expect(options[0]?.description).toBe('Vision · Provider: oMLX')
+    expect(options[1]?.description).toBe('Provider: oMLX')
+  })
 })

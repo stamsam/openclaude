@@ -104,9 +104,11 @@ export async function buildSideQuestionCacheSafeParams(
 export async function runSideQuestion({
   question,
   cacheSafeParams,
+  abortController,
 }: {
   question: string
   cacheSafeParams: CacheSafeParams
+  abortController?: AbortController
 }): Promise<SideQuestionResult> {
   // Wrap the question with instructions to answer without tools
   const wrappedQuestion = `<system-reminder>This is a side question from the user. You must answer this question directly in a single response.
@@ -144,6 +146,7 @@ ${question}`
     maxTurns: 1, // Single turn only - no tool use loops
     // No future request shares this suffix; skip writing cache entries.
     skipCacheWrite: true,
+    overrides: abortController ? { abortController } : undefined,
   })
 
   return {

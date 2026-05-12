@@ -1,12 +1,15 @@
 import type { OllamaModelDescriptor } from './providerRecommendation.ts'
-import { readFileSync } from 'fs'
-import { homedir } from 'os'
-import { join } from 'path'
 import { DEFAULT_OPENAI_BASE_URL } from '../services/api/providerConfig.js'
 import {
   getRouteLabel,
   resolveRouteIdFromBaseUrl,
 } from '../integrations/routeMetadata.js'
+export {
+  getOmlxApiKey,
+  isLikelyOmlxBaseUrl,
+  readOmlxSettingsApiKey,
+} from './omlxSettings.js'
+import { getOmlxApiKey, isLikelyOmlxBaseUrl } from './omlxSettings.js'
 
 export const DEFAULT_OLLAMA_BASE_URL = 'http://localhost:11434'
 export const DEFAULT_ATOMIC_CHAT_BASE_URL = 'http://127.0.0.1:1337'
@@ -171,42 +174,6 @@ export function getOmlxApiBaseUrl(baseUrl?: string): string {
 
 export function getOmlxChatBaseUrl(baseUrl?: string): string {
   return `${getOmlxApiBaseUrl(baseUrl)}/v1`
-}
-
-export function isLikelyOmlxBaseUrl(baseUrl?: string): boolean {
-  if (!baseUrl?.trim()) return false
-  try {
-    const parsed = new URL(baseUrl)
-    const host = parsed.host.toLowerCase()
-    const haystack = `${parsed.hostname.toLowerCase()} ${parsed.pathname.toLowerCase()}`
-    return host.endsWith(':8000') || haystack.includes('omlx')
-  } catch {
-    return baseUrl.toLowerCase().includes('omlx')
-  }
-}
-
-function readOmlxSettingsApiKey(): string | undefined {
-  try {
-    const raw = readFileSync(join(homedir(), '.omlx', 'settings.json'), 'utf8')
-    const parsed = JSON.parse(raw) as {
-      auth?: {
-        api_key?: unknown
-      }
-    }
-    const value = parsed.auth?.api_key
-    return typeof value === 'string' && value.trim() ? value.trim() : undefined
-  } catch {
-    return undefined
-  }
-}
-
-function getOmlxApiKey(apiKey?: string): string | undefined {
-  return (
-    apiKey ??
-    process.env.OMLX_API_KEY ??
-    process.env.OPENAI_API_KEY ??
-    readOmlxSettingsApiKey()
-  )
 }
 
 export function getOpenAICompatibleModelsBaseUrl(baseUrl?: string): string {

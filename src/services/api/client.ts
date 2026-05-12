@@ -34,6 +34,7 @@ import {
   getVertexRegionForModel,
   isEnvTruthy,
 } from '../../utils/envUtils.js'
+import { getOmlxApiKey } from '../../utils/omlxSettings.js'
 import {
   getMiniMaxBaseUrlOverride,
   getRouteDefaultBaseUrl,
@@ -470,6 +471,9 @@ export async function getAnthropicClient({
   const proxyApiKey =
     process.env.ANTHROPIC_API_KEY?.trim() ||
     process.env.OMLX_API_KEY?.trim() ||
+    (anthropicBaseUrl?.includes('8000') || anthropicBaseUrl?.includes('omlx')
+      ? getOmlxApiKey()
+      : undefined) ||
     undefined
   const clientConfig: ConstructorParameters<typeof Anthropic>[0] = {
     apiKey: isAnthropicProxy

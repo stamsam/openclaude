@@ -111,7 +111,11 @@ import {
 } from './bootstrap/state.js'
 import { createBudgetTracker, checkTokenBudget } from './query/tokenBudget.js'
 import { count } from './utils/array.js'
-import { completeGoal, parseGoalCompletionSignal } from './goal/core.js'
+import {
+  completeGoal,
+  parseGoalCompletionSignal,
+  updateGoalAdvisoryPlanFromText,
+} from './goal/core.js'
 /* eslint-disable @typescript-eslint/no-require-imports */
 const snipModule = feature('HISTORY_SNIP')
   ? (require('./services/compact/snipCompact.js') as typeof import('./services/compact/snipCompact.js'))
@@ -194,8 +198,11 @@ async function completeGoalFromAssistantMessage(
 ): Promise<void> {
   const text = getAssistantText(message).trim()
   const reason = parseGoalCompletionSignal(text)
-  if (reason === null) return
-  await completeGoal(reason)
+  if (reason !== null) {
+    await completeGoal(reason)
+    return
+  }
+  await updateGoalAdvisoryPlanFromText(text)
 }
 
 export type QueryParams = {

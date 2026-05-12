@@ -240,7 +240,7 @@ async function runDiscovery(
     case 'openai-compatible': {
       const routeBaseUrl = getRouteBaseUrl(routeId, options)
       const models =
-        routeId === 'omlx'
+        routeId === 'omlx' || routeId === 'omlx-anthropic'
           ? await listOmlxModels({
               baseUrl: isLikelyOmlxBaseUrl(routeBaseUrl)
                 ? routeBaseUrl

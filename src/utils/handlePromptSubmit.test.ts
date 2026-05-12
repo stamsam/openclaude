@@ -86,4 +86,64 @@ describe('handlePromptSubmit', () => {
       },
     ])
   })
+
+  it('warns when a local-looking text model receives a pasted image', async () => {
+    const originalUseOpenAI = process.env.CLAUDE_CODE_USE_OPENAI
+    process.env.CLAUDE_CODE_USE_OPENAI = '1'
+
+    try {
+      const { handlePromptSubmit } = await import('./handlePromptSubmit.js')
+      const notifications: string[] = []
+
+      await handlePromptSubmit({
+        input: '[Image #1] what is this?',
+        mode: 'prompt',
+        pastedContents: {
+          1: {
+            id: 1,
+            type: 'image',
+            content: 'ZmFrZQ==',
+            mediaType: 'image/png',
+          },
+        },
+        helpers: {
+          setCursorOffset: () => {},
+          clearBuffer: () => {},
+          resetHistory: () => {},
+        },
+        onInputChange: () => {},
+        setPastedContents: () => {},
+        abortController: undefined,
+        hasInterruptibleToolInProgress: false,
+        queryGuard: {
+          isActive: true,
+        } as never,
+        isExternalLoading: false,
+        commands: [],
+        messages: [],
+        mainLoopModel: 'Gemma-E2B-Chimera v4',
+        ideSelection: undefined,
+        querySource: 'repl' as never,
+        setToolJSX: () => {},
+        getToolUseContext: () => ({}) as never,
+        setUserInputOnProcessing: () => {},
+        setAbortController: () => {},
+        onQuery: async () => {},
+        setAppState: () => ({}) as never,
+        addNotification: notification => {
+          notifications.push(notification.text)
+        },
+      })
+
+      expect(notifications).toEqual([
+        'This local model may not support images. Pick a /model entry marked Vision if it answers with [Image #N] instead of the screenshot.',
+      ])
+    } finally {
+      if (originalUseOpenAI === undefined) {
+        delete process.env.CLAUDE_CODE_USE_OPENAI
+      } else {
+        process.env.CLAUDE_CODE_USE_OPENAI = originalUseOpenAI
+      }
+    }
+  })
 })

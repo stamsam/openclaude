@@ -350,8 +350,16 @@ async function archiveQueues(items: LearnQueueItem[], paths: LearningPaths): Pro
   if (!items.length) return null
   const archiveFile = join(paths.archiveDir, `processed-items-${Date.now().toString(36)}.json`)
   await writeJson(archiveFile, { archived_at: nowIso(), items })
-  for (const sessionId of [...new Set(items.map(item => item.session_id))]) {
-    await writeJson(join(paths.queueDir, `${sessionId}.json`), { session_id: sessionId, items: [] })
+  const archivedIds = new Set(items.map(item => item.id))
+  for (const queueFile of await loadQueueFiles(paths)) {
+    const remainingItems = (queueFile.data.items ?? []).filter(
+      item => !archivedIds.has(item.id),
+    )
+    if (remainingItems.length === queueFile.data.items.length) continue
+    await writeJson(queueFile.file, {
+      session_id: queueFile.data.session_id,
+      items: remainingItems,
+    })
   }
   return archiveFile
 }

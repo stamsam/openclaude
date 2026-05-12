@@ -7,6 +7,7 @@ import {
   getOllamaChatBaseUrl,
   listOpenAICompatibleModels,
 } from './providerDiscovery.js'
+import { getOmlxApiKey } from './omlxSettings.js'
 
 export type LocalDiagnosticProvider =
   | 'ollama'
@@ -69,6 +70,14 @@ function compactDetail(value: string, maxLength = 220): string {
 }
 
 function resolveApiKey(options: DiagnosticOptions): string | undefined {
+  if (options.provider === 'omlx' || options.provider === 'omlx-anthropic') {
+    return getOmlxApiKey(
+      options.apiKey ??
+        process.env.OMLX_API_KEY ??
+        process.env.OPENAI_API_KEY ??
+        process.env.ANTHROPIC_API_KEY,
+    )
+  }
   return (
     options.apiKey ??
     process.env.OMLX_API_KEY ??

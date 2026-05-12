@@ -6,6 +6,7 @@ import { clearGoal, loadGoal, resetGoalMemoryCache } from '../../goal/core.js'
 import { call } from './goal.js'
 
 const ORIGINAL_OPENCLAUDE_HOME = process.env.OPENCLAUDE_HOME
+const AUTOSTART_NEXT_INPUT = 'Continue making progress on the active goal.'
 const PLAN_NEXT_INPUT = '/plan Continue making progress on the active goal.'
 
 let testHome: string
@@ -35,7 +36,8 @@ describe('/goal command', () => {
     if (result.type !== 'text') return
 
     expect(result.value).toContain('Goal set:')
-    expect(result.nextInput).toBe(PLAN_NEXT_INPUT)
+    expect(result.value).toContain('Starting now.')
+    expect(result.nextInput).toBe(AUTOSTART_NEXT_INPUT)
     expect(result.submitNextInput).toBe(true)
   })
 
@@ -49,7 +51,7 @@ describe('/goal command', () => {
     if (result.type !== 'text') return
 
     expect(result.value).toContain('Goal resumed:')
-    expect(result.nextInput).toBe(PLAN_NEXT_INPUT)
+    expect(result.nextInput).toBe(AUTOSTART_NEXT_INPUT)
     expect(result.submitNextInput).toBe(true)
   })
 
@@ -61,7 +63,7 @@ describe('/goal command', () => {
     expect(result.type).toBe('text')
     if (result.type !== 'text') return
 
-    expect(result.nextInput).toBe('Continue making progress on the active goal.')
+    expect(result.nextInput).toBe(AUTOSTART_NEXT_INPUT)
     expect(result.submitNextInput).toBe(true)
   })
 
@@ -117,13 +119,13 @@ describe('/goal command', () => {
     const set = await call('Headless goal', context)
     expect(set.type).toBe('text')
     if (set.type !== 'text') return
-    expect(set.nextInput).toBe('Continue making progress on the active goal.')
+    expect(set.nextInput).toBe(AUTOSTART_NEXT_INPUT)
 
     const plan = await call('plan', context)
     expect(plan.type).toBe('text')
     if (plan.type !== 'text') return
     expect(plan.value).toContain('interactive-only')
-    expect(plan.nextInput).toBe('Continue making progress on the active goal.')
+    expect(plan.nextInput).toBe(AUTOSTART_NEXT_INPUT)
 
     const restore = await call('restore', context)
     const tasks = await call('tasks', context)
