@@ -48,6 +48,8 @@ Inside OpenClaude:
 
 - run `/provider` for guided provider setup and saved profiles
 - run `/onboard-github` for GitHub Models onboarding
+- run `/goal <objective>` to set a long-running verifiable objective
+- run `/telegram setup` and `/telegram` if you want live phone access to the current session
 
 ### Fastest OpenAI setup
 
@@ -198,12 +200,44 @@ Set a [Firecrawl](https://firecrawl.dev) API key if you want Firecrawl-powered s
 export FIRECRAWL_API_KEY=your-key-here
 ```
 
+If you prefer Tavily for web search fallback, set:
+
+```bash
+export TAVILY_API_KEY=your-key-here
+```
+
 With Firecrawl enabled:
 
 - `WebSearch` can use Firecrawl's search API while DuckDuckGo remains the default free path for non-Claude models
 - `WebFetch` uses Firecrawl's scrape endpoint instead of raw HTTP, handling JS-rendered pages correctly
 
+With Tavily enabled:
+
+- `WebSearch` can fall back to Tavily when native provider search is unavailable
+- this is especially useful on OpenAI-compatible local/provider setups where DuckDuckGo scraping gets rate-limited
+
 Free tier at [firecrawl.dev](https://firecrawl.dev) includes 500 credits. The key is optional.
+
+## Goal Mode
+
+OpenClaude includes a local autonomous goal layer:
+
+```text
+/goal Ship the Telegram bridge without breaking the local REPL flow.
+/goal
+/goal pause
+/goal resume
+/goal clear
+```
+
+What it does:
+
+- stores the active goal locally
+- injects a continuation prompt while the goal is active
+- tracks elapsed time and token usage
+- supports pause, resume, and clear flows from the CLI
+
+The goal command is local-first and works without any external service.
 
 ---
 
