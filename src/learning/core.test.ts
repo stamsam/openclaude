@@ -151,6 +151,15 @@ describe('learning', () => {
     expect(log).toContain('[REDACTED]')
   })
 
+  test('learning uses dedicated learn-sessions storage', async () => {
+    const paths = await tempPaths()
+    expect(paths.sessionsDir.endsWith('learn-sessions')).toBe(true)
+    expect(paths.legacySessionsDir.endsWith('sessions')).toBe(true)
+    await recordLearningSessionEvent('s1', { type: 'session.start' }, paths)
+    const log = await readFile(join(paths.sessionsDir, 's1.jsonl'), 'utf8')
+    expect(log).toContain('session.start')
+  })
+
   test('prompt snapshot excludes archived skills', async () => {
     const paths = await tempPaths()
     const active = join(paths.skillsDir, 'active-skill')

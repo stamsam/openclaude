@@ -105,14 +105,26 @@ async function ensureLearningGitignore(paths: LearningPaths): Promise<void> {
   const block = [
     '# OpenClaude local learning data',
     'memory/',
-    'sessions/',
+    'learn-sessions/',
     'learn-queue/',
     'learn-reports/',
     'skills/',
     'learn-state.json',
   ].join('\n')
   const current = await readText(file)
-  if (current.includes('# OpenClaude local learning data')) return
+  const marker = '# OpenClaude local learning data'
+  if (current.includes(marker)) {
+    const next = current
+      .replace(
+        /# OpenClaude local learning data(?:\n(?:memory\/|sessions\/|learn-sessions\/|learn-queue\/|learn-reports\/|skills\/|learn-state\.json))+/g,
+        '',
+      )
+      .trimEnd()
+    if (next !== current) {
+      await writeFile(file, `${next ? `${next}\n\n` : ''}${block}\n`)
+    }
+    return
+  }
   await writeFile(file, `${current.trim() ? `${current.trim()}\n\n` : ''}${block}\n`)
 }
 

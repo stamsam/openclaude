@@ -6,6 +6,7 @@ export type LearningPaths = {
   memoryDir: string
   skillsDir: string
   sessionsDir: string
+  legacySessionsDir: string
   queueDir: string
   archiveDir: string
   reportsDir: string
@@ -21,7 +22,8 @@ export function getLearningPaths(env: NodeJS.ProcessEnv = process.env): Learning
     home,
     memoryDir,
     skillsDir,
-    sessionsDir: join(home, 'sessions'),
+    sessionsDir: join(home, 'learn-sessions'),
+    legacySessionsDir: join(home, 'sessions'),
     queueDir,
     archiveDir: join(queueDir, '.archive'),
     reportsDir: join(home, 'learn-reports'),
