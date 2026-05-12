@@ -31,7 +31,11 @@ test('loads flat and nested skills with colon namespaces', async () => {
     clearSkillCaches()
 
     const skills = await getSkillDirCommands(cwd)
-    const promptSkills = skills.filter(skill => skill.type === 'prompt')
+    const promptSkills = skills.filter(
+      skill =>
+        skill.type === 'prompt' &&
+        skill.skillRoot.startsWith(join(configDir, '.claude', 'skills')),
+    )
     const skillNames = promptSkills.map(skill => skill.name).sort()
 
     assert.deepEqual(skillNames, [
