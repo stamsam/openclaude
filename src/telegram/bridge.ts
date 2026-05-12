@@ -1,9 +1,18 @@
 import { createHash } from 'node:crypto'
+import {
+  getTaskListId,
+  listTasks,
+  type Task as PersistentTask,
+} from '../utils/tasks.js'
 import { TelegramClient } from './client.js'
 import { buildBtwPrompt, getTelegramHelpText, parseTelegramCommand } from './commands.js'
 import { loadTelegramBridgeConfig, describeTelegramBridgeConfig } from './config.js'
 import { OpenClaudeGrpcClient } from './grpcClient.js'
 import { splitTelegramMessage } from './messageChunking.js'
+import {
+  formatTelegramTaskVisibility,
+  type TelegramTaskVisibilityItem,
+} from './taskVisibility.js'
 import type {
   ApprovalPrompt,
   BridgeStatusSnapshot,
@@ -36,6 +45,7 @@ class TelegramBridge {
   } | null = null
   private pendingApprovals = new Map<string, ApprovalPrompt>()
   private runCounter = 0
+  private selectedModel: string | undefined
 
   constructor(private readonly config: TelegramBridgeConfig) {
     this.telegram = new TelegramClient(config.botToken)
@@ -77,7 +87,7 @@ class TelegramBridge {
       case 'status':
         await this.telegram.sendMessage(
           message.chat.id,
-          formatStatus(this.getStatusSnapshot()),
+          formatStatus(await this.getStatusSnapshot()),
         )
         return
       case 'pause':
@@ -102,6 +112,32 @@ class TelegramBridge {
         this.grpc.cancelCurrent()
         this.pendingApprovals.clear()
         await this.telegram.sendMessage(message.chat.id, 'Stop requested.')
+        return
+      case 'dismiss':
+        await this.telegram.sendMessage(
+          message.chat.id,
+          '/dismiss is only available in the live in-session Telegram bridge.',
+        )
+        return
+      case 'model':
+        if (!command.model) {
+          await this.telegram.sendMessage(
+            message.chat.id,
+            `Selected model: ${this.selectedModel ?? 'server default'}`,
+          )
+          return
+        }
+        this.selectedModel = command.model
+        await this.telegram.sendMessage(
+          message.chat.id,
+          `Selected model for Telegram runs: ${this.selectedModel}`,
+        )
+        return
+      case 'unknown_command':
+        await this.telegram.sendMessage(
+          message.chat.id,
+          `Unknown command: ${command.command}\n\n${getTelegramHelpText()}`,
+        )
         return
       case 'approve':
       case 'deny': {
@@ -180,6 +216,7 @@ class TelegramBridge {
         {
           sessionId: this.sessionId,
           workspaceDir: this.config.workspaceDir,
+          model: this.selectedModel,
         },
         {
           onTextChunk: text => {
@@ -274,7 +311,7 @@ class TelegramBridge {
     return undefined
   }
 
-  private getStatusSnapshot(): BridgeStatusSnapshot {
+  private async getStatusSnapshot(): Promise<BridgeStatusSnapshot> {
     return {
       workspaceDir: this.config.workspaceDir,
       paused: this.paused,
@@ -282,6 +319,8 @@ class TelegramBridge {
       pendingApprovalIds: [...this.pendingApprovals.values()].map(
         approval => approval.shortId,
       ),
+      selectedModel: this.selectedModel,
+      taskVisibility: await readTaskVisibility(),
     }
   }
 }
@@ -299,7 +338,36 @@ function formatStatus(snapshot: BridgeStatusSnapshot): string {
     'OpenClaude Telegram bridge',
     `workspace: ${snapshot.workspaceDir}`,
     `paused: ${snapshot.paused ? 'yes' : 'no'}`,
+    `model: ${snapshot.selectedModel ?? 'server default'}`,
     `active run: ${snapshot.activeRunId ?? 'none'}`,
     `pending approvals: ${approvals}`,
+    snapshot.taskVisibility,
   ].join('\n')
+}
+
+async function readTaskVisibility(): Promise<string> {
+  try {
+    const taskListId = getTaskListId()
+    const tasks = await listTasks(taskListId)
+    return formatTelegramTaskVisibility(tasks.map(toTelegramTaskItem), {
+      heading: `Tasks (${taskListId})`,
+    })
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : 'Could not read task list.'
+    return formatTelegramTaskVisibility([], {
+      heading: 'Tasks',
+      unavailableReason: message,
+    })
+  }
+}
+
+function toTelegramTaskItem(task: PersistentTask): TelegramTaskVisibilityItem {
+  return {
+    id: task.id,
+    status: task.status,
+    subject: task.subject || task.description || 'Task',
+    owner: task.owner,
+    blockedBy: task.blockedBy,
+  }
 }

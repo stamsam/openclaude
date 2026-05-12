@@ -8,6 +8,8 @@ Use OpenAI-compatible APIs, Gemini, GitHub Models, Codex OAuth, Codex, Ollama, A
 
 ## What's New
 
+- First-class oMLX local model support with saved provider profiles, `OMLX_API_KEY`, `/v1/models` discovery, `dev:omlx`, `profile:doctor`, and `profile:benchmark`
+- Optional `omlx-anthropic` fast path for oMLX Anthropic-compatible `/v1/messages` servers, kept separate from the default oMLX preset for safer tool behavior
 - Autonomous goal mode with `/goal <objective>` — set a verifiable goal and the agent loops autonomously (plan -> act -> review -> continue) across turns until complete. Includes token budget tracking, elapsed-time display, and auto-continuation
 - Telegram bridge for live session control, including `/telegram setup`, `/btw`, `/pause`, `/resume`, and model switching from your phone
 - Local learning with `/learn` and `/learn run` for reusable memory and portable skills
@@ -50,6 +52,22 @@ Inside OpenClaude:
 - run `/onboard-github` for GitHub Models onboarding
 - run `/goal <objective>` to set a long-running verifiable objective
 - run `/telegram setup` and `/telegram` if you want live phone access to the current session
+
+### Fastest local oMLX setup
+
+If your oMLX server is running on `127.0.0.1:8000`:
+
+```bash
+bun run profile:init -- --provider omlx --api-key 1234 --model "Gemma 4 Gem E4b 8bit"
+openclaude
+```
+
+Useful local checks:
+
+```bash
+bun run profile:doctor -- --provider omlx --api-key 1234
+bun run profile:benchmark -- --provider omlx --api-key 1234 --model "Gemma 4 Gem E4b 8bit"
+```
 
 ### Fastest OpenAI setup
 

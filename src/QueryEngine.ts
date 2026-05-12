@@ -35,6 +35,7 @@ import {
   recordLearningSessionEvent,
   recordPassiveLearningCandidate,
 } from './learning/core.js'
+import { accountGoalTokens } from './goal/core.js'
 import { redactLearningText } from './learning/redact.js'
 import { hasAutoMemPathOverride } from './memdir/paths.js'
 import { query } from './query.js'
@@ -129,6 +130,15 @@ const snipProjection = feature('HISTORY_SNIP')
   ? (require('./services/compact/snipProjection.js') as typeof import('./services/compact/snipProjection.js'))
   : null
 /* eslint-enable @typescript-eslint/no-require-imports */
+
+function countUsageTokens(usage: NonNullableUsage): number {
+  return (
+    usage.input_tokens +
+    usage.output_tokens +
+    usage.cache_creation_input_tokens +
+    usage.cache_read_input_tokens
+  )
+}
 
 export type QueryEngineConfig = {
   cwd: string
@@ -859,6 +869,10 @@ export class QueryEngine {
               this.totalUsage,
               currentMessageUsage,
             )
+            const goalTokens = countUsageTokens(currentMessageUsage)
+            if (!processUserInputContext.agentId && goalTokens > 0) {
+              void accountGoalTokens(goalTokens)
+            }
           }
 
           if (includePartialMessages) {

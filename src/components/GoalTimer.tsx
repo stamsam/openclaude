@@ -27,7 +27,7 @@ export function GoalTimer() {
         const tokens = goal.tokens_used
         const tokensStr =
           tokens >= 1000 ? `${(tokens / 1000).toFixed(1)}k` : `${tokens}`
-        setDisplay(`? ${timeStr}  ${tokensStr} tokens`)
+        setDisplay(`goal ${timeStr}  ${tokensStr} tokens`)
       } catch {
         if (mounted) setDisplay(null)
       }

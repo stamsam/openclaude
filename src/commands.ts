@@ -18,6 +18,7 @@ import compact from './commands/compact/index.js'
 import config from './commands/config/index.js'
 import { context, contextNonInteractive } from './commands/context/index.js'
 import cost from './commands/cost/index.js'
+import cron from './commands/cron/index.js'
 import diff from './commands/diff/index.js'
 import dream from './commands/dream/dream.js'
 import ctx_viz from './commands/ctx_viz/index.js'
@@ -124,9 +125,14 @@ const peersCmd = feature('UDS_INBOX')
     ).default
   : null
 const forkCmd = feature('FORK_SUBAGENT')
-  ? (
-      require('./commands/fork/index.js') as typeof import('./commands/fork/index.js')
-    ).default
+  ? (() => {
+      try {
+        return (require('./commands/fork/index.js') as { default: Command })
+          .default
+      } catch {
+        return null
+      }
+    })()
   : null
 const buddy = isBuddyEnabled()
   ? (
@@ -292,6 +298,7 @@ const COMMANDS = memoize((): Command[] => [
   context,
   contextNonInteractive,
   cost,
+  cron,
   diff,
   dream,
   doctor,

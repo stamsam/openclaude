@@ -70,6 +70,7 @@ describe('loaded registry validation', () => {
       'custom',
       'lmstudio',
       'ollama',
+      'omlx',
     ])
     const missingDefaults = getAllGateways()
       .filter(gateway => gateway.defaultModel)

@@ -4,11 +4,12 @@ OpenClaude learning is lightweight, local, and user-controlled.
 
 - `/learn` previews pending memory, skill, and cleanup candidates and mutates nothing.
 - `/learn run` applies safe candidates, archives processed queue items, and writes a report.
+- Both preview and run reports show the active learning memory and skill paths, including whether learned skills are in the normal user `/skills` loader scope.
 - Passive collection writes local evidence and candidates, but it does not mutate long-term memory automatically.
 - Passive collection is intentionally conservative: repeated observations are merged, and one-off noise is held back from promotion.
 - `MEMORY.md` stores compact project/workflow facts. Limit: 2500 characters.
 - `USER.md` stores user preferences only. Limit: 1500 characters. Sensitive facts are not auto-saved.
-- Learned skills are procedural drafts under `skills/<skill-slug>/`.
+- Learned skills are procedural drafts under `skills/<skill-slug>/` with `SKILL.md` frontmatter compatible with the existing skill loader.
 - Learning event logs are stored under `learn-sessions/`.
 - No Obsidian integration is required or performed.
 - Loreforge is not required in v1; files are portable for later import/export.

@@ -32,6 +32,7 @@ const RESTORED_KEYS = [
   'OPENAI_AUTH_SCHEME',
   'OPENAI_AUTH_HEADER_VALUE',
   'OPENAI_API_KEY',
+  'OMLX_API_KEY',
   'CODEX_API_KEY',
   'CODEX_CREDENTIAL_SOURCE',
   'CHATGPT_ACCOUNT_ID',
@@ -42,6 +43,8 @@ const RESTORED_KEYS = [
   'ANTHROPIC_API_KEY',
   'ANTHROPIC_CUSTOM_HEADERS',
   'ANTHROPIC_VERTEX_BASE_URL',
+  'CLAUDE_CODE_DISABLE_THINKING',
+  'DISABLE_INTERLEAVED_THINKING',
   'GEMINI_BASE_URL',
   'GEMINI_MODEL',
   'GEMINI_API_KEY',
@@ -276,6 +279,50 @@ describe('applyProviderProfileToProcessEnv', () => {
     )
     expect(process.env.OPENAI_MODEL).toBe('github:copilot')
     expect(getFreshAPIProvider()).toBe('github')
+  })
+
+  test('omlx profile sets OpenAI-compatible local env and oMLX key alias', async () => {
+    const { applyProviderProfileToProcessEnv } =
+      await importFreshProviderProfileModules()
+
+    applyProviderProfileToProcessEnv(
+      buildProfile({
+        provider: 'omlx',
+        name: 'oMLX',
+        baseUrl: 'http://127.0.0.1:8000/v1',
+        model: 'Gemma 4 Gem E4b 8bit',
+        apiKey: '1234',
+      }),
+    )
+
+    expect(process.env.CLAUDE_CODE_USE_OPENAI).toBe('1')
+    expect(process.env.OPENAI_BASE_URL).toBe('http://127.0.0.1:8000/v1')
+    expect(process.env.OPENAI_MODEL).toBe('Gemma 4 Gem E4b 8bit')
+    expect(process.env.OPENAI_API_KEY).toBe('1234')
+    expect(process.env.OMLX_API_KEY).toBe('1234')
+  })
+
+  test('omlx-anthropic profile uses Anthropic env and disables thinking', async () => {
+    const { applyProviderProfileToProcessEnv } =
+      await importFreshProviderProfileModules()
+
+    applyProviderProfileToProcessEnv(
+      buildProfile({
+        provider: 'omlx-anthropic',
+        name: 'oMLX Anthropic',
+        baseUrl: 'http://127.0.0.1:8000',
+        model: 'Gemma 4 Gem E4b 8bit',
+        apiKey: '1234',
+      }),
+    )
+
+    expect(process.env.CLAUDE_CODE_USE_OPENAI).toBeUndefined()
+    expect(process.env.ANTHROPIC_BASE_URL).toBe('http://127.0.0.1:8000')
+    expect(process.env.ANTHROPIC_MODEL).toBe('Gemma 4 Gem E4b 8bit')
+    expect(process.env.ANTHROPIC_API_KEY).toBe('1234')
+    expect(process.env.OMLX_API_KEY).toBe('1234')
+    expect(process.env.CLAUDE_CODE_DISABLE_THINKING).toBe('1')
+    expect(process.env.DISABLE_INTERLEAVED_THINKING).toBe('1')
   })
 
   test('nvidia-nim profile keeps openai-compatible routing but stamps NVIDIA_NIM', async () => {

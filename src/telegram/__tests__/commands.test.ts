@@ -41,6 +41,11 @@ describe('telegram command parsing', () => {
     expect(parseTelegramCommand('/approve')).toEqual({ type: 'help' })
   })
 
+  test('/tasks is a status alias', () => {
+    expect(parseTelegramCommand('/tasks')).toEqual({ type: 'status' })
+    expect(parseTelegramCommand('/task')).toEqual({ type: 'status' })
+  })
+
   test('btw prompt adds safety instructions', () => {
     const prompt = buildBtwPrompt('inspect package.json')
     expect(prompt).toContain('Telegram-native /btw side question.')
@@ -52,6 +57,7 @@ describe('telegram command parsing', () => {
 
   test('help text mentions btw', () => {
     expect(getTelegramHelpText()).toContain('/btw <prompt> - answer a Telegram-native side question')
+    expect(getTelegramHelpText()).toContain('/tasks - show bridge state and task visibility')
     expect(getTelegramHelpText()).toContain('/dismiss - close the active local OpenClaude overlay only')
     expect(getTelegramHelpText()).not.toContain('/approve')
     expect(getTelegramHelpText()).not.toContain('/deny')

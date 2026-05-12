@@ -12,6 +12,8 @@ import {
   buildCodexProfileEnv,
   buildGeminiProfileEnv,
   buildLaunchEnv,
+  buildOmlxAnthropicProfileEnv,
+  buildOmlxProfileEnv,
   buildOllamaProfileEnv,
   buildOpenAIProfileEnv,
   clearPersistedCodexOAuthProfile,
@@ -1394,4 +1396,55 @@ test('atomic-chat launch ignores mismatched persisted openai env', async () => {
   assert.equal(env.OPENAI_API_KEY, undefined)
   assert.equal(env.CODEX_API_KEY, undefined)
   assert.equal(env.CHATGPT_ACCOUNT_ID, undefined)
+})
+
+test('omlx profiles map API keys into OpenAI-compatible local env', () => {
+  const env = buildOmlxProfileEnv('Gemma 4 Gem E4b 8bit', {
+    baseUrl: 'http://127.0.0.1:8000',
+    apiKey: '1234',
+    getOmlxChatBaseUrl: (baseUrl?: string) =>
+      `${baseUrl ?? 'http://127.0.0.1:8000'}/v1`,
+    processEnv: {},
+  })
+
+  assert.equal(env.OPENAI_BASE_URL, 'http://127.0.0.1:8000/v1')
+  assert.equal(env.OPENAI_MODEL, 'Gemma 4 Gem E4b 8bit')
+  assert.equal(env.OPENAI_API_KEY, '1234')
+  assert.equal(env.OMLX_API_KEY, '1234')
+})
+
+test('omlx-anthropic profiles disable thinking for oMLX tool reliability', () => {
+  const env = buildOmlxAnthropicProfileEnv('Gemma 4 Gem E4b 8bit', {
+    baseUrl: 'http://127.0.0.1:8000',
+    apiKey: '1234',
+    processEnv: {},
+  })
+
+  assert.equal(env.ANTHROPIC_BASE_URL, 'http://127.0.0.1:8000')
+  assert.equal(env.ANTHROPIC_MODEL, 'Gemma 4 Gem E4b 8bit')
+  assert.equal(env.ANTHROPIC_API_KEY, '1234')
+  assert.equal(env.OMLX_API_KEY, '1234')
+  assert.equal(env.CLAUDE_CODE_DISABLE_THINKING, '1')
+  assert.equal(env.DISABLE_INTERLEAVED_THINKING, '1')
+})
+
+test('matching persisted omlx env is reused for omlx launch', async () => {
+  const env = await buildLaunchEnv({
+    profile: 'omlx',
+    persisted: profile('omlx', {
+      OPENAI_BASE_URL: 'http://127.0.0.1:8000/v1',
+      OPENAI_MODEL: 'Gemma 4 Gem E4b 8bit',
+      OMLX_API_KEY: '1234',
+    }),
+    goal: 'balanced',
+    processEnv: {},
+    getOmlxChatBaseUrl: () => 'http://127.0.0.1:8000/v1',
+    resolveOmlxDefaultModel: async () => 'other-model',
+  })
+
+  assert.equal(env.CLAUDE_CODE_USE_OPENAI, '1')
+  assert.equal(env.OPENAI_BASE_URL, 'http://127.0.0.1:8000/v1')
+  assert.equal(env.OPENAI_MODEL, 'Gemma 4 Gem E4b 8bit')
+  assert.equal(env.OPENAI_API_KEY, '1234')
+  assert.equal(env.OMLX_API_KEY, '1234')
 })

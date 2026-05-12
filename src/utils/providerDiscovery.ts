@@ -7,6 +7,7 @@ import {
 
 export const DEFAULT_OLLAMA_BASE_URL = 'http://localhost:11434'
 export const DEFAULT_ATOMIC_CHAT_BASE_URL = 'http://127.0.0.1:1337'
+export const DEFAULT_OMLX_BASE_URL = 'http://127.0.0.1:8000'
 
 export type OllamaGenerationReadiness = {
   state: 'ready' | 'unreachable' | 'no_models' | 'generation_failed'
@@ -152,6 +153,27 @@ export function getAtomicChatChatBaseUrl(baseUrl?: string): string {
   return `${getAtomicChatApiBaseUrl(baseUrl)}/v1`
 }
 
+export function getOmlxApiBaseUrl(baseUrl?: string): string {
+  const parsed = new URL(
+    baseUrl || process.env.OMLX_BASE_URL || DEFAULT_OMLX_BASE_URL,
+  )
+  const pathname = trimTrailingSlash(parsed.pathname)
+  parsed.pathname = pathname.endsWith('/v1')
+    ? pathname.slice(0, -3) || '/'
+    : pathname || '/'
+  parsed.search = ''
+  parsed.hash = ''
+  return trimTrailingSlash(parsed.toString())
+}
+
+export function getOmlxChatBaseUrl(baseUrl?: string): string {
+  return `${getOmlxApiBaseUrl(baseUrl)}/v1`
+}
+
+function getOmlxApiKey(apiKey?: string): string | undefined {
+  return apiKey ?? process.env.OMLX_API_KEY ?? process.env.OPENAI_API_KEY
+}
+
 export function getOpenAICompatibleModelsBaseUrl(baseUrl?: string): string {
   return (
     baseUrl || process.env.OPENAI_BASE_URL || DEFAULT_OPENAI_BASE_URL
@@ -175,6 +197,13 @@ export function getLocalOpenAICompatibleProviderLabel(baseUrl?: string): string 
     }
     if (host.endsWith(':11434') || haystack.includes('ollama')) {
       return 'Ollama'
+    }
+    if (
+      haystack.includes('omlx') ||
+      ((host === '127.0.0.1:8000' || host === 'localhost:8000') &&
+        (path === '/' || path === '/v1' || path.startsWith('/v1/')))
+    ) {
+      return 'oMLX'
     }
     if (haystack.includes('localai')) {
       return 'LocalAI'
@@ -337,6 +366,29 @@ export async function listAtomicChatModels(
   } finally {
     clear()
   }
+}
+
+export async function hasLocalOmlx(options?: {
+  baseUrl?: string
+  apiKey?: string
+}): Promise<boolean> {
+  const models = await listOpenAICompatibleModels({
+    baseUrl: getOmlxChatBaseUrl(options?.baseUrl),
+    apiKey: getOmlxApiKey(options?.apiKey),
+  })
+  return Array.isArray(models)
+}
+
+export async function listOmlxModels(options?: {
+  baseUrl?: string
+  apiKey?: string
+}): Promise<string[]> {
+  return (
+    (await listOpenAICompatibleModels({
+      baseUrl: getOmlxChatBaseUrl(options?.baseUrl),
+      apiKey: getOmlxApiKey(options?.apiKey),
+    })) ?? []
+  )
 }
 
 export type AtomicChatReadiness =

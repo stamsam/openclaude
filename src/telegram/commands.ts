@@ -1,8 +1,11 @@
 import type { ParsedTelegramCommand } from './types.js'
 
+export type TelegramCommand = ParsedTelegramCommand
+
 const HELP_TEXT = [
   'Telegram bridge commands:',
-  '/status - show bridge state',
+  '/status - show bridge state and task visibility',
+  '/tasks - show bridge state and task visibility',
   '/pause - block new Telegram prompts',
   '/resume - accept Telegram prompts again',
   '/stop - cancel the active Telegram-run prompt',
@@ -44,6 +47,8 @@ export function parseTelegramCommand(text: string): ParsedTelegramCommand {
 
   switch (command) {
     case '/status':
+    case '/task':
+    case '/tasks':
       return { type: 'status' }
     case '/pause':
       return { type: 'pause' }

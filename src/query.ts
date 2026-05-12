@@ -111,6 +111,7 @@ import {
 } from './bootstrap/state.js'
 import { createBudgetTracker, checkTokenBudget } from './query/tokenBudget.js'
 import { count } from './utils/array.js'
+import { completeGoal, parseGoalCompletionSignal } from './goal/core.js'
 /* eslint-disable @typescript-eslint/no-require-imports */
 const snipModule = feature('HISTORY_SNIP')
   ? (require('./services/compact/snipCompact.js') as typeof import('./services/compact/snipCompact.js'))
@@ -177,6 +178,24 @@ function isWithheldMaxOutputTokens(
   msg: Message | StreamEvent | undefined,
 ): msg is AssistantMessage {
   return msg?.type === 'assistant' && msg.apiError === 'max_output_tokens'
+}
+
+function getAssistantText(message: AssistantMessage): string {
+  const content = message.message?.content
+  if (!Array.isArray(content)) return ''
+  return content
+    .filter(block => block?.type === 'text' && typeof block.text === 'string')
+    .map(block => block.text)
+    .join('\n')
+}
+
+async function completeGoalFromAssistantMessage(
+  message: AssistantMessage,
+): Promise<void> {
+  const text = getAssistantText(message).trim()
+  const reason = parseGoalCompletionSignal(text)
+  if (reason === null) return
+  await completeGoal(reason)
 }
 
 export type QueryParams = {
@@ -903,6 +922,9 @@ async function* queryLoop(
             }
             if (message.type === 'assistant') {
               assistantMessages.push(message)
+              if (!toolUseContext.agentId) {
+                await completeGoalFromAssistantMessage(message)
+              }
 
               const msgToolUseBlocks = message.message.content.filter(
                 content => content.type === 'tool_use',

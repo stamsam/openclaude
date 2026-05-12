@@ -15,7 +15,10 @@ import {
   type RecommendationGoal,
 } from './providerRecommendation.js'
 import { readGeminiAccessToken } from './geminiCredentials.js'
-import { getOllamaChatBaseUrl } from './providerDiscovery.js'
+import {
+  getOllamaChatBaseUrl,
+  getOmlxChatBaseUrl,
+} from './providerDiscovery.js'
 import { getPrimaryModel } from './providerModels.js'
 import { getProviderValidationError } from './providerValidation.js'
 import { getErrnoCode } from './errors.js'
@@ -59,6 +62,8 @@ const PROFILE_ENV_KEYS = [
   'ANTHROPIC_CUSTOM_HEADERS',
   'ANTHROPIC_BEDROCK_BASE_URL',
   'ANTHROPIC_VERTEX_BASE_URL',
+  'CLAUDE_CODE_DISABLE_THINKING',
+  'DISABLE_INTERLEAVED_THINKING',
   'OPENAI_BASE_URL',
   'OPENAI_API_BASE',
   'OPENAI_MODEL',
@@ -67,6 +72,7 @@ const PROFILE_ENV_KEYS = [
   'OPENAI_AUTH_SCHEME',
   'OPENAI_AUTH_HEADER_VALUE',
   'OPENAI_API_KEY',
+  'OMLX_API_KEY',
   'CODEX_API_KEY',
   'CODEX_CREDENTIAL_SOURCE',
   'CHATGPT_ACCOUNT_ID',
@@ -104,6 +110,8 @@ export type CompatibilityProfileMode =
 const SECRET_ENV_KEYS = [
   'OPENAI_API_KEY',
   'OPENAI_AUTH_HEADER_VALUE',
+  'ANTHROPIC_API_KEY',
+  'OMLX_API_KEY',
   'CODEX_API_KEY',
   'GEMINI_API_KEY',
   'GOOGLE_API_KEY',
@@ -118,6 +126,8 @@ export type ProviderProfile =
   | 'anthropic'
   | 'openai'
   | 'ollama'
+  | 'omlx'
+  | 'omlx-anthropic'
   | 'codex'
   | 'gemini'
   | 'atomic-chat'
@@ -136,6 +146,8 @@ export type ProfileEnv = {
   ANTHROPIC_CUSTOM_HEADERS?: string
   ANTHROPIC_BEDROCK_BASE_URL?: string
   ANTHROPIC_VERTEX_BASE_URL?: string
+  CLAUDE_CODE_DISABLE_THINKING?: string
+  DISABLE_INTERLEAVED_THINKING?: string
   OPENAI_BASE_URL?: string
   OPENAI_API_BASE?: string
   OPENAI_MODEL?: string
@@ -144,6 +156,7 @@ export type ProfileEnv = {
   OPENAI_AUTH_SCHEME?: 'bearer' | 'raw'
   OPENAI_AUTH_HEADER_VALUE?: string
   OPENAI_API_KEY?: string
+  OMLX_API_KEY?: string
   CODEX_API_KEY?: string
   CODEX_CREDENTIAL_SOURCE?: 'oauth' | 'existing'
   CHATGPT_ACCOUNT_ID?: string
@@ -178,6 +191,8 @@ type SecretValueSource = Partial<
   Record<
     | 'OPENAI_API_KEY'
     | 'OPENAI_AUTH_HEADER_VALUE'
+    | 'ANTHROPIC_API_KEY'
+    | 'OMLX_API_KEY'
     | 'CODEX_API_KEY'
     | 'GEMINI_API_KEY'
     | 'GOOGLE_API_KEY'
@@ -290,6 +305,8 @@ export function isProviderProfile(value: unknown): value is ProviderProfile {
     value === 'anthropic' ||
     value === 'openai' ||
     value === 'ollama' ||
+    value === 'omlx' ||
+    value === 'omlx-anthropic' ||
     value === 'codex' ||
     value === 'gemini' ||
     value === 'atomic-chat' ||
@@ -345,6 +362,52 @@ export function buildAtomicChatProfileEnv(
   return {
     OPENAI_BASE_URL: options.getAtomicChatChatBaseUrl(options.baseUrl ?? undefined),
     OPENAI_MODEL: model,
+  }
+}
+
+export function buildOmlxProfileEnv(
+  model: string,
+  options: {
+    baseUrl?: string | null
+    apiKey?: string | null
+    getOmlxChatBaseUrl: (baseUrl?: string) => string
+    processEnv?: NodeJS.ProcessEnv
+  },
+): ProfileEnv {
+  const processEnv = options.processEnv ?? process.env
+  const key = sanitizeApiKey(
+    options.apiKey ?? processEnv.OMLX_API_KEY ?? processEnv.OPENAI_API_KEY,
+  )
+
+  return {
+    OPENAI_BASE_URL: options.getOmlxChatBaseUrl(options.baseUrl ?? undefined),
+    OPENAI_MODEL: model,
+    ...(key ? { OPENAI_API_KEY: key, OMLX_API_KEY: key } : {}),
+  }
+}
+
+export function buildOmlxAnthropicProfileEnv(
+  model: string,
+  options: {
+    baseUrl?: string | null
+    apiKey?: string | null
+    processEnv?: NodeJS.ProcessEnv
+  },
+): ProfileEnv {
+  const processEnv = options.processEnv ?? process.env
+  const key = sanitizeApiKey(
+    options.apiKey ?? processEnv.OMLX_API_KEY ?? processEnv.ANTHROPIC_API_KEY,
+  )
+
+  return {
+    ANTHROPIC_BASE_URL:
+      sanitizeProviderConfigValue(options.baseUrl) ||
+      sanitizeProviderConfigValue(processEnv.ANTHROPIC_BASE_URL) ||
+      'http://127.0.0.1:8000',
+    ANTHROPIC_MODEL: model,
+    CLAUDE_CODE_DISABLE_THINKING: '1',
+    DISABLE_INTERLEAVED_THINKING: '1',
+    ...(key ? { ANTHROPIC_API_KEY: key, OMLX_API_KEY: key } : {}),
   }
 }
 
@@ -895,6 +958,8 @@ export async function buildLaunchEnv(options: {
   processEnv?: NodeJS.ProcessEnv
   getOllamaChatBaseUrl?: (baseUrl?: string) => string
   resolveOllamaDefaultModel?: (goal: RecommendationGoal) => Promise<string>
+  getOmlxChatBaseUrl?: (baseUrl?: string) => string
+  resolveOmlxDefaultModel?: () => Promise<string | null>
   getAtomicChatChatBaseUrl?: (baseUrl?: string) => string
   resolveAtomicChatDefaultModel?: () => Promise<string | null>
   readGeminiAccessToken?: () => string | undefined
@@ -1196,6 +1261,66 @@ export async function buildLaunchEnv(options: {
     })
   }
 
+  if (options.profile === 'omlx') {
+    const getOmlxBaseUrl =
+      options.getOmlxChatBaseUrl ?? getOmlxChatBaseUrl
+    const resolveModel =
+      options.resolveOmlxDefaultModel ?? (async () => 'local-model')
+    const omlxKey =
+      sanitizeApiKey(processEnv.OMLX_API_KEY) ||
+      sanitizeApiKey(persistedEnv.OMLX_API_KEY) ||
+      sanitizeApiKey(processEnv.OPENAI_API_KEY) ||
+      sanitizeApiKey(persistedEnv.OPENAI_API_KEY)
+
+    return buildCompatibilityProcessEnv({
+      processEnv,
+      compatibilityMode: 'openai',
+      profileEnv: buildOmlxProfileEnv(
+        persistedOpenAIModel || (await resolveModel()) || 'local-model',
+        {
+          baseUrl: persistedOpenAIBaseUrl,
+          apiKey: omlxKey,
+          getOmlxChatBaseUrl: getOmlxBaseUrl,
+          processEnv,
+        },
+      ),
+    })
+  }
+
+  if (options.profile === 'omlx-anthropic') {
+    const persistedAnthropicModel = normalizeProfileModel(
+      sanitizeProviderConfigValue(
+        persistedEnv.ANTHROPIC_MODEL,
+        persistedEnv,
+      ),
+    )
+    const anthropicModel =
+      normalizeProfileModel(
+        sanitizeProviderConfigValue(processEnv.ANTHROPIC_MODEL),
+      ) ||
+      persistedAnthropicModel ||
+      persistedOpenAIModel ||
+      'local-model'
+    const omlxKey =
+      sanitizeApiKey(processEnv.OMLX_API_KEY) ||
+      sanitizeApiKey(persistedEnv.OMLX_API_KEY) ||
+      sanitizeApiKey(processEnv.ANTHROPIC_API_KEY) ||
+      sanitizeApiKey(persistedEnv.ANTHROPIC_API_KEY)
+
+    return buildCompatibilityProcessEnv({
+      processEnv,
+      compatibilityMode: 'anthropic',
+      profileEnv: buildOmlxAnthropicProfileEnv(anthropicModel, {
+        baseUrl:
+          processEnv.ANTHROPIC_BASE_URL ||
+          persistedEnv.ANTHROPIC_BASE_URL ||
+          persistedOpenAIBaseUrl,
+        apiKey: omlxKey,
+        processEnv,
+      }),
+    })
+  }
+
   if (options.profile === 'atomic-chat') {
     const getAtomicChatBaseUrl =
       options.getAtomicChatChatBaseUrl ?? (() => 'http://127.0.0.1:1337/v1')
@@ -1332,6 +1457,8 @@ export async function buildStartupEnvFromProfile(options?: {
   processEnv?: NodeJS.ProcessEnv
   getOllamaChatBaseUrl?: (baseUrl?: string) => string
   resolveOllamaDefaultModel?: (goal: RecommendationGoal) => Promise<string>
+  getOmlxChatBaseUrl?: (baseUrl?: string) => string
+  resolveOmlxDefaultModel?: () => Promise<string | null>
   readGeminiAccessToken?: () => string | undefined
 }): Promise<NodeJS.ProcessEnv> {
   const processEnv = options?.processEnv ?? process.env
@@ -1392,6 +1519,9 @@ export async function buildStartupEnvFromProfile(options?: {
     getOllamaChatBaseUrl:
       options?.getOllamaChatBaseUrl ?? getOllamaChatBaseUrl,
     resolveOllamaDefaultModel: options?.resolveOllamaDefaultModel,
+    getOmlxChatBaseUrl:
+      options?.getOmlxChatBaseUrl ?? getOmlxChatBaseUrl,
+    resolveOmlxDefaultModel: options?.resolveOmlxDefaultModel,
     readGeminiAccessToken: options?.readGeminiAccessToken,
   })
 }

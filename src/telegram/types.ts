@@ -58,6 +58,8 @@ export type BridgeStatusSnapshot = {
   paused: boolean
   activeRunId: string | null
   pendingApprovalIds: string[]
+  selectedModel?: string
+  taskVisibility?: string
 }
 
 export type TelegramChatRunState = {

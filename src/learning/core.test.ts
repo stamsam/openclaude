@@ -13,6 +13,7 @@ import {
   runLearning,
 } from './core.js'
 import { getLearningPaths } from './paths.js'
+import { clearSkillCaches, getSkillDirCommands } from '../skills/loadSkillsDir.js'
 
 async function tempPaths() {
   const home = await mkdtemp(join(tmpdir(), 'openclaude-learn-'))
@@ -27,6 +28,8 @@ describe('learning', () => {
     const paths = getLearningPaths({ OPENCLAUDE_HOME: home } as NodeJS.ProcessEnv)
     const report = await reviewLearning(paths)
     expect(report).toContain('Learning review:')
+    expect(report).toContain('Learning scopes:')
+    expect(report).toContain('learned_skills_loader_visibility')
     expect(await readdir(home)).toHaveLength(0)
   })
 
@@ -106,11 +109,13 @@ describe('learning', () => {
         evidence_summary: 'tsconfig.json detected',
         target: 'MEMORY.md',
         sensitive: false,
+        repeat_count: 2,
       },
       paths,
     )
     const report = await runLearning(paths)
     expect(report).toContain('active_model')
+    expect(report).toContain('Learning scopes:')
     expect(await readFile(join(paths.memoryDir, 'MEMORY.md'), 'utf8')).toContain('Project uses TypeScript')
     expect(await loadPendingLearnItems(paths)).toHaveLength(0)
     expect(await readdir(paths.archiveDir)).toHaveLength(1)
@@ -184,7 +189,7 @@ describe('learning', () => {
       evidence_summary: 'seen twice',
       target: 'skills/draft',
       sensitive: false,
-      repeat_count: 2,
+      repeat_count: 3,
     }
     await addLearnCandidate('s1', candidate, paths)
     await runLearning(paths)
@@ -193,6 +198,53 @@ describe('learning', () => {
     const skillDir = join(paths.skillsDir, 'reusable-workflow-git-status-bun-test')
     expect(await readdir(skillDir)).toContain('SKILL.md')
     expect((await readdir(skillDir)).some(name => name.startsWith('proposed_patch-'))).toBe(true)
+  })
+
+  test('learned skill drafts are visible to the existing user skill loader', async () => {
+    const home = await mkdtemp(join(tmpdir(), 'openclaude-learn-skills-'))
+    const previousConfigDir = process.env.CLAUDE_CONFIG_DIR
+    try {
+      process.env.CLAUDE_CONFIG_DIR = home
+      clearSkillCaches()
+      const paths = getLearningPaths()
+      await ensureLearningStorage(paths)
+      await mkdir(join(home, 'workspace'), { recursive: true })
+      await addLearnCandidate(
+        's1',
+        {
+          candidate_type: 'skill',
+          confidence: 'high',
+          proposed_text: 'Reusable workflow: git status > bun test.',
+          evidence_summary: 'seen three times',
+          target: 'skills/draft',
+          sensitive: false,
+          repeat_count: 3,
+        },
+        paths,
+      )
+      await runLearning(paths)
+
+      const rawSkill = await readFile(
+        join(paths.skillsDir, 'reusable-workflow-git-status-bun-test', 'SKILL.md'),
+        'utf8',
+      )
+      expect(rawSkill).toContain('---')
+      expect(rawSkill).toContain('description:')
+      expect(rawSkill).toContain('when_to_use:')
+
+      clearSkillCaches()
+      const commands = await getSkillDirCommands(join(home, 'workspace'))
+      const learnedSkill = commands.find(command => command.name === 'reusable-workflow-git-status-bun-test')
+      expect(learnedSkill?.type).toBe('prompt')
+      if (learnedSkill?.type === 'prompt') {
+        expect(learnedSkill.description).toContain('Reusable workflow')
+        expect(learnedSkill.whenToUse).toContain('Reusable workflow')
+      }
+    } finally {
+      if (previousConfigDir === undefined) delete process.env.CLAUDE_CONFIG_DIR
+      else process.env.CLAUDE_CONFIG_DIR = previousConfigDir
+      clearSkillCaches()
+    }
   })
 
   test('session event payloads are redacted', async () => {
@@ -237,9 +289,9 @@ describe('learning', () => {
       paths,
     )
     const items = await loadPendingLearnItems(paths)
-    expect(items).toHaveLength(1)
-    expect(items[0]?.candidate_type).toBe('skill')
-    expect(items[0]?.repeat_count).toBe(1)
+    const skill = items.find(item => item.candidate_type === 'skill')
+    expect(skill).toBeTruthy()
+    expect(skill?.repeat_count).toBe(1)
   })
 
   test('prompt snapshot excludes archived skills', async () => {

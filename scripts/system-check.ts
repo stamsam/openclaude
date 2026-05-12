@@ -11,6 +11,10 @@ import {
   getLocalOpenAICompatibleProviderLabel,
   probeOllamaGenerationReadiness,
 } from '../src/utils/providerDiscovery.js'
+import {
+  runLocalModelDiagnostics,
+  type LocalDiagnosticProvider,
+} from '../src/utils/localModelDiagnostics.js'
 import { DEFAULT_GEMINI_MODEL } from '../src/utils/providerProfile.js'
 import { redactUrlForDisplay } from '../src/utils/urlRedaction.js'
 
@@ -455,10 +459,27 @@ async function checkProviderGenerationReadiness(): Promise<CheckResult> {
   }
 
   const localProviderLabel = getLocalOpenAICompatibleProviderLabel(request.baseUrl)
+
   if (localProviderLabel !== 'Ollama') {
-    return pass(
+    const diagnosticProvider: LocalDiagnosticProvider =
+      localProviderLabel === 'oMLX' ? 'omlx' : 'openai-compatible'
+    const report = await runLocalModelDiagnostics({
+      provider: diagnosticProvider,
+      baseUrl: request.baseUrl,
+      model: request.requestedModel,
+      apiKey: process.env.OPENAI_API_KEY ?? process.env.OMLX_API_KEY,
+      benchmark: true,
+      timeoutMs: 8000,
+    })
+    if (report.generation?.ok) {
+      return pass(
+        'Provider generation readiness',
+        `Generated a test response with ${report.selectedModel ?? request.requestedModel} via ${localProviderLabel}.`,
+      )
+    }
+    return fail(
       'Provider generation readiness',
-      `Skipped for ${localProviderLabel} (no provider-specific generation probe).`,
+      `${localProviderLabel} is reachable, but generation failed for ${report.selectedModel ?? request.requestedModel}. Detail: ${report.generation?.detail ?? 'no generation response'}.`,
     )
   }
 

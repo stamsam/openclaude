@@ -63,7 +63,8 @@ This is a local-first bridge:
 
 ## What this v1 does
 
-- `/status` shows workspace, pause state, active run, model, provider, and local overlay state
+- `/status` shows workspace, pause state, active run, model, provider, local overlay state, and task visibility where available
+- `/tasks` is a status shortcut focused on the same task visibility
 - `/pause` blocks new prompts
 - `/resume` accepts prompts again
 - `/stop` cancels the active run
@@ -144,6 +145,7 @@ DM the bot:
 
 ```text
 /status
+/tasks
 /btw what repo am I in?
 /ask summarize this project
 ```

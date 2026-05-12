@@ -27,6 +27,10 @@ import {
   shouldSendBusyNotice,
 } from '../telegram/runtimeState.js'
 import { getSavedTelegramSettings, resolveTelegramSetting } from '../telegram/settings.js'
+import {
+  formatTelegramTaskVisibility,
+  type TelegramTaskVisibilityItem,
+} from '../telegram/taskVisibility.js'
 import { validateWorkspaceDir } from '../telegram/workspace.js'
 import type { TelegramChatRunState } from '../telegram/types.js'
 import { getCwd } from '../utils/cwd.js'
@@ -107,6 +111,7 @@ function formatStatus(params: {
   localOverlayKind?: string | null
   modelLabel?: string
   providerLabel?: string
+  taskSummary?: string
 }): string {
   return [
     `Telegram bridge: ${params.enabled ? (params.connected ? 'on' : 'starting') : 'off'}`,
@@ -117,10 +122,37 @@ function formatStatus(params: {
     params.modelLabel ? `Model: ${params.modelLabel}` : undefined,
     params.providerLabel ? `Provider: ${params.providerLabel}` : undefined,
     `Workspace: ${params.workspace}`,
+    params.taskSummary,
     params.error ? `Last error: ${params.error}` : undefined,
   ]
     .filter(Boolean)
     .join('\n')
+}
+
+function formatLiveTaskSummary(
+  tasks: Record<string, unknown> | undefined,
+): string {
+  const taskItems = Object.entries(tasks ?? {}).map(([taskId, raw]) => {
+    const task = raw as {
+      id?: string
+      status?: string
+      description?: string
+      type?: string
+      owner?: string
+      blockedBy?: string[]
+    }
+    return {
+      id: task.id || taskId,
+      status: task.status || 'unknown',
+      subject: task.description || task.type || 'Task',
+      owner: task.owner,
+      blockedBy: task.blockedBy,
+    } satisfies TelegramTaskVisibilityItem
+  })
+  return formatTelegramTaskVisibility(taskItems, {
+    heading: 'Tasks',
+    maxItems: 5,
+  })
 }
 
 function getProviderLabel(): string | undefined {
@@ -193,6 +225,7 @@ export function useTelegramBridge({
   const workspaceOverride = useAppState(s => s.telegramBridgeWorkspaceDir)
   const currentModel = useAppState(s => s.mainLoopModel)
   const error = useAppState(s => s.telegramBridgeError)
+  const tasks = useAppState(s => s.tasks)
   const activeLocalOverlayKind = useAppState(s => s.activeLocalOverlayKind)
   const activeLocalOverlaySequence = useAppState(
     s => s.activeLocalOverlaySequence ?? 0,
@@ -221,6 +254,8 @@ export function useTelegramBridge({
   providerLabelRef.current = getProviderLabel()
   const errorRef = useRef(error)
   errorRef.current = error
+  const tasksRef = useRef(tasks)
+  tasksRef.current = tasks
   const activeLocalOverlayKindRef = useRef(activeLocalOverlayKind)
   activeLocalOverlayKindRef.current = activeLocalOverlayKind
   const activeLocalOverlaySequenceRef = useRef(activeLocalOverlaySequence)
@@ -467,6 +502,7 @@ export function useTelegramBridge({
         localOverlayKind: activeLocalOverlayKindRef.current,
         modelLabel: modelLabelRef.current,
         providerLabel: providerLabelRef.current,
+        taskSummary: formatLiveTaskSummary(tasksRef.current),
       })
 
       switch (command.type) {

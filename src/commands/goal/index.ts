@@ -4,7 +4,7 @@ const goal: Command = {
   type: 'local',
   name: 'goal',
   description: 'Set and manage a long-running autonomous goal',
-  argumentHint: '[<objective> | pause | resume | clear]',
+  argumentHint: '[<objective> | plan | act | checkpoint | restore | tasks | pause | resume | clear]',
   supportsNonInteractive: true,
   load: () => import('./goal.js'),
 }

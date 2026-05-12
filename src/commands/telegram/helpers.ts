@@ -3,6 +3,10 @@ import {
   getSavedTelegramSettings,
   resolveTelegramSetting,
 } from '../../telegram/settings.js'
+import {
+  formatTelegramTaskVisibility,
+  type TelegramTaskVisibilityItem,
+} from '../../telegram/taskVisibility.js'
 
 export type TelegramSlashAction =
   | { kind: 'toggle' }
@@ -50,11 +54,13 @@ export function buildTelegramSessionStatus(params: {
   paused: boolean
   workspace: string
   error?: string
+  taskSummary?: string
 }): string {
   return [
     `Telegram bridge: ${params.enabled ? (params.connected ? 'on' : 'starting') : 'off'}`,
     `Paused: ${params.paused ? 'yes' : 'no'}`,
     `Workspace: ${params.workspace}`,
+    params.taskSummary,
     params.error ? `Last error: ${params.error}` : undefined,
   ]
     .filter(Boolean)
@@ -106,6 +112,7 @@ export function buildTelegramSetupGuide(params: {
     '',
     'Telegram bot commands:',
     '  /status',
+    '  /tasks',
     '  /pause',
     '  /resume',
     '  /stop',
@@ -121,10 +128,30 @@ export function buildTelegramSetupGuide(params: {
   ].join('\n')
 }
 
+export function buildTelegramSessionTaskSummary(
+  tasks: Record<string, TelegramSessionTaskLike> | undefined,
+): string {
+  const taskItems = Object.entries(tasks ?? {}).map(([taskId, task]) => ({
+    id: task.id || taskId,
+    status: task.status || 'unknown',
+    subject: task.description || task.type || 'Task',
+  }))
+
+  return formatTelegramTaskVisibility(taskItems, {
+    heading: 'Tasks',
+    maxItems: 5,
+  })
+}
+
 function safeGetSavedTelegramSettings() {
   try {
     return getSavedTelegramSettings()
   } catch {
     return undefined
   }
+}
+
+type TelegramSessionTaskLike = Partial<TelegramTaskVisibilityItem> & {
+  description?: string
+  type?: string
 }

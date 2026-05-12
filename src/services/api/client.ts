@@ -464,13 +464,26 @@ export async function getAnthropicClient({
   }
 
   // Determine authentication method based on available tokens
+  const anthropicBaseUrl = process.env.ANTHROPIC_BASE_URL?.trim()
+  const isAnthropicProxy =
+    anthropicBaseUrl && !isFirstPartyAnthropicBaseUrl()
+  const proxyApiKey =
+    process.env.ANTHROPIC_API_KEY?.trim() ||
+    process.env.OMLX_API_KEY?.trim() ||
+    undefined
   const clientConfig: ConstructorParameters<typeof Anthropic>[0] = {
-    apiKey: isClaudeAiSubscriber ? null : apiKey || getAnthropicApiKey(),
+    apiKey: isAnthropicProxy
+      ? proxyApiKey
+      : isClaudeAiSubscriber
+        ? null
+        : apiKey || getAnthropicApiKey(),
     authToken: isClaudeAiSubscriber
       ? getClaudeAIOAuthTokens()?.accessToken
       : undefined,
+    ...(isAnthropicProxy ? { baseURL: anthropicBaseUrl } : {}),
     // Set baseURL from OAuth config when using staging OAuth
-    ...(process.env.USER_TYPE === 'ant' &&
+    ...(!isAnthropicProxy &&
+    process.env.USER_TYPE === 'ant' &&
     isEnvTruthy(process.env.USE_STAGING_OAUTH)
       ? { baseURL: getOauthConfig().BASE_API_URL }
       : {}),

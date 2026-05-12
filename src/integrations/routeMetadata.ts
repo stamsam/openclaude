@@ -1,4 +1,5 @@
 import type {
+  AnthropicProxyDescriptor,
   GatewayDescriptor,
   TransportKind,
   ValidationRoutingMetadata,
@@ -6,15 +7,20 @@ import type {
 } from './descriptors.js'
 import {
   ensureIntegrationsLoaded,
+  getAllAnthropicProxies,
   getAllGateways,
   getAllVendors,
+  getAnthropicProxy,
   getGateway,
   getVendor,
   resolveProfileRoute,
 } from './index.js'
 import { isEnvTruthy } from '../utils/envUtils.js'
 
-export type RouteDescriptor = GatewayDescriptor | VendorDescriptor
+export type RouteDescriptor =
+  | AnthropicProxyDescriptor
+  | GatewayDescriptor
+  | VendorDescriptor
 
 const TRANSPORT_KIND_PROVIDER_TYPE_LABELS: Partial<
   Record<TransportKind, string>
@@ -70,7 +76,7 @@ function normalizeHost(
 
 function getAllRoutes(): RouteDescriptor[] {
   ensureIntegrationsLoaded()
-  return [...getAllGateways(), ...getAllVendors()]
+  return [...getAllGateways(), ...getAllVendors(), ...getAllAnthropicProxies()]
 }
 
 function resolveKnownLocalRouteIdFromBaseUrl(baseUrl?: string): string | null {
@@ -95,6 +101,13 @@ function resolveKnownLocalRouteIdFromBaseUrl(baseUrl?: string): string | null {
     ) {
       return 'lmstudio'
     }
+    if (
+      haystack.includes('omlx') ||
+      ((host === '127.0.0.1:8000' || host === 'localhost:8000') &&
+        (path === '/' || path === '/v1' || path.startsWith('/v1/')))
+    ) {
+      return path.includes('/v1') ? 'omlx' : 'omlx-anthropic'
+    }
   } catch {
     return null
   }
@@ -106,7 +119,7 @@ export function getRouteDescriptor(
   routeId: string,
 ): RouteDescriptor | null {
   ensureIntegrationsLoaded()
-  return getGateway(routeId) ?? getVendor(routeId) ?? null
+  return getGateway(routeId) ?? getVendor(routeId) ?? getAnthropicProxy(routeId) ?? null
 }
 
 export function getRouteLabel(
@@ -409,7 +422,11 @@ function routeSupportsOpenAIShimOption(
   option: 'supportsApiFormatSelection' | 'supportsAuthHeaders',
 ): boolean {
   const descriptor = getRouteDescriptor(routeId)
-  if (!descriptor || descriptor.transportConfig.kind !== 'openai-compatible') {
+  if (
+    !descriptor ||
+    (descriptor.transportConfig.kind !== 'openai-compatible' &&
+      descriptor.transportConfig.kind !== 'local')
+  ) {
     return false
   }
 

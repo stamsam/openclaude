@@ -565,6 +565,13 @@ export function applyProviderProfileToProcessEnv(profile: ProviderProfile): void
       ANTHROPIC_BASE_URL: profile.baseUrl,
       ANTHROPIC_MODEL: primaryModel,
       ...(profile.apiKey ? { ANTHROPIC_API_KEY: profile.apiKey } : {}),
+      ...(route.routeId === 'omlx-anthropic'
+        ? {
+            CLAUDE_CODE_DISABLE_THINKING: '1',
+            DISABLE_INTERLEAVED_THINKING: '1',
+            ...(profile.apiKey ? { OMLX_API_KEY: profile.apiKey } : {}),
+          }
+        : {}),
     }
   } else if (compatibilityMode === 'mistral') {
     profileEnv = {
@@ -621,6 +628,9 @@ export function applyProviderProfileToProcessEnv(profile: ProviderProfile): void
 
     if (profile.apiKey) {
       openAIProfileEnv.OPENAI_API_KEY = profile.apiKey
+      if (route.routeId === 'omlx' || profile.provider === 'omlx') {
+        openAIProfileEnv.OMLX_API_KEY = profile.apiKey
+      }
       if (route.vendorId === 'minimax' || profile.baseUrl.toLowerCase().includes('minimax')) {
         openAIProfileEnv.MINIMAX_API_KEY = profile.apiKey
       }

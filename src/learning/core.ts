@@ -2,12 +2,14 @@ import { mkdir, readdir, readFile, rename, stat, writeFile, appendFile } from 'f
 import { join, basename } from 'path'
 import { getAPIProvider } from '../utils/model/providers.js'
 import { getMainLoopModel } from '../utils/model/model.js'
+import { getClaudeConfigHomeDir } from '../utils/envUtils.js'
 import { getLearningPaths, type LearningPaths } from './paths.js'
 import { redactLearningText, looksSensitive } from './redact.js'
 import { learnQueueItemSchema, skillJsonSchema, type LearnQueueItem } from './schema.js'
 
 export const MEMORY_LIMIT = 2500
 export const USER_LIMIT = 1500
+const SKILL_DESCRIPTION_LIMIT = 240
 
 type CandidateInput = Omit<LearnQueueItem, 'id' | 'session_id' | 'created_at' | 'status'>
 
@@ -252,6 +254,31 @@ function compact(text: string, limit: number): string {
   return `${safe.slice(0, Math.max(0, limit - 14)).trimEnd()}\n[truncated]`
 }
 
+function compactOneLine(text: string, limit: number): string {
+  return compact(text, limit).replace(/\s+/g, ' ').trim()
+}
+
+function yamlString(value: string): string {
+  return JSON.stringify(value)
+}
+
+function learningScopeLines(paths: LearningPaths): string[] {
+  const userSkillLoaderDir = join(getClaudeConfigHomeDir(), 'skills')
+  const skillVisibility =
+    paths.skillsDir === userSkillLoaderDir
+      ? 'yes, visible to the user /skills loader'
+      : `override, default user /skills loader scans ${userSkillLoaderDir}`
+
+  return [
+    'Learning scopes:',
+    `- memory_dir: ${paths.memoryDir}`,
+    `- memory_files: ${join(paths.memoryDir, 'MEMORY.md')}, ${join(paths.memoryDir, 'USER.md')}`,
+    `- learned_skills_dir: ${paths.skillsDir}`,
+    `- learned_skills_loader_visibility: ${skillVisibility}`,
+    `- reports_dir: ${paths.reportsDir}`,
+  ]
+}
+
 function normalizeMemoryLine(line: string): string {
   return line.trim().replace(/^-\s+/, '')
 }
@@ -310,9 +337,10 @@ async function writeSkillDraft(item: LearnQueueItem, paths: LearningPaths): Prom
     status: 'active',
   })
   await writeJson(join(dir, 'skill.json'), meta)
+  const description = compactOneLine(item.proposed_text, SKILL_DESCRIPTION_LIMIT)
   await writeFile(
     join(dir, 'SKILL.md'),
-    `# ${meta.name}\n\n## When to use\n${item.proposed_text}\n\n## Workflow\n- Re-run the commands and checks that produced the evidence.\n\n## Gotchas\n- Do not treat this as a transcript dump.\n\n## Verification\n- Confirm the same workflow still succeeds.\n\n## Evidence\n${item.evidence_summary}\n`,
+    `---\nname: ${yamlString(meta.name)}\ndescription: ${yamlString(description)}\nwhen_to_use: ${yamlString(description)}\n---\n# ${meta.name}\n\n## When to use\n${item.proposed_text}\n\n## Workflow\n- Re-run the commands and checks that produced the evidence.\n\n## Gotchas\n- Do not treat this as a transcript dump.\n\n## Verification\n- Confirm the same workflow still succeeds.\n\n## Evidence\n${item.evidence_summary}\n`,
   )
   await writeFile(join(dir, 'examples', 'README.md'), `# Examples\n\n${item.evidence_summary}\n`)
   return dir
@@ -337,7 +365,7 @@ export async function reviewLearning(paths = getLearningPaths()): Promise<string
   const items = await loadPendingLearnItems(paths)
   const promotable = items.filter(isPromotableCandidate)
   const heldBack = items.length - promotable.length
-  const lines = ['Learning review:', '']
+  const lines = ['Learning review:', '', ...learningScopeLines(paths), '']
   let index = 1
   for (const item of promotable) lines.push(candidateLabel(item, index++), '')
   if (!promotable.length) lines.push('No promotable learning candidates found.', '')
@@ -379,6 +407,8 @@ export async function runLearning(paths = getLearningPaths()): Promise<string> {
     `- active_model: ${getMainLoopModel()}`,
     `- processed_items: ${items.length}`,
     '',
+    ...learningScopeLines(paths),
+    '',
     ...(applied.length ? ['Applied:', ...applied.map(line => `- ${line}`)] : ['No pending learning candidates found.']),
   ].join('\n')
   const reportFile = join(paths.reportsDir, `${nowIso().replace(/[:.]/g, '-')}.md`)
@@ -414,8 +444,22 @@ export async function recordPassiveLearningCandidate(
   paths = getLearningPaths(),
 ): Promise<void> {
   const safeText = redactLearningText(text)
-  if (/\bbun\.lock\b/i.test(safeText) || /packageManager["':=\s]+bun@|bunfig\.toml|\bbun(?:\s+test|\s+run)\b/i.test(safeText)) {
-    await addLearnCandidate(sessionId, {
+  const candidates: CandidateInput[] = []
+  const mentionsBun =
+    /\bbun\.lock\b/i.test(safeText) ||
+    /packageManager["':=\s]+bun@|bunfig\.toml|\bbun(?:\s+test|\s+run)\b/i.test(
+      safeText,
+    )
+  const mentionsTypeScript =
+    /\btypescript\b|tsconfig\.json|\.(ts|tsx)\b/i.test(safeText)
+  const verificationMatches =
+    safeText.match(/\b(git status|git diff|bun test|npm test|pnpm test)\b/gi) ??
+    []
+  const hasMultiStepVerification =
+    new Set(verificationMatches.map(match => match.toLowerCase())).size >= 2
+
+  if (mentionsBun) {
+    candidates.push({
       candidate_type: 'memory',
       confidence: 'high',
       proposed_text: 'Project uses Bun.',
@@ -425,8 +469,8 @@ export async function recordPassiveLearningCandidate(
       repeat_count: 1,
     })
   }
-  if (/\btypescript\b|tsconfig\.json|\.(ts|tsx)\b/i.test(safeText)) {
-    await addLearnCandidate(sessionId, {
+  if (mentionsTypeScript) {
+    candidates.push({
       candidate_type: 'memory',
       confidence: 'high',
       proposed_text: 'Project uses TypeScript.',
@@ -436,9 +480,8 @@ export async function recordPassiveLearningCandidate(
       repeat_count: 1,
     })
   }
-  const verificationMatches = safeText.match(/\b(git status|git diff|bun test|npm test|pnpm test)\b/gi) ?? []
-  if (new Set(verificationMatches.map(match => match.toLowerCase())).size >= 2) {
-    await addLearnCandidate(sessionId, {
+  if (hasMultiStepVerification) {
+    candidates.push({
       candidate_type: 'skill',
       confidence: 'high',
       proposed_text: 'Reusable verification workflow for local project checks.',
@@ -447,6 +490,10 @@ export async function recordPassiveLearningCandidate(
       sensitive: false,
       repeat_count: 1,
     })
+  }
+
+  for (const candidate of candidates) {
+    await addLearnCandidate(sessionId, candidate, paths)
   }
 }
 

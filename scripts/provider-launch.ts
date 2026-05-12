@@ -10,16 +10,18 @@ import {
 import {
   buildLaunchEnv,
   loadProfileFile,
-  selectAutoProfile,
   type ProfileFile,
   type ProviderProfile,
 } from '../src/utils/providerProfile.ts'
 import {
   getAtomicChatChatBaseUrl,
+  getOmlxChatBaseUrl,
   getOllamaChatBaseUrl,
   hasLocalAtomicChat,
+  hasLocalOmlx,
   hasLocalOllama,
   listAtomicChatModels,
+  listOmlxModels,
   listOllamaModels,
 } from './provider-discovery.ts'
 
@@ -50,7 +52,7 @@ function parseLaunchOptions(argv: string[]): LaunchOptions {
       continue
     }
 
-    if ((lower === 'auto' || lower === 'openai' || lower === 'ollama' || lower === 'codex' || lower === 'gemini' || lower ==='mistral' || lower === 'atomic-chat') && requestedProfile === 'auto') {
+    if ((lower === 'auto' || lower === 'openai' || lower === 'ollama' || lower === 'omlx' || lower === 'omlx-anthropic' || lower === 'codex' || lower === 'gemini' || lower ==='mistral' || lower === 'atomic-chat') && requestedProfile === 'auto') {
       requestedProfile = lower as ProviderProfile | 'auto'
       continue
     }
@@ -93,6 +95,11 @@ async function resolveAtomicChatDefaultModel(): Promise<string | null> {
   return models[0] ?? null
 }
 
+async function resolveOmlxDefaultModel(): Promise<string | null> {
+  const models = await listOmlxModels()
+  return models[0] ?? null
+}
+
 function runCommand(command: string, env: NodeJS.ProcessEnv): Promise<number> {
   return runProcess(command, [], env)
 }
@@ -130,6 +137,8 @@ function printSummary(profile: ProviderProfile): void {
     console.log('Using configured Codex/OpenAI-compatible provider settings.')
   } else if (profile === 'atomic-chat') {
     console.log('Using configured Atomic Chat provider settings.')
+  } else if (profile === 'omlx' || profile === 'omlx-anthropic') {
+    console.log('Using configured oMLX provider settings.')
   } else if (profile === 'ollama') {
     console.log('Using configured Ollama provider settings.')
   } else {
@@ -156,20 +165,24 @@ async function main(): Promise<void> {
   const options = parseLaunchOptions(process.argv.slice(2))
   const requestedProfile = options.requestedProfile
   if (!requestedProfile) {
-    console.error('Usage: bun run scripts/provider-launch.ts [openai|ollama|codex|gemini|mistral|atomic-chat|mistral|auto] [--fast] [--goal <latency|balanced|coding>] [-- <cli args>]')
+    console.error('Usage: bun run scripts/provider-launch.ts [openai|ollama|omlx|omlx-anthropic|codex|gemini|mistral|atomic-chat|auto] [--fast] [--goal <latency|balanced|coding>] [-- <cli args>]')
     process.exit(1)
   }
 
   const persisted = loadPersistedProfile()
   let profile: ProviderProfile
   let resolvedOllamaModel: string | null = null
+  let resolvedOmlxModel: string | null = null
 
   if (requestedProfile === 'auto') {
     if (persisted) {
       profile = persisted.profile
+    } else if (await hasLocalOmlx()) {
+      resolvedOmlxModel = await resolveOmlxDefaultModel()
+      profile = resolvedOmlxModel ? 'omlx' : 'openai'
     } else if (await hasLocalOllama()) {
       resolvedOllamaModel = await resolveOllamaDefaultModel(options.goal)
-      profile = selectAutoProfile(resolvedOllamaModel)
+      profile = resolvedOllamaModel ? 'ollama' : 'openai'
     } else {
       profile = 'openai'
     }
@@ -184,6 +197,21 @@ async function main(): Promise<void> {
     resolvedOllamaModel ??= await resolveOllamaDefaultModel(options.goal)
     if (!resolvedOllamaModel) {
       console.error('No viable Ollama chat model was discovered. Pull a chat model first or save one with `bun run profile:init -- --provider ollama --model <model>`.')
+      process.exit(1)
+    }
+  }
+
+  if (
+    profile === 'omlx' &&
+    (persisted?.profile !== 'omlx' || !persisted?.env?.OPENAI_MODEL)
+  ) {
+    if (!(await hasLocalOmlx())) {
+      console.error('oMLX is not running or needs an API key. Start oMLX or save one with `bun run profile:init -- --provider omlx --api-key <key>`.')
+      process.exit(1)
+    }
+    resolvedOmlxModel ??= await resolveOmlxDefaultModel()
+    if (!resolvedOmlxModel) {
+      console.error('oMLX is reachable but no models were returned. Load a model first or save one with `bun run profile:init -- --provider omlx --model <model>`.')
       process.exit(1)
     }
   }
@@ -210,6 +238,8 @@ async function main(): Promise<void> {
     goal: options.goal,
     getOllamaChatBaseUrl,
     resolveOllamaDefaultModel: async () => resolvedOllamaModel || 'llama3.1:8b',
+    getOmlxChatBaseUrl,
+    resolveOmlxDefaultModel: async () => resolvedOmlxModel,
     getAtomicChatChatBaseUrl,
     resolveAtomicChatDefaultModel: async () => resolvedAtomicChatModel,
   })

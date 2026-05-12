@@ -14,6 +14,7 @@ import { saveTelegramSettings } from '../../telegram/settings.js'
 import { validateWorkspaceDir } from '../../telegram/workspace.js'
 import {
   buildTelegramSessionStatus,
+  buildTelegramSessionTaskSummary,
   canEnableTelegramFromEnv,
   getTelegramWorkspaceForSession,
   type TelegramSlashAction,
@@ -322,6 +323,7 @@ function TelegramImmediateAction({
       paused: appState.telegramBridgePaused ?? false,
       workspace,
       error: appState.telegramBridgeError,
+      taskSummary: buildTelegramSessionTaskSummary(appState.tasks),
     })
 
     if (action.kind === 'status') {
@@ -354,6 +356,7 @@ function TelegramImmediateAction({
       paused: nextEnabled ? false : appState.telegramBridgePaused ?? false,
       workspace,
       error: nextEnabled ? undefined : appState.telegramBridgeError,
+      taskSummary: buildTelegramSessionTaskSummary(appState.tasks),
     })
 
     context.setAppState(prev => ({

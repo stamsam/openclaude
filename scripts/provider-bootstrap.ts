@@ -12,6 +12,8 @@ import {
   buildCodexProfileEnv,
   buildGeminiProfileEnv,
   buildMistralProfileEnv,
+  buildOmlxAnthropicProfileEnv,
+  buildOmlxProfileEnv,
   buildOllamaProfileEnv,
   buildOpenAIProfileEnv,
   createProfileFile,
@@ -22,10 +24,13 @@ import {
 } from '../src/utils/providerProfile.ts'
 import {
   getAtomicChatChatBaseUrl,
+  getOmlxChatBaseUrl,
   getOllamaChatBaseUrl,
   hasLocalAtomicChat,
+  hasLocalOmlx,
   hasLocalOllama,
   listAtomicChatModels,
+  listOmlxModels,
   listOllamaModels,
 } from './provider-discovery.ts'
 
@@ -38,7 +43,7 @@ function parseArg(name: string): string | null {
 
 function parseProviderArg(): ProviderProfile | 'auto' {
   const p = parseArg('--provider')?.toLowerCase()
-  if (p === 'openai' || p === 'ollama' || p === 'codex' || p === 'gemini' || p === 'mistral' || p === 'atomic-chat') return p
+  if (p === 'openai' || p === 'ollama' || p === 'omlx' || p === 'omlx-anthropic' || p === 'codex' || p === 'gemini' || p === 'mistral' || p === 'atomic-chat') return p
   return 'auto'
 }
 
@@ -65,8 +70,21 @@ async function main(): Promise<void> {
 
   let selected: ProviderProfile
   let resolvedOllamaModel: string | null = null
+  let resolvedOmlxModel: string | null = null
   if (provider === 'auto') {
-    if (await hasLocalOllama(argBaseUrl || undefined)) {
+    if (await hasLocalOmlx({
+      baseUrl: argBaseUrl || undefined,
+      apiKey: argApiKey || undefined,
+    })) {
+      resolvedOmlxModel =
+        argModel ||
+        (await listOmlxModels({
+          baseUrl: argBaseUrl || undefined,
+          apiKey: argApiKey || undefined,
+        }))[0] ||
+        null
+      selected = resolvedOmlxModel ? 'omlx' : 'openai'
+    } else if (await hasLocalOllama(argBaseUrl || undefined)) {
       resolvedOllamaModel = await resolveOllamaModel(argModel, argBaseUrl, goal)
       selected = selectAutoProfile(resolvedOllamaModel)
     } else {
@@ -121,6 +139,42 @@ async function main(): Promise<void> {
         getOllamaChatBaseUrl,
       },
     )
+  } else if (selected === 'omlx') {
+    resolvedOmlxModel ??=
+      argModel ||
+      (await listOmlxModels({
+        baseUrl: argBaseUrl || undefined,
+        apiKey: argApiKey || undefined,
+      }))[0] ||
+      null
+    if (!resolvedOmlxModel) {
+      console.error('oMLX is not reachable or no models were returned. Start oMLX, then pass --api-key if your server requires one.')
+      process.exit(1)
+    }
+
+    env = buildOmlxProfileEnv(resolvedOmlxModel, {
+      baseUrl: argBaseUrl,
+      apiKey: argApiKey,
+      getOmlxChatBaseUrl,
+      processEnv: process.env,
+    })
+  } else if (selected === 'omlx-anthropic') {
+    const model =
+      argModel ||
+      (await listOmlxModels({
+        baseUrl: argBaseUrl || undefined,
+        apiKey: argApiKey || undefined,
+      }))[0]
+    if (!model) {
+      console.error('oMLX is not reachable or no models were returned. Start oMLX, then pass --api-key if your server requires one.')
+      process.exit(1)
+    }
+
+    env = buildOmlxAnthropicProfileEnv(model, {
+      baseUrl: argBaseUrl || 'http://127.0.0.1:8000',
+      apiKey: argApiKey,
+      processEnv: process.env,
+    })
   } else if (selected === 'atomic-chat') {
     const model = argModel || (await listAtomicChatModels(argBaseUrl || undefined))[0]
     if (!model) {

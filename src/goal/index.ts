@@ -4,6 +4,7 @@ export {
   clearGoal,
   pauseGoal,
   resumeGoal,
+  completeGoal,
   goalStatus,
   saveGoal,
   accountGoalTokens,
@@ -12,4 +13,3 @@ export {
   isGoalFeatureEnabled,
   resetGoalMemoryCache,
 } from './core.js'
-
