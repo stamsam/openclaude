@@ -23,7 +23,9 @@ import type {
   OllamaGenerationReadiness,
 } from '../utils/providerDiscovery.js'
 import {
+  isLikelyOmlxBaseUrl,
   listOpenAICompatibleModels,
+  listOmlxModels,
   probeOllamaModelCatalog,
   probeAtomicChatReadiness,
   probeOllamaGenerationReadiness,
@@ -236,11 +238,20 @@ async function runDiscovery(
     }
 
     case 'openai-compatible': {
-      const models = await listOpenAICompatibleModels({
-        baseUrl: getRouteBaseUrl(routeId, options),
-        apiKey: getRouteDiscoveryApiKey(routeId, options),
-        headers: getRouteDiscoveryHeaders(routeId, options),
-      })
+      const routeBaseUrl = getRouteBaseUrl(routeId, options)
+      const models =
+        routeId === 'omlx'
+          ? await listOmlxModels({
+              baseUrl: isLikelyOmlxBaseUrl(routeBaseUrl)
+                ? routeBaseUrl
+                : undefined,
+              apiKey: options?.apiKey,
+            })
+          : await listOpenAICompatibleModels({
+              baseUrl: routeBaseUrl,
+              apiKey: getRouteDiscoveryApiKey(routeId, options),
+              headers: getRouteDiscoveryHeaders(routeId, options),
+            })
       return models?.map(model => toDiscoveredModelEntry(model)) ?? null
     }
 

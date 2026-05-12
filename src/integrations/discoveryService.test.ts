@@ -120,6 +120,78 @@ describe('discoverModelsForRoute', () => {
     expect(callCount).toBe(1)
   })
 
+  test('oMLX discovery sends the local API key even though the route can be unauthenticated', async () => {
+    const { discoverModelsForRoute } = await loadDiscoveryServiceModule()
+
+    setMockFetch(mock((input: string | URL | Request, init?: RequestInit) => {
+      const url =
+        typeof input === 'string'
+          ? input
+          : input instanceof URL
+            ? input.toString()
+            : input.url
+      expect(url).toBe('http://127.0.0.1:8000/v1/models')
+      expect(init?.headers).toEqual({ Authorization: 'Bearer local-omlx-key' })
+
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            data: [
+              { id: 'Qwen3.5-4B-MLX-4bit-MTP' },
+              { id: 'Qwopus3.5-9B-v3-MLX-4bit-MTP' },
+            ],
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        ),
+      )
+    }) as unknown as typeof globalThis.fetch)
+
+    const result = await discoverModelsForRoute('omlx', {
+      apiKey: 'local-omlx-key',
+      forceRefresh: true,
+    })
+
+    expect(result?.source).toBe('network')
+    expect(result?.models.map(model => model.apiName)).toEqual([
+      'Qwen3.5-4B-MLX-4bit-MTP',
+      'Qwopus3.5-9B-v3-MLX-4bit-MTP',
+    ])
+  })
+
+  test('oMLX discovery ignores stale non-oMLX OpenAI-compatible base URLs', async () => {
+    const { discoverModelsForRoute } = await loadDiscoveryServiceModule()
+
+    setMockFetch(mock((input: string | URL | Request) => {
+      const url =
+        typeof input === 'string'
+          ? input
+          : input instanceof URL
+            ? input.toString()
+            : input.url
+      expect(url).toBe('http://127.0.0.1:8000/v1/models')
+
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            data: [{ id: 'local-omlx-model' }],
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        ),
+      )
+    }) as unknown as typeof globalThis.fetch)
+
+    const result = await discoverModelsForRoute('omlx', {
+      baseUrl: 'http://localhost:11434/v1',
+      apiKey: 'local-omlx-key',
+      forceRefresh: true,
+    })
+
+    expect(result?.source).toBe('network')
+    expect(result?.models.map(model => model.apiName)).toEqual([
+      'local-omlx-model',
+    ])
+  })
+
   test('partitions cached discovery results by endpoint base URL', async () => {
     const { discoverModelsForRoute } = await loadDiscoveryServiceModule()
 

@@ -38,7 +38,7 @@ export default defineGateway({
       requiresAuth: false,
     },
     discoveryCacheTtl: '1d',
-    discoveryRefreshMode: 'background-if-stale',
+    discoveryRefreshMode: 'on-open',
     allowManualRefresh: true,
   },
   usage: { supported: false },

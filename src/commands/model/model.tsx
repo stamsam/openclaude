@@ -56,7 +56,10 @@ import {
 } from '../../utils/model/model.js'
 import { isModelAllowed } from '../../utils/model/modelAllowlist.js'
 import { validateModel } from '../../utils/model/validateModel.js'
-import { getLocalOpenAICompatibleProviderLabel } from '../../utils/providerDiscovery.js'
+import {
+  getLocalOpenAICompatibleProviderLabel,
+  isLikelyOmlxBaseUrl,
+} from '../../utils/providerDiscovery.js'
 import { isEssentialTrafficOnly } from '../../utils/privacyLevel.js'
 import { parseCustomHeadersEnv } from '../../utils/providerCustomHeaders.js'
 import {
@@ -124,14 +127,21 @@ function getOpenAIDiscoveryRequestOptions(routeId?: string | null): {
     model: process.env.OPENAI_MODEL,
     baseUrl: process.env.OPENAI_BASE_URL,
   })
+  const descriptor = routeId ? getRouteDescriptor(routeId) : null
+  const baseUrl =
+    routeId === 'omlx' && !isLikelyOmlxBaseUrl(request.baseUrl)
+      ? descriptor && 'defaultBaseUrl' in descriptor
+        ? descriptor.defaultBaseUrl
+        : request.baseUrl
+      : request.baseUrl
 
   return {
     apiKey: resolveRouteCredentialValue({
       routeId,
-      baseUrl: request.baseUrl,
+      baseUrl,
       processEnv: process.env,
     }),
-    baseUrl: request.baseUrl,
+    baseUrl,
     headers: parseCustomHeadersEnv(process.env.ANTHROPIC_CUSTOM_HEADERS),
   }
 }
