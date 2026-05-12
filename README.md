@@ -302,8 +302,10 @@ OpenClaude includes an experimental local learning loop controlled by `/learn`:
 - learned project facts are stored under `~/.openclaude/memory/MEMORY.md`
 - optional user facts are gated and do not auto-save sensitive data by default
 - learned skills are stored as portable drafts under `~/.openclaude/skills/`
-- local session evidence, learning queues, reports, memory, and skills are ignored by default through `~/.openclaude/.gitignore`
+- learning session evidence is stored under `~/.openclaude/learn-sessions/`
+- local learning evidence, queues, reports, memory, and skills are ignored by default through `~/.openclaude/.gitignore`
 - active OpenClaude provider/model settings are reused; no separate learning API key is required
+- `/learn` is intentionally conservative: one-off observations stay queued until they repeat enough to be worth promoting
 
 Useful paths and overrides:
 
@@ -313,6 +315,11 @@ OPENCLAUDE_MEMORY_DIR=~/.openclaude/memory
 OPENCLAUDE_SKILLS_DIR=~/.openclaude/skills
 OPENCLAUDE_LEARN_NUDGE_EVERY=10
 ```
+
+Current promotion thresholds:
+
+- memory facts require 2 observations before `/learn` surfaces them as promotable
+- workflow skills require 3 observations before `/learn run` will draft or update them
 
 See [`docs/learning.md`](docs/learning.md) for behavior, limits, and safety rules.
 
