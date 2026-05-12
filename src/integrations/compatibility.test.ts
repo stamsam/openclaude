@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test'
 
 import './index.js'
 import {
+  getAnthropicProxy,
   getGateway,
   getVendor,
 } from './index.js'
@@ -38,6 +39,8 @@ const EXPECTED_PRESETS = [
   'zai',
   'bankr',
   'atomic-chat',
+  'omlx-anthropic',
+  'omlx',
 ] as const satisfies readonly ProviderPreset[]
 
 describe('compatibility mappings', () => {
@@ -60,10 +63,15 @@ describe('compatibility mappings', () => {
       if (gatewayId) {
         expect(getGateway(gatewayId)?.id).toBe(gatewayId)
       }
+      if (!gatewayId && route.routeId !== vendorId) {
+        expect(getAnthropicProxy(route.routeId)?.id).toBe(route.routeId)
+      }
 
       expect(route.vendorId).toBe(vendorId)
       expect(route.gatewayId).toBe(gatewayId)
-      expect(route.routeId).toBe(gatewayId ?? vendorId)
+      expect(route.routeId).toBe(
+        gatewayId ?? getAnthropicProxy(route.routeId)?.id ?? vendorId,
+      )
     }
   })
 

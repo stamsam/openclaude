@@ -117,6 +117,8 @@ const PRESET_ORDER = [
   'Hicap',
   'LM Studio',
   'Atomic Chat',
+  'oMLX Anthropic',
+  'oMLX',
   'Ollama',
   'MiniMax',
   'Mistral AI',
