@@ -1,4 +1,5 @@
 import type { ToolUseContext } from '../../Tool.js'
+import type { LocalCommandResult } from '../../types/command.js'
 import {
   setGoal,
   clearGoal,
@@ -7,10 +8,12 @@ import {
   goalStatus,
 } from './core.js'
 
+const GOAL_AUTOSTART_PROMPT = 'Continue making progress on the active goal.'
+
 export async function call(
   args: string,
   _context: ToolUseContext,
-): Promise<{ type: 'text'; value: string }> {
+): Promise<LocalCommandResult> {
   try {
     const trimmed = args.trim()
 
@@ -31,13 +34,20 @@ export async function call(
       case 'resume': {
         const goal = await resumeGoal()
         if (!goal) return { type: 'text', value: 'No paused goal to resume.' }
-        return { type: 'text', value: `Goal resumed: "${goal.objective}"` }
+        return {
+          type: 'text',
+          value: `Goal resumed: "${goal.objective}"`,
+          nextInput: GOAL_AUTOSTART_PROMPT,
+          submitNextInput: true,
+        }
       }
       default: {
         const goal = await setGoal(trimmed)
         return {
           type: 'text',
           value: `Goal set: "${goal.objective}"\nStatus: active\nStart time: ${goal.start_time}\nRun /goal to check progress.`,
+          nextInput: GOAL_AUTOSTART_PROMPT,
+          submitNextInput: true,
         }
       }
     }

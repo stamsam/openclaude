@@ -672,7 +672,9 @@ async function getMessagesForSlashCommand(commandName: string, args: string, set
               return {
                 messages: [],
                 shouldQuery: false,
-                command
+                command,
+                nextInput: result.nextInput,
+                submitNextInput: result.submitNextInput,
               };
             }
 
@@ -701,7 +703,9 @@ async function getMessagesForSlashCommand(commandName: string, args: string, set
               return {
                 messages: buildPostCompactMessages(compactionResultWithSlashMessages),
                 shouldQuery: false,
-                command
+                command,
+                nextInput: result.nextInput,
+                submitNextInput: result.submitNextInput,
               };
             }
 
@@ -710,7 +714,9 @@ async function getMessagesForSlashCommand(commandName: string, args: string, set
               messages: [userMessage, createCommandInputMessage(`<local-command-stdout>${result.value}</local-command-stdout>`)],
               shouldQuery: false,
               command,
-              resultText: result.value
+              resultText: result.value,
+              nextInput: result.nextInput,
+              submitNextInput: result.submitNextInput,
             };
           } catch (e) {
             logError(e);
