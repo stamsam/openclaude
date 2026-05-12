@@ -7,6 +7,7 @@ import {
   ensureLearningStorage,
   loadLearningPromptSnapshot,
   loadPendingLearnItems,
+  recordPassiveLearningCandidate,
   recordLearningSessionEvent,
   reviewLearning,
   runLearning,
@@ -42,6 +43,24 @@ describe('learning', () => {
     const first = await addLearnCandidate('s1', candidate, paths)
     const second = await addLearnCandidate('s1', candidate, paths)
     expect(second.id).toBe(first.id)
+    expect(await loadPendingLearnItems(paths)).toHaveLength(1)
+  })
+
+  test('duplicates merge across sessions and increase repeat count', async () => {
+    const paths = await tempPaths()
+    const candidate = {
+      candidate_type: 'memory' as const,
+      confidence: 'high' as const,
+      proposed_text: 'Project uses Bun.',
+      evidence_summary: 'bun.lock detected',
+      target: 'MEMORY.md',
+      sensitive: false,
+      repeat_count: 1,
+    }
+    const first = await addLearnCandidate('s1', candidate, paths)
+    const second = await addLearnCandidate('s2', candidate, paths)
+    expect(second.id).toBe(first.id)
+    expect(second.repeat_count).toBe(2)
     expect(await loadPendingLearnItems(paths)).toHaveLength(1)
   })
 
@@ -95,6 +114,47 @@ describe('learning', () => {
     expect(await readFile(join(paths.memoryDir, 'MEMORY.md'), 'utf8')).toContain('Project uses TypeScript')
     expect(await loadPendingLearnItems(paths)).toHaveLength(0)
     expect(await readdir(paths.archiveDir)).toHaveLength(1)
+  })
+
+  test('review holds back low-signal candidates until repeated enough', async () => {
+    const paths = await tempPaths()
+    await addLearnCandidate(
+      's1',
+      {
+        candidate_type: 'memory',
+        confidence: 'high',
+        proposed_text: 'Project uses TypeScript.',
+        evidence_summary: 'tsconfig.json detected',
+        target: 'MEMORY.md',
+        sensitive: false,
+        repeat_count: 1,
+      },
+      paths,
+    )
+    const report = await reviewLearning(paths)
+    expect(report).toContain('No promotable learning candidates found.')
+    expect(report).toContain('held until repeated enough to promote')
+  })
+
+  test('/learn run ignores held-back low-signal candidates', async () => {
+    const paths = await tempPaths()
+    await addLearnCandidate(
+      's1',
+      {
+        candidate_type: 'memory',
+        confidence: 'high',
+        proposed_text: 'Project uses TypeScript.',
+        evidence_summary: 'tsconfig.json detected',
+        target: 'MEMORY.md',
+        sensitive: false,
+        repeat_count: 1,
+      },
+      paths,
+    )
+    const report = await runLearning(paths)
+    expect(report).toContain('processed_items: 0')
+    expect(await loadPendingLearnItems(paths)).toHaveLength(1)
+    expect(await readFile(join(paths.memoryDir, 'MEMORY.md'), 'utf8')).not.toContain('Project uses TypeScript.')
   })
 
   test('sensitive USER.md protection', async () => {
@@ -158,6 +218,28 @@ describe('learning', () => {
     await recordLearningSessionEvent('s1', { type: 'session.start' }, paths)
     const log = await readFile(join(paths.sessionsDir, 's1.jsonl'), 'utf8')
     expect(log).toContain('session.start')
+  })
+
+  test('passive skill learning requires repeated multi-step verification evidence', async () => {
+    const paths = await tempPaths()
+    await recordPassiveLearningCandidate(
+      's1',
+      'git status',
+      'single verification command',
+      paths,
+    )
+    expect(await loadPendingLearnItems(paths)).toHaveLength(0)
+
+    await recordPassiveLearningCandidate(
+      's1',
+      'git status && bun test',
+      'multi-step verification workflow',
+      paths,
+    )
+    const items = await loadPendingLearnItems(paths)
+    expect(items).toHaveLength(1)
+    expect(items[0]?.candidate_type).toBe('skill')
+    expect(items[0]?.repeat_count).toBe(1)
   })
 
   test('prompt snapshot excludes archived skills', async () => {

@@ -16,6 +16,11 @@ type LearnState = {
   last_run_at?: string
 }
 
+type QueueFileData = {
+  file: string
+  data: { session_id: string; items: LearnQueueItem[] }
+}
+
 function nowIso(): string {
   return new Date().toISOString()
 }
@@ -141,6 +146,48 @@ function queueItem(sessionId: string, candidate: CandidateInput): LearnQueueItem
   })
 }
 
+function pendingCandidateKey(candidate: Pick<LearnQueueItem, 'candidate_type' | 'target' | 'proposed_text'>): string {
+  return [candidate.candidate_type, candidate.target, candidate.proposed_text].join('::')
+}
+
+function candidateRepeatCount(item: Pick<LearnQueueItem, 'repeat_count'>): number {
+  return Math.max(1, item.repeat_count ?? 1)
+}
+
+function promotionThreshold(item: Pick<LearnQueueItem, 'candidate_type'>): number {
+  switch (item.candidate_type) {
+    case 'skill':
+      return 3
+    case 'memory':
+    case 'user_memory':
+    case 'cleanup':
+    case 'note':
+    default:
+      return 2
+  }
+}
+
+function isPromotableCandidate(item: LearnQueueItem): boolean {
+  if (item.sensitive) return false
+  if (item.confidence !== 'high') return false
+  return candidateRepeatCount(item) >= promotionThreshold(item)
+}
+
+async function loadQueueFiles(paths: LearningPaths): Promise<QueueFileData[]> {
+  const entries = await readdir(paths.queueDir, { withFileTypes: true }).catch(() => [])
+  const files: QueueFileData[] = []
+  for (const entry of entries) {
+    if (!entry.isFile() || !entry.name.endsWith('.json')) continue
+    const file = join(paths.queueDir, entry.name)
+    const data = await readJson<{ session_id: string; items: LearnQueueItem[] }>(file, {
+      session_id: entry.name.replace(/\.json$/, ''),
+      items: [],
+    })
+    files.push({ file, data })
+  }
+  return files
+}
+
 export async function addLearnCandidate(
   sessionId: string,
   candidate: CandidateInput,
@@ -148,32 +195,50 @@ export async function addLearnCandidate(
 ): Promise<LearnQueueItem> {
   await ensureLearningStorage(paths)
   const file = join(paths.queueDir, `${safeSessionId(sessionId)}.json`)
+  const proposedText = redactLearningText(candidate.proposed_text)
+  const queueFiles = await loadQueueFiles(paths)
+  const candidateKey = pendingCandidateKey({
+    candidate_type: candidate.candidate_type,
+    target: candidate.target,
+    proposed_text: proposedText,
+  })
+  for (const queueFile of queueFiles) {
+    const duplicate = queueFile.data.items.find(
+      item =>
+        item.status === 'pending' &&
+        pendingCandidateKey(item) === candidateKey,
+    )
+    if (!duplicate) continue
+    const nextRepeatCount = Math.max(
+      candidateRepeatCount(duplicate) + 1,
+      candidateRepeatCount(candidate),
+    )
+    if (
+      nextRepeatCount !== duplicate.repeat_count ||
+      duplicate.observed_at === undefined
+    ) {
+      duplicate.repeat_count = nextRepeatCount
+      duplicate.observed_at = nowIso()
+      await writeJson(queueFile.file, queueFile.data)
+    }
+    return duplicate
+  }
   const data = await readJson<{ session_id: string; items: LearnQueueItem[] }>(file, {
     session_id: sessionId,
     items: [],
   })
-  const proposedText = redactLearningText(candidate.proposed_text)
-  const duplicate = data.items.find(
-    item =>
-      item.status === 'pending' &&
-      item.candidate_type === candidate.candidate_type &&
-      item.target === candidate.target &&
-      item.proposed_text === proposedText,
-  )
-  if (duplicate) return duplicate
   const item = queueItem(sessionId, candidate)
+  item.repeat_count = candidateRepeatCount(item)
   data.items.push(item)
   await writeJson(file, data)
   return item
 }
 
 export async function loadPendingLearnItems(paths = getLearningPaths()): Promise<LearnQueueItem[]> {
-  const entries = await readdir(paths.queueDir, { withFileTypes: true }).catch(() => [])
   const items: LearnQueueItem[] = []
-  for (const entry of entries) {
-    if (!entry.isFile() || !entry.name.endsWith('.json')) continue
-    const data = await readJson<{ items?: unknown[] }>(join(paths.queueDir, entry.name), {})
-    for (const raw of data.items ?? []) {
+  const queueFiles = await loadQueueFiles(paths)
+  for (const queueFile of queueFiles) {
+    for (const raw of queueFile.data.items ?? []) {
       const parsed = learnQueueItemSchema.safeParse(raw)
       if (parsed.success && parsed.data.status === 'pending') items.push(parsed.data)
     }
@@ -270,10 +335,18 @@ function candidateLabel(item: LearnQueueItem, index: number): string {
 
 export async function reviewLearning(paths = getLearningPaths()): Promise<string> {
   const items = await loadPendingLearnItems(paths)
+  const promotable = items.filter(isPromotableCandidate)
+  const heldBack = items.length - promotable.length
   const lines = ['Learning review:', '']
   let index = 1
-  for (const item of items) lines.push(candidateLabel(item, index++), '')
-  if (!items.length) lines.push('No pending learning candidates found.', '')
+  for (const item of promotable) lines.push(candidateLabel(item, index++), '')
+  if (!promotable.length) lines.push('No promotable learning candidates found.', '')
+  if (heldBack > 0) {
+    lines.push(
+      `${heldBack} low-signal candidate${heldBack === 1 ? ' is' : 's are'} being held until repeated enough to promote.`,
+      '',
+    )
+  }
   const state = await loadLearnState(paths)
   const nudgeEvery = learningNudgeEvery()
   if (nudgeEvery > 0 && state.sessions_since_run >= nudgeEvery) {
@@ -282,14 +355,14 @@ export async function reviewLearning(paths = getLearningPaths()): Promise<string
       '',
     )
   }
-  lines.push(`Would archive ${items.length} pending queue item${items.length === 1 ? '' : 's'}.`)
+  lines.push(`Would archive ${promotable.length} promotable queue item${promotable.length === 1 ? '' : 's'}.`)
   lines.push('Run /learn run to apply.')
   return `${lines.join('\n').trim()}\n`
 }
 
 export async function runLearning(paths = getLearningPaths()): Promise<string> {
   await ensureLearningStorage(paths)
-  const items = await loadPendingLearnItems(paths)
+  const items = (await loadPendingLearnItems(paths)).filter(isPromotableCandidate)
   const applied: string[] = []
   if (await appendMemoryFacts(items, paths)) applied.push('updated MEMORY.md')
   if (await maybeAppendUserFacts(items, paths)) applied.push('updated USER.md')
@@ -341,7 +414,7 @@ export async function recordPassiveLearningCandidate(
   paths = getLearningPaths(),
 ): Promise<void> {
   const safeText = redactLearningText(text)
-  if (/\bbun(?:\.lock|\s+test|\s+run)?\b/i.test(safeText)) {
+  if (/\bbun\.lock\b/i.test(safeText) || /packageManager["':=\s]+bun@|bunfig\.toml|\bbun(?:\s+test|\s+run)\b/i.test(safeText)) {
     await addLearnCandidate(sessionId, {
       candidate_type: 'memory',
       confidence: 'high',
@@ -349,6 +422,7 @@ export async function recordPassiveLearningCandidate(
       evidence_summary: evidence,
       target: 'MEMORY.md',
       sensitive: false,
+      repeat_count: 1,
     })
   }
   if (/\btypescript\b|tsconfig\.json|\.(ts|tsx)\b/i.test(safeText)) {
@@ -359,9 +433,11 @@ export async function recordPassiveLearningCandidate(
       evidence_summary: evidence,
       target: 'MEMORY.md',
       sensitive: false,
+      repeat_count: 1,
     })
   }
-  if (/\b(git status|git diff|bun test|npm test|pnpm test)\b/i.test(safeText)) {
+  const verificationMatches = safeText.match(/\b(git status|git diff|bun test|npm test|pnpm test)\b/gi) ?? []
+  if (new Set(verificationMatches.map(match => match.toLowerCase())).size >= 2) {
     await addLearnCandidate(sessionId, {
       candidate_type: 'skill',
       confidence: 'high',
@@ -369,7 +445,7 @@ export async function recordPassiveLearningCandidate(
       evidence_summary: evidence,
       target: 'skills/draft',
       sensitive: false,
-      repeat_count: 2,
+      repeat_count: 1,
     })
   }
 }
