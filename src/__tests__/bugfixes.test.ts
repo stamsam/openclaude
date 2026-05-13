@@ -355,6 +355,21 @@ describe('Context overflow 500 fix', () => {
 })
 
 // ---------------------------------------------------------------------------
+// Fix 9: Goal token accounting in the main query loop
+// ---------------------------------------------------------------------------
+describe('Goal token accounting fix', () => {
+  test('query.ts accounts final model usage into active goals', async () => {
+    const content = await file('query.ts').text()
+
+    expect(content).toContain('accountGoalTokens')
+    expect(content).toContain('getTokenCountFromUsage')
+    expect(content).toContain('const finalUsage = assistantMessages.at(-1)?.message.usage')
+    expect(content).toMatch(/if\s*\(!toolUseContext\.agentId\)/)
+    expect(content).toMatch(/await accountGoalTokens\(goalTokens\)/)
+  })
+})
+
+// ---------------------------------------------------------------------------
 // Fix N: Project-scope MCP servers from .mcp.json not detected for 3P providers (issue #696)
 // ---------------------------------------------------------------------------
 describe('Project-scope MCP approval — third-party providers (issue #696)', () => {

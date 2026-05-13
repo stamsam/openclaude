@@ -85,6 +85,7 @@ import {
 import {
   doesMostRecentAssistantMessageExceed200k,
   finalContextTokensFromLastResponse,
+  getTokenCountFromUsage,
   tokenCountWithEstimation,
 } from './utils/tokens.js'
 import { ESCALATED_MAX_TOKENS } from './utils/context.js'
@@ -112,6 +113,7 @@ import {
 import { createBudgetTracker, checkTokenBudget } from './query/tokenBudget.js'
 import { count } from './utils/array.js'
 import {
+  accountGoalTokens,
   completeGoal,
   parseGoalCompletionSignal,
   updateGoalAdvisoryPlanFromText,
@@ -969,6 +971,16 @@ async function* queryLoop(
             }
           }
           queryCheckpoint('query_api_streaming_end')
+
+          if (!toolUseContext.agentId) {
+            const finalUsage = assistantMessages.at(-1)?.message.usage
+            const goalTokens = finalUsage
+              ? getTokenCountFromUsage(finalUsage)
+              : 0
+            if (goalTokens > 0) {
+              await accountGoalTokens(goalTokens)
+            }
+          }
 
           // Yield deferred microcompact boundary message using actual API-reported
           // token deletion count instead of client-side estimates.
