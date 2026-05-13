@@ -146,12 +146,15 @@ export const TERMINAL_MASCOT_PIXELS: Partial<Record<TerminalMascot, readonly str
     '    BB  BB  ',
   ],
   jelly: [
-    ' PPPPPP ',
-    'PPKPPKPP',
-    'PPPPPPPP',
-    ' PPPPPP ',
-    ' P PP P ',
-    'P  PP  P',
+    '....QQ....',
+    '..QQPPQQ..',
+    '.QPPPPPPQ.',
+    '.PPKPPKPP.',
+    '.PPPPPPPP.',
+    '..QPPPPQ..',
+    '...P.P....',
+    '..P..P.P..',
+    '....P.....',
   ],
 }
 
@@ -165,6 +168,7 @@ export const TERMINAL_PIXEL_COLORS: Record<string, RGB> = {
   L: [170, 164, 157],
   B: [90, 133, 163],
   P: [154, 103, 210],
+  Q: [186, 138, 236],
 }
 
 export const TERMINAL_MASCOT_COLORS: Record<TerminalMascot, RGB> = {
