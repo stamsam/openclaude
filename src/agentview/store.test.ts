@@ -20,7 +20,7 @@ import {
   updateJob,
 } from './store.js'
 import { attachToJob, stopJob } from './runner.js'
-import { formatBackgroundStarted } from './cli.js'
+import { deleteBackgroundSession, formatBackgroundStarted } from './cli.js'
 import { redactSecrets } from './redact.js'
 import { getJobInputPath, getJobStatePath } from './paths.js'
 
@@ -233,6 +233,20 @@ describe.serial('agent view job store', () => {
       expect(existsSync(statePath)).toBe(false)
     } finally {
       await rm(localHome, { recursive: true, force: true })
+    }
+  })
+
+  test('dashboard delete stops and removes live jobs', async () => {
+    const job = await createBackgroundJob({ prompt: 'sleep', cwd: process.cwd() }, testEnv)
+    const statePath = getJobStatePath(job.id, testEnv)
+    const child = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'])
+    await updateJob(job.id, { status: 'idle', pid: child.pid }, testEnv)
+
+    try {
+      expect(await deleteBackgroundSession(job.id)).toBe(true)
+      expect(existsSync(statePath)).toBe(false)
+    } finally {
+      child.kill('SIGKILL')
     }
   })
 

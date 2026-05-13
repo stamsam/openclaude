@@ -10,7 +10,11 @@ import {
 } from './store.js'
 import { launchBackgroundJob } from './runner.js'
 import type { AgentViewStatus, BackgroundJob } from './types.js'
-import { parseDashboardPrompt, respawnBackgroundSession } from './cli.js'
+import {
+  deleteBackgroundSession,
+  parseDashboardPrompt,
+  respawnBackgroundSession,
+} from './cli.js'
 
 const GROUPS: AgentViewStatus[] = [
   'needs_input',
@@ -218,12 +222,12 @@ export function AgentViewDashboard({
       return
     }
     if (key.ctrl && (chunk === 'x' || chunk === '\x18') && selected) {
-      void import('./store.js')
-        .then(({ removeJob }) => removeJob(selected.id))
-        .then(removed => {
-          setMessage(removed ? `Deleted ${selected.id}` : `Stop ${selected.id} before deleting it`)
+      void deleteBackgroundSession(selected.id)
+        .then(deleted => {
+          setMessage(deleted ? `Deleted ${selected.id}` : `Could not delete ${selected.id}`)
           refresh()
         })
+        .catch(error => setMessage(`Failed to delete: ${(error as Error).message}`))
       return
     }
     if (chunk === 'r' && selected && !input) {

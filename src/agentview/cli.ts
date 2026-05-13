@@ -126,6 +126,17 @@ export async function removeAndReport(id: string): Promise<void> {
   process.stdout.write(`removed · ${id}\n`)
 }
 
+export async function deleteBackgroundSession(id: string): Promise<boolean> {
+  if (await removeJob(id)) {
+    return true
+  }
+  const stopped = await stopJob(id)
+  if (!stopped) {
+    return false
+  }
+  return removeJob(id)
+}
+
 export async function respawnBackgroundSession(id: string): Promise<BackgroundJob | null> {
   const source = await loadJob(id)
   if (!source) {
