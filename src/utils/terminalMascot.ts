@@ -122,12 +122,12 @@ export const TERMINAL_MASCOT_PIXELS: Partial<Record<TerminalMascot, readonly str
     ' OOOCCOOO ',
   ],
   crabby: [
-    'RR  RRRR  RR',
-    ' RR RRRR RR ',
-    '  RRRRRRRR  ',
-    ' RRKRRRRKRR ',
-    '  RRRRRRRR  ',
-    ' R R    R R ',
+    ' OOOOOO ',
+    ' OKOOKO ',
+    'OOOOOOOO',
+    ' OOOOOO ',
+    '  O  O  ',
+    '  O  O  ',
   ],
   gorilla: [
     '  DDDDDD  ',
@@ -145,6 +145,14 @@ export const TERMINAL_MASCOT_PIXELS: Partial<Record<TerminalMascot, readonly str
     '  BBBBBBBB B',
     '    BB  BB  ',
   ],
+  jelly: [
+    ' PPPPPP ',
+    'PPKPPKPP',
+    'PPPPPPPP',
+    ' PPPPPP ',
+    ' P PP P ',
+    'P  PP  P',
+  ],
 }
 
 export const TERMINAL_PIXEL_COLORS: Record<string, RGB> = {
@@ -156,11 +164,12 @@ export const TERMINAL_PIXEL_COLORS: Record<string, RGB> = {
   G: [126, 121, 115],
   L: [170, 164, 157],
   B: [90, 133, 163],
+  P: [154, 103, 210],
 }
 
 export const TERMINAL_MASCOT_COLORS: Record<TerminalMascot, RGB> = {
   shiba: [224, 126, 76],
-  crabby: [220, 108, 72],
+  crabby: [224, 126, 82],
   axo: [235, 142, 158],
   moth: [190, 142, 82],
   dump: [237, 218, 180],
@@ -173,7 +182,7 @@ export const TERMINAL_MASCOT_COLORS: Record<TerminalMascot, RGB> = {
   ostrich: [224, 126, 112],
   snail: [184, 137, 89],
   bandit: [115, 115, 112],
-  jelly: [217, 105, 91],
+  jelly: [154, 103, 210],
 }
 
 export function getTerminalMascotRows(mascot: TerminalMascot): readonly string[] {
@@ -182,7 +191,7 @@ export function getTerminalMascotRows(mascot: TerminalMascot): readonly string[]
 
 export const TERMINAL_MASCOT_LABELS: Record<TerminalMascot, string> = {
   shiba: 'Shiba',
-  crabby: 'Crabby',
+  crabby: 'Crab',
   axo: 'Axo',
   moth: 'Moth',
   dump: 'Dump',
@@ -195,7 +204,7 @@ export const TERMINAL_MASCOT_LABELS: Record<TerminalMascot, string> = {
   ostrich: 'Ostrich',
   snail: 'Snail',
   bandit: 'Bandit',
-  jelly: 'Jelly',
+  jelly: 'Jellyfish',
 }
 
 export const TERMINAL_MASCOT_NAMES = Object.keys(TERMINAL_MASCOTS) as TerminalMascot[]

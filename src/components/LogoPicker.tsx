@@ -21,7 +21,7 @@ export type LogoPickerProps = {
 
 const PICKER_NOTES: Record<TerminalMascot, string> = {
   shiba: 'orange dog',
-  crabby: 'red claws',
+  crabby: 'orange block crab',
   axo: 'soft gills',
   moth: 'winged',
   dump: 'round face',
@@ -34,7 +34,7 @@ const PICKER_NOTES: Record<TerminalMascot, string> = {
   ostrich: 'long stride',
   snail: 'slow shell',
   bandit: 'masked',
-  jelly: 'soft drift',
+  jelly: 'purple jellyfish',
 }
 
 function cropPixelRows(rows: readonly string[]): readonly string[] {
