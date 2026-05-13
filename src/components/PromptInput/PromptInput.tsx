@@ -2189,7 +2189,8 @@ function PromptInput({
         : null,
     [showAgentView, agentViewAttachId, mainLoopModel, toolPermissionContext.mode],
   );
-  useSetPromptOverlayDialog(isFullscreenEnvEnabled() ? agentViewNode ?? autoModeOptInDialog : null);
+  const fullscreenOverlayDialog = isFullscreenEnvEnabled() ? agentViewNode ?? autoModeOptInDialog : null;
+  useSetPromptOverlayDialog(fullscreenOverlayDialog, agentViewNode ? 'takeover' : 'float');
   if (showAgentView) {
     return isFullscreenEnvEnabled() ? null : agentViewNode;
   }

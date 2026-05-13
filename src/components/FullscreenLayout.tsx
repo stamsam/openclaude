@@ -13,6 +13,7 @@ import { openBrowser, openPath } from '../utils/browser.js';
 import { isFullscreenEnvEnabled } from '../utils/fullscreen.js';
 import { plural } from '../utils/stringUtils.js';
 import { isNullRenderingAttachment } from './messages/nullRenderingAttachments.js';
+import { OpenClaudeHeader } from './OpenClaudeHeader.js';
 import PromptInputFooterSuggestions from './PromptInput/PromptInputFooterSuggestions.js';
 import type { StickyPrompt } from './VirtualMessageList.js';
 
@@ -268,7 +269,7 @@ export function computeUnseenDivider(messages: readonly Message[], dividerIndex:
  * so nothing can accidentally render outside it.
  */
 export function FullscreenLayout(t0) {
-  const $ = _c(47);
+  const $ = _c(50);
   const {
     scrollable,
     bottom,
@@ -388,74 +389,98 @@ export function FullscreenLayout(t0) {
       t13 = $[23];
     }
     let t14;
-    if ($[24] !== t11 || $[25] !== t12 || $[26] !== t13 || $[27] !== t8) {
-      t14 = <Box flexGrow={1} flexDirection="column" overflow="hidden">{t8}{t11}{t12}{t13}</Box>;
-      $[24] = t11;
-      $[25] = t12;
-      $[26] = t13;
-      $[27] = t8;
-      $[28] = t14;
+    if ($[24] === Symbol.for("react.memo_cache_sentinel")) {
+      t14 = <OpenClaudeHeader />;
+      $[24] = t14;
     } else {
-      t14 = $[28];
+      t14 = $[24];
     }
     let t15;
-    let t16;
-    if ($[29] === Symbol.for("react.memo_cache_sentinel")) {
-      t15 = <SuggestionsOverlay />;
-      t16 = <DialogOverlay />;
-      $[29] = t15;
-      $[30] = t16;
+    if ($[25] !== t11 || $[26] !== t12 || $[27] !== t13 || $[28] !== t14 || $[29] !== t8) {
+      t15 = <Box flexGrow={1} flexDirection="column" overflow="hidden">{t14}{t8}{t11}{t12}{t13}</Box>;
+      $[25] = t11;
+      $[26] = t12;
+      $[27] = t13;
+      $[28] = t14;
+      $[29] = t8;
+      $[30] = t15;
     } else {
-      t15 = $[29];
-      t16 = $[30];
+      t15 = $[30];
     }
+    let t16;
     let t17;
-    if ($[31] !== bottom) {
-      t17 = <Box flexDirection="column" flexShrink={0} width="100%" maxHeight="50%">{t15}{t16}<Box flexDirection="column" width="100%" flexGrow={1} overflowY="hidden">{bottom}</Box></Box>;
-      $[31] = bottom;
+    if ($[31] === Symbol.for("react.memo_cache_sentinel")) {
+      t16 = <DialogOverlay />;
+      t17 = <SuggestionsOverlay />;
+      $[31] = t16;
       $[32] = t17;
     } else {
+      t16 = $[31];
       t17 = $[32];
     }
     let t18;
-    if ($[33] !== columns || $[34] !== modal || $[35] !== modalScrollRef || $[36] !== terminalRows) {
-      t18 = modal != null && <ModalContext value={{
+    if ($[33] !== bottom) {
+      t18 = <Box flexDirection="column" flexShrink={0} width="100%" maxHeight="50%">{t17}{t16}<Box flexDirection="column" width="100%" flexGrow={1} overflowY="hidden">{bottom}</Box></Box>;
+      $[33] = bottom;
+      $[34] = t18;
+    } else {
+      t18 = $[34];
+    }
+    let t19;
+    if ($[35] !== columns || $[36] !== modal || $[37] !== modalScrollRef || $[38] !== terminalRows) {
+      t19 = modal != null && <ModalContext value={{
         rows: terminalRows - MODAL_TRANSCRIPT_PEEK - 1,
         columns: columns - 4,
         scrollRef: modalScrollRef ?? null
       }}><Box position="absolute" bottom={0} left={0} right={0} maxHeight={terminalRows - MODAL_TRANSCRIPT_PEEK} flexDirection="column" overflow="hidden" opaque={true}><Box flexShrink={0}><Text color="permission">{"\u2594".repeat(columns)}</Text></Box><Box flexDirection="column" paddingX={2} flexShrink={0} overflow="hidden">{modal}</Box></Box></ModalContext>;
-      $[33] = columns;
-      $[34] = modal;
-      $[35] = modalScrollRef;
-      $[36] = terminalRows;
-      $[37] = t18;
+      $[35] = columns;
+      $[36] = modal;
+      $[37] = modalScrollRef;
+      $[38] = terminalRows;
+      $[39] = t19;
     } else {
-      t18 = $[37];
+      t19 = $[39];
     }
-    let t19;
-    if ($[38] !== t14 || $[39] !== t17 || $[40] !== t18) {
-      t19 = <PromptOverlayProvider>{t14}{t17}{t18}</PromptOverlayProvider>;
-      $[38] = t14;
-      $[39] = t17;
-      $[40] = t18;
-      $[41] = t19;
+    let t20;
+    if ($[40] !== t15 || $[41] !== t18 || $[42] !== t19) {
+      t20 = <PromptOverlayProvider><FullscreenOverlayFrame main={t15} bottom={t18} modal={t19} /></PromptOverlayProvider>;
+      $[40] = t15;
+      $[41] = t18;
+      $[42] = t19;
+      $[43] = t20;
     } else {
-      t19 = $[41];
+      t20 = $[43];
     }
-    return t19;
+    return t20;
   }
   let t8;
-  if ($[42] !== bottom || $[43] !== modal || $[44] !== overlay || $[45] !== scrollable) {
+  if ($[44] !== bottom || $[45] !== modal || $[46] !== overlay || $[47] !== scrollable) {
     t8 = <>{scrollable}{bottom}{overlay}{modal}</>;
-    $[42] = bottom;
-    $[43] = modal;
-    $[44] = overlay;
-    $[45] = scrollable;
-    $[46] = t8;
+    $[44] = bottom;
+    $[45] = modal;
+    $[46] = overlay;
+    $[47] = scrollable;
+    $[48] = t8;
   } else {
-    t8 = $[46];
+    t8 = $[48];
   }
   return t8;
+}
+
+function FullscreenOverlayFrame({
+  main,
+  bottom,
+  modal
+}: {
+  main: ReactNode;
+  bottom: ReactNode;
+  modal: ReactNode;
+}) {
+  const dialog = usePromptOverlayDialog();
+  if (dialog?.mode === 'takeover') {
+    return <Box flexGrow={1} flexDirection="column" overflow="hidden">{dialog.node}</Box>;
+  }
+  return <>{main}{bottom}{modal}</>;
 }
 
 // Slack-style pill. Absolute overlay at bottom={0} of the scrollwrap — floats
@@ -620,10 +645,13 @@ function SuggestionsOverlay() {
 // over suggestions if both are ever up (they shouldn't be).
 function DialogOverlay() {
   const $ = _c(2);
-  const node = usePromptOverlayDialog();
-  if (!node) {
+  const dialog = usePromptOverlayDialog();
+  if (!dialog || dialog.mode !== 'float') {
     return null;
   }
+  const {
+    node
+  } = dialog;
   let t0;
   if ($[0] !== node) {
     t0 = <Box position="absolute" bottom="100%" left={0} right={0} opaque={true}>{node}</Box>;
