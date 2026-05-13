@@ -112,12 +112,15 @@ If `OPENCLAUDE_AGENTVIEW_HOME` is set, jobs use that directory. Otherwise, `OPEN
 
 `openclaude attach <id>` opens an attached session view. It follows the background session output and lets you type follow-up messages into that same background session. The background session keeps running after you detach.
 
-Each thread keeps its own provider/model metadata. Threads created from the in-app Agent View inherit the current main-thread model by default. In a thread, use `/model <model-name>` to switch only that thread for later turns.
+Each thread keeps its own provider/model metadata. Threads created from the in-app Agent View inherit the current main-thread model by default. In a thread, use `/model` for an interactive model picker, `/provider` for saved provider profiles, or pass a direct value like `/model <model-name>` or `/provider <profile-name>`.
 
 Attach shortcuts:
 
 - `Enter`: send the current attached prompt as a new user turn
-- `/model <model-name>`: switch only this thread to a different model
+- `/model`: open the thread model picker
+- `/model <model-name>`: switch only this thread to a different model directly
+- `/provider`: open the saved provider profile picker for this thread
+- `/provider <profile-name>`: switch this thread to a saved provider profile directly
 - `left` / `right`: detach back to Agent View when the attached prompt is empty
 - `Esc`: detach back to Agent View when the attached prompt is empty, or clear a non-empty prompt
 - `Ctrl+C`: leave attach without stopping the background session
@@ -142,4 +145,3 @@ The dashboard still shows the original repo path plus model/provider metadata; t
 - `/bg` migration for the current live conversation
 - Permission reply handling from the dashboard
 - `respawn --all`
-- Richer model/provider picker UI inside Agent View

@@ -24,11 +24,11 @@ Fork map: [`docs/fork-map.md`](docs/fork-map.md)
 - oMLX model discovery reads the local oMLX settings/API key, ignores stale non-oMLX cache entries, and refreshes `/model` from the live local server. Selecting an oMLX model applies the provider route for the current process.
 - `/model` marks likely multimodal entries as `Vision`, and image paste warns when a local text-only model is selected.
 - `/learn` stores durable reusable lessons and `/learn run` applies pending learning work.
-- Telegram session control keeps runtime pause/resume/model state in sync so phone commands match the active CLI session.
+- Telegram session control keeps runtime pause/resume/model state in sync, reconnects after transient polling/focus interruptions, and keeps phone commands matched to the active CLI session.
 - `/benchmark` is split into a command module with local model benchmark helpers and tests.
 - `/tui fullscreen` enables flicker-free alternate-screen rendering with fixed prompt placement, virtualized scrollback, and honest env/tmux override reporting.
 - `/logo` now picks the startup/header mascot, including Shiba, gorilla, shark, and the rest of the pixel mascot set.
-- Agent View adds `openclaude agents`, `openclaude --bg`, `attach`, `logs`, `stop`, `respawn`, and `rm` for managing detached background sessions from one terminal, with git worktree isolation when available. See [`docs/agent-view.md`](docs/agent-view.md).
+- Agent View adds `openclaude agents`, `openclaude --bg`, `attach`, `logs`, `stop`, `respawn`, and `rm` for managing detached background sessions from one terminal, with git worktree isolation when available. Attached threads now support interactive `/model` and `/provider` pickers for switching that thread without leaving the session. See [`docs/agent-view.md`](docs/agent-view.md).
 - Practical feature backlog and comparison notes live in [`docs/planning/implementation-list.md`](docs/planning/implementation-list.md).
 
 ## Why OpenClaude

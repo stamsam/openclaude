@@ -244,6 +244,31 @@ export async function appendJobModelSwitch(
   )
 }
 
+export async function appendJobProviderSwitch(
+  id: string,
+  options: {
+    providerProfileId: string
+    provider: string
+    model?: string
+  },
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<void> {
+  const { appendFile } = await import('fs/promises')
+  await mkdir(getJobDir(id, env), { recursive: true })
+  await appendFile(
+    getJobInputPath(id, env),
+    formatJobControlRequest({
+      subtype: 'set_provider',
+      provider_profile_id: options.providerProfileId,
+      provider: options.provider,
+      model: options.model,
+    }),
+    {
+      mode: 0o600,
+    },
+  )
+}
+
 export async function readJobLogTail(
   id: string,
   maxBytes = 16_000,

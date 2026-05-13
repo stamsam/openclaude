@@ -53,10 +53,10 @@ export function OpenClaudeHeader({
       </Box>
       <Box flexDirection="column">
         <Text>
-          <Text bold>{title}</Text> <Text dimColor>v{version}</Text>
+          <Text bold>{title}</Text> <Text>v{version}</Text>
         </Text>
-        <Text dimColor>{secondLine}</Text>
-        <Text dimColor>{thirdLine}</Text>
+        <Text>{secondLine}</Text>
+        <Text>{thirdLine}</Text>
         {statusLine ? <Text dimColor>{statusLine}</Text> : null}
       </Box>
     </Box>

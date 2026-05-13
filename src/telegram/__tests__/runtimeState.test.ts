@@ -7,6 +7,7 @@ import {
   markRunCompleted,
   markRunStarted,
   markRunStopped,
+  shouldDisableBridgeAfterRuntimeError,
   shouldAbortTelegramRun,
   shouldIgnoreUpdate,
   shouldSendOverlayNotice,
@@ -59,5 +60,31 @@ describe('telegram runtime state', () => {
     const notified = markOverlayNoticeSent(initial, 2)
     expect(shouldSendOverlayNotice(notified, 2)).toBe(false)
     expect(shouldSendOverlayNotice(notified, 3)).toBe(true)
+  })
+
+  test('transient polling errors keep the bridge enabled for reconnect', () => {
+    expect(
+      shouldDisableBridgeAfterRuntimeError(
+        'Conflict: terminated by other getUpdates request',
+      ),
+    ).toBe(false)
+    expect(shouldDisableBridgeAfterRuntimeError('fetch failed')).toBe(false)
+  })
+
+  test('fatal Telegram configuration errors disable the bridge', () => {
+    expect(
+      shouldDisableBridgeAfterRuntimeError(
+        'Unauthorized: bot token is invalid',
+      ),
+    ).toBe(true)
+    expect(shouldDisableBridgeAfterRuntimeError('Not Found')).toBe(true)
+  })
+
+  test('stale message errors do not disable the bridge', () => {
+    expect(
+      shouldDisableBridgeAfterRuntimeError(
+        'Bad Request: message to edit not found',
+      ),
+    ).toBe(false)
   })
 })

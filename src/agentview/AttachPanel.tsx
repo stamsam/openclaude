@@ -5,10 +5,29 @@ import { OpenClaudeHeader } from '../components/OpenClaudeHeader.js'
 import {
   appendJobInput,
   appendJobModelSwitch,
+  appendJobProviderSwitch,
   loadJob,
   readJobLogTail,
   updateJob,
 } from './store.js'
+import { getPrimaryModel, parseModelList } from '../utils/providerModels.js'
+import { getProviderProfiles } from '../utils/providerProfiles.js'
+
+type PickerOption = {
+  label: string
+  value: string
+  description?: string
+  providerProfileId?: string
+  provider?: string
+  model?: string
+}
+
+type CommandPicker = {
+  kind: 'model' | 'provider'
+  title: string
+  selected: number
+  options: PickerOption[]
+}
 
 function textFromContent(content: unknown): string {
   if (typeof content === 'string') return content
@@ -63,6 +82,58 @@ function conversationFromLog(raw: string): Array<{ role: string; text: string }>
   return turns.slice(-8)
 }
 
+function uniqueOptions(options: PickerOption[]): PickerOption[] {
+  const seen = new Set<string>()
+  return options.filter(option => {
+    const key = `${option.label}:${option.value}`
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+}
+
+function buildModelOptions(currentModel: string | undefined): PickerOption[] {
+  const options: PickerOption[] = []
+  if (currentModel) {
+    options.push({
+      label: currentModel,
+      value: currentModel,
+      description: 'current thread model',
+    })
+  }
+  options.push({
+    label: 'default',
+    value: 'default',
+    description: 'use the default model for this session',
+  })
+
+  for (const profile of getProviderProfiles()) {
+    for (const model of parseModelList(profile.model)) {
+      options.push({
+        label: model,
+        value: model,
+        description: `${profile.name} · ${profile.provider}`,
+      })
+    }
+  }
+
+  return uniqueOptions(options).slice(0, 12)
+}
+
+function buildProviderOptions(): PickerOption[] {
+  return getProviderProfiles().map(profile => {
+    const model = getPrimaryModel(profile.model)
+    return {
+      label: profile.name,
+      value: profile.id,
+      description: `${profile.provider}${model ? ` · ${model}` : ''}`,
+      providerProfileId: profile.id,
+      provider: profile.provider,
+      model,
+    }
+  })
+}
+
 export function AgentAttachPanel({
   id,
   fullscreen = false,
@@ -76,10 +147,24 @@ export function AgentAttachPanel({
   const [line, setLine] = React.useState('')
   const [output, setOutput] = React.useState('')
   const [status, setStatus] = React.useState('')
+  const [picker, setPicker] = React.useState<CommandPicker | null>(null)
+  const [localNotices, setLocalNotices] = React.useState<string[]>([])
+
+  const appendSystemOutput = React.useCallback((message: string) => {
+    setLocalNotices(current => [...current.slice(-3), message])
+  }, [])
 
   const refresh = React.useCallback(() => {
     void Promise.all([loadJob(id), readJobLogTail(id, 8_000)]).then(([job, tail]) => {
-      setStatus(job ? `${job.status}${job.model ? ` · ${job.model}` : ''}` : 'missing')
+      setStatus(
+        job
+          ? [
+              job.status,
+              job.provider,
+              job.model,
+            ].filter(Boolean).join(' · ')
+          : 'missing',
+      )
       const turns = conversationFromLog(tail)
       setOutput(
         turns.length > 0
@@ -92,7 +177,72 @@ export function AgentAttachPanel({
   React.useEffect(refresh, [refresh])
   useInterval(refresh, 1000)
 
+  const switchModel = React.useCallback((nextModel: string) => {
+    void appendJobModelSwitch(id, nextModel)
+      .then(() => updateJob(id, { model: nextModel, status: 'working' }))
+      .then(() => {
+        appendSystemOutput(`switched this thread to ${nextModel}.`)
+        refresh()
+      })
+  }, [appendSystemOutput, id, refresh])
+
+  const switchProvider = React.useCallback((option: PickerOption) => {
+    if (!option.providerProfileId || !option.provider) {
+      appendSystemOutput('provider switching uses saved provider profiles.')
+      return
+    }
+    void appendJobProviderSwitch(id, {
+      providerProfileId: option.providerProfileId,
+      provider: option.provider,
+      model: option.model,
+    })
+      .then(() => updateJob(id, {
+        provider: option.provider,
+        model: option.model,
+        status: 'working',
+      }))
+      .then(() => {
+        appendSystemOutput(
+          `switched this thread to ${option.label}${option.model ? ` (${option.model})` : ''}.`,
+        )
+        refresh()
+      })
+  }, [appendSystemOutput, id, refresh])
+
   useInput((chunk, key) => {
+    if (picker) {
+      if (key.escape || key.leftArrow) {
+        setPicker(null)
+        return
+      }
+      if (key.upArrow) {
+        setPicker(current => current ? {
+          ...current,
+          selected: Math.max(0, current.selected - 1),
+        } : current)
+        return
+      }
+      if (key.downArrow) {
+        setPicker(current => current ? {
+          ...current,
+          selected: Math.min(current.options.length - 1, current.selected + 1),
+        } : current)
+        return
+      }
+      if (key.return) {
+        const option = picker.options[picker.selected]
+        setPicker(null)
+        if (!option) return
+        if (picker.kind === 'model') {
+          switchModel(option.value)
+        } else {
+          switchProvider(option)
+        }
+        return
+      }
+      return
+    }
+
     if ((key.leftArrow || key.rightArrow || key.escape) && line.length === 0) {
       onBack()
       return
@@ -107,21 +257,52 @@ export function AgentAttachPanel({
       setLine('')
       if (message === '/model') {
         void loadJob(id).then(job => {
-          setOutput(current =>
-            `${current}\n\nSystem: current thread model is ${job?.model || 'the inherited default'}. Use /model <model-name> to change only this thread.`,
-          )
+          const options = buildModelOptions(job?.model)
+          if (options.length === 0) {
+            appendSystemOutput('no model options found. Use /model <model-name> to enter one directly.')
+            return
+          }
+          setPicker({
+            kind: 'model',
+            title: 'Choose thread model',
+            selected: 0,
+            options,
+          })
         })
         return
       }
       if (message.startsWith('/model ')) {
         const nextModel = message.slice('/model '.length).trim()
         if (!nextModel) return
-        void appendJobModelSwitch(id, nextModel)
-          .then(() => updateJob(id, { model: nextModel, status: 'working' }))
-          .then(() => {
-            setOutput(current => `${current}\n\nSystem: switched this thread to ${nextModel}.`)
-            refresh()
-          })
+        switchModel(nextModel)
+        return
+      }
+      if (message === '/provider') {
+        const options = buildProviderOptions()
+        if (options.length === 0) {
+          appendSystemOutput('no saved provider profiles found. Add one from the main /provider screen first.')
+          return
+        }
+        setPicker({
+          kind: 'provider',
+          title: 'Choose thread provider',
+          selected: 0,
+          options,
+        })
+        return
+      }
+      if (message.startsWith('/provider ')) {
+        const requested = message.slice('/provider '.length).trim().toLowerCase()
+        const option = buildProviderOptions().find(item =>
+          item.value.toLowerCase() === requested ||
+          item.label.toLowerCase() === requested ||
+          item.provider?.toLowerCase() === requested,
+        )
+        if (!option) {
+          appendSystemOutput(`provider profile not found: ${message.slice('/provider '.length).trim()}.`)
+          return
+        }
+        switchProvider(option)
         return
       }
       void appendJobInput(id, message)
@@ -154,14 +335,36 @@ export function AgentAttachPanel({
       )}
       <Box flexDirection="column" marginBottom={1} flexGrow={1} overflow="hidden">
         <Text>{output.slice(-8_000)}</Text>
+        {localNotices.length > 0 ? (
+          <Box flexDirection="column" marginTop={1}>
+            {localNotices.map((notice, index) => (
+              <Text key={`${notice}-${index}`} dimColor>
+                System: {notice}
+              </Text>
+            ))}
+          </Box>
+        ) : null}
       </Box>
       <Box flexDirection="column" flexShrink={0}>
+        {picker ? (
+          <Box flexDirection="column" marginBottom={1}>
+            <Text bold>{picker.title}</Text>
+            {picker.options.map((option, index) => (
+              <Text key={`${option.value}-${index}`} color={index === picker.selected ? 'remember' : undefined}>
+                {index === picker.selected ? '› ' : '  '}
+                {option.label}
+                {option.description ? <Text dimColor> · {option.description}</Text> : null}
+              </Text>
+            ))}
+            <Text dimColor>enter choose · ↑↓ move · esc back</Text>
+          </Box>
+        ) : null}
         <Box marginTop={1} borderStyle="single" borderColor="inactive" paddingX={1}>
           <Text color="remember">› </Text>
           <Text dimColor={!line}>{line || 'reply to this thread'}</Text>
         </Box>
         <Text dimColor>
-          enter send · /model [name] · ←/esc back · esc clears text
+          enter send · /model · /provider · ←/esc back · esc clears text
         </Text>
       </Box>
     </Box>

@@ -3,6 +3,7 @@ import { Box, Text } from '../ink.js'
 import { Select } from './CustomSelect/index.js'
 import {
   DEFAULT_TERMINAL_MASCOT,
+  TERMINAL_MASCOT_COLORS,
   TERMINAL_MASCOT_LABELS,
   TERMINAL_MASCOT_NAMES,
   TERMINAL_MASCOT_PIXELS,
@@ -11,7 +12,6 @@ import {
   type TerminalMascot,
 } from '../utils/terminalMascot.js'
 import { ANSI_RESET, ansiBgRgb, ansiRgb } from '../utils/terminalAnsi.js'
-import { TERMINAL_MASCOT_COLORS } from '../utils/terminalMascot.js'
 
 export type LogoPickerProps = {
   initial?: TerminalMascot
@@ -19,27 +19,66 @@ export type LogoPickerProps = {
   onCancel: () => void
 }
 
-function previewMascot(name: TerminalMascot): string {
-  const pixelRows = TERMINAL_MASCOT_PIXELS[name]
-  if (pixelRows) {
-    return pixelRows
-      .slice(1, 3)
-      .map(row =>
-        Array.from(row)
-          .map(cell => {
-            const rgb = TERMINAL_PIXEL_COLORS[cell]
-            return rgb ? `${ansiBgRgb(...rgb)} ${ANSI_RESET}` : ' '
-          })
-          .join(''),
-      )
-      .join(' ')
-  }
+const PICKER_NOTES: Record<TerminalMascot, string> = {
+  shiba: 'orange dog',
+  crabby: 'red claws',
+  axo: 'soft gills',
+  moth: 'winged',
+  dump: 'round face',
+  cacti: 'green sprout',
+  bat: 'night wings',
+  toast: 'toasty',
+  shroom: 'red cap',
+  gorilla: 'heavy brow',
+  shark: 'blue fin',
+  ostrich: 'long stride',
+  snail: 'slow shell',
+  bandit: 'masked',
+  jelly: 'soft drift',
+}
 
+function cropPixelRows(rows: readonly string[]): readonly string[] {
+  const coloredColumns = rows.flatMap(row =>
+    Array.from(row)
+      .map((cell, index) => TERMINAL_PIXEL_COLORS[cell] ? index : -1)
+      .filter(index => index >= 0),
+  )
+  const start = Math.max(0, Math.min(...coloredColumns) - 1)
+  const end = Math.max(...coloredColumns) + 2
+  return rows.map(row => row.slice(start, end))
+}
+
+function pixelPreview(pixelRows: readonly string[]): string {
+  const rows = cropPixelRows(pixelRows).slice(1, 4)
+  return rows
+    .map(row =>
+      Array.from(row)
+        .map(cell => {
+          const rgb = TERMINAL_PIXEL_COLORS[cell]
+          return rgb ? `${ansiBgRgb(...rgb)}  ${ANSI_RESET}` : '  '
+        })
+        .join(''),
+    )
+    .join(' ')
+}
+
+function textPreview(name: TerminalMascot): string {
   const [r, g, b] = TERMINAL_MASCOT_COLORS[name]
   return TERMINAL_MASCOTS[name]
     .slice(0, 2)
     .map(line => `${ansiRgb(r, g, b)}${line}${ANSI_RESET}`)
-    .join(' ')
+    .join('  ')
+}
+
+function previewMascot(name: TerminalMascot): string {
+  const pixelRows = TERMINAL_MASCOT_PIXELS[name]
+  const [r, g, b] = TERMINAL_MASCOT_COLORS[name]
+  const note = `${ansiRgb(r, g, b)}${PICKER_NOTES[name]}${ANSI_RESET}`
+  if (pixelRows) {
+    return `${pixelPreview(pixelRows)}  ${note}`
+  }
+
+  return `${textPreview(name)}  ${note}`
 }
 
 export function LogoPicker({
@@ -50,7 +89,9 @@ export function LogoPicker({
   const options = React.useMemo(
     () =>
       TERMINAL_MASCOT_NAMES.map(name => ({
-        label: `${previewMascot(name)}  ${TERMINAL_MASCOT_LABELS[name]}`,
+        label: TERMINAL_MASCOT_LABELS[name],
+        description: previewMascot(name),
+        dimDescription: false,
         value: name,
       })),
     [],
@@ -66,6 +107,7 @@ export function LogoPicker({
         visibleOptionCount={options.length}
         defaultValue={initial ?? DEFAULT_TERMINAL_MASCOT}
         defaultFocusValue={initial ?? DEFAULT_TERMINAL_MASCOT}
+        hideIndexes
       />
     </Box>
   )

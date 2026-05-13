@@ -7,6 +7,7 @@ import { join } from 'path'
 import {
   appendJobInput,
   appendJobModelSwitch,
+  appendJobProviderSwitch,
   appendJobLog,
   createBackgroundJob,
   createJobId,
@@ -169,6 +170,37 @@ describe.serial('agent view job store', () => {
     const input = await Bun.file(getJobInputPath(job.id, testEnv)).text()
     expect(input).toContain('"subtype":"set_model"')
     expect(input).toContain('"model":"model-c"')
+  })
+
+  test('formats and persists provider switch control requests', async () => {
+    const line = formatJobControlRequest({
+      subtype: 'set_provider',
+      provider_profile_id: 'provider_local',
+      provider: 'oMLX',
+      model: 'local-model',
+    })
+    const parsed = JSON.parse(line)
+    expect(parsed).toMatchObject({
+      type: 'control_request',
+      request: {
+        subtype: 'set_provider',
+        provider_profile_id: 'provider_local',
+        provider: 'oMLX',
+        model: 'local-model',
+      },
+    })
+
+    const job = await createBackgroundJob({ prompt: 'first', cwd: process.cwd() }, testEnv)
+    await appendJobProviderSwitch(job.id, {
+      providerProfileId: 'provider_local',
+      provider: 'oMLX',
+      model: 'local-model',
+    }, testEnv)
+    const input = await Bun.file(getJobInputPath(job.id, testEnv)).text()
+    expect(input).toContain('"subtype":"set_provider"')
+    expect(input).toContain('"provider_profile_id":"provider_local"')
+    expect(input).toContain('"provider":"oMLX"')
+    expect(input).toContain('"model":"local-model"')
   })
 
   test('marks missing or dead pids as failed while listing', async () => {
