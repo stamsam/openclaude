@@ -26,6 +26,7 @@ Fork map: [`docs/fork-map.md`](docs/fork-map.md)
 - `/learn` stores durable reusable lessons and `/learn run` applies pending learning work.
 - Telegram session control keeps runtime pause/resume/model state in sync so phone commands match the active CLI session.
 - `/benchmark` is split into a command module with local model benchmark helpers and tests.
+- `/tui fullscreen` enables flicker-free alternate-screen rendering with fixed prompt placement, virtualized scrollback, and honest env/tmux override reporting.
 - Practical feature backlog and comparison notes live in [`docs/planning/implementation-list.md`](docs/planning/implementation-list.md).
 
 ## Why OpenClaude

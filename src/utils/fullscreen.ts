@@ -118,6 +118,10 @@ export function _resetTmuxControlModeProbeForTesting(): void {
  *   default                   → off
  */
 export function isFullscreenEnvEnabled(): boolean {
+  // Force classic renderer regardless of the saved tui setting. Useful when
+  // alt-screen behavior is broken in a terminal but the user wants to keep
+  // their normal preference saved.
+  if (isEnvTruthy(process.env.CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN)) return false
   // Explicit env opt-out always wins.
   if (isEnvDefinedFalsy(process.env.CLAUDE_CODE_NO_FLICKER)) return false
   // Explicit env opt-in overrides everything including tmux -CC.
