@@ -313,6 +313,7 @@ export const DEFAULT_BINDINGS: KeybindingBlock[] = [
       left: 'modelPicker:decreaseEffort',
       right: 'modelPicker:increaseEffort',
       r: 'modelPicker:refresh',
+      u: 'modelPicker:toggleAutoUnload',
     },
   },
   // Select component navigation (used by /model, /resume, permission prompts, etc.)

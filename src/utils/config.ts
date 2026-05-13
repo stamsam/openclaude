@@ -639,6 +639,7 @@ export type GlobalConfig = {
   // Startup/header mascot — set via /logo. See src/utils/terminalMascot.ts
   // for valid values. Stored as a string so config stays decoupled from UI.
   logoMascot?: string
+  autoUnloadPreviousLocalModel?: boolean
   telegramBridgeConfig?: TelegramBridgeStoredConfig
 }
 
@@ -689,6 +690,7 @@ function createDefaultGlobalConfig(): GlobalConfig {
     providerProfiles: [],
     openaiAdditionalModelOptionsCacheByProfile: {},
     knowledgeGraphEnabled: true,
+    autoUnloadPreviousLocalModel: true,
   }
   return config
 }
@@ -740,6 +742,7 @@ export const GLOBAL_CONFIG_KEYS = [
   'knowledgeGraphEnabled',
   'logoColor',
   'logoMascot',
+  'autoUnloadPreviousLocalModel',
 ] as const
 
 export type GlobalConfigKey = (typeof GLOBAL_CONFIG_KEYS)[number]

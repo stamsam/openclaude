@@ -41,6 +41,8 @@ export type Props = {
   optionsOverride?: ModelOption[];
   discoveryState?: ModelPickerDiscoveryState;
   onRefresh?: () => void;
+  autoUnloadPreviousLocalModel?: boolean;
+  onToggleAutoUnload?: () => void;
 };
 const NO_PREFERENCE = '__NO_PREFERENCE__';
 function mapDiscoveryToneToColor(tone: ModelPickerDiscoveryState['tone']): 'error' | 'warning' | 'success' | 'subtle' {
@@ -69,7 +71,9 @@ export function ModelPicker(t0) {
     skipSettingsWrite,
     optionsOverride,
     discoveryState,
-    onRefresh
+    onRefresh,
+    autoUnloadPreviousLocalModel,
+    onToggleAutoUnload
   } = t0;
   const setAppState = useSetAppState();
   const exitState = useExitOnCtrlCDWithKeybindings();
@@ -228,6 +232,9 @@ export function ModelPicker(t0) {
     "modelPicker:increaseEffort": () => handleCycleEffort("right"),
     ...(onRefresh ? {
       "modelPicker:refresh": () => onRefresh()
+    } : {}),
+    ...(onToggleAutoUnload ? {
+      "modelPicker:toggleAutoUnload": () => onToggleAutoUnload()
     } : {})
   };
   let t13;
@@ -366,16 +373,8 @@ export function ModelPicker(t0) {
   } else {
     t26 = $[73];
   }
-  let t27;
-  if ($[74] !== exitState || $[75] !== isStandaloneCommand || $[76] !== refreshHint) {
-    t27 = isStandaloneCommand && <Text dimColor={true} italic={true}>{exitState.pending ? <>Press {exitState.keyName} again to exit</> : <Byline><KeyboardShortcutHint shortcut="Enter" action="confirm" />{refreshHint}<ConfigurableShortcutHint action="select:cancel" context="Select" fallback="Esc" description="exit" /></Byline>}</Text>;
-    $[74] = exitState;
-    $[75] = isStandaloneCommand;
-    $[76] = refreshHint;
-    $[82] = t27;
-  } else {
-    t27 = $[82];
-  }
+  const unloadHint = onToggleAutoUnload ? <ConfigurableShortcutHint action="modelPicker:toggleAutoUnload" context="ModelPicker" fallback="u" description={`unload ${autoUnloadPreviousLocalModel === false ? 'off' : 'on'}`} /> : null;
+  const t27 = isStandaloneCommand && <Text dimColor={true} italic={true}>{exitState.pending ? <>Press {exitState.keyName} again to exit</> : <Byline><KeyboardShortcutHint shortcut="Enter" action="confirm" />{refreshHint}{unloadHint}<ConfigurableShortcutHint action="select:cancel" context="Select" fallback="Esc" description="exit" /></Byline>}</Text>;
   let t28;
   if ($[77] !== t26 || $[78] !== t27) {
     t28 = <Box flexDirection="column">{t26}{t27}</Box>;
