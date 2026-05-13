@@ -13,7 +13,7 @@ import { getSettings_DEPRECATED } from '../utils/settings/settings.js'
 import { parseUserSpecifiedModel } from '../utils/model/model.js'
 import { DEFAULT_GEMINI_MODEL } from '../utils/providerProfile.js'
 import { getGlobalConfig } from '../utils/config.js'
-import { ANSI_DIM, ANSI_RESET, ansiRgb } from '../utils/terminalAnsi.js'
+import { ANSI_DIM, ANSI_RESET, ansiBgRgb, ansiRgb } from '../utils/terminalAnsi.js'
 import {
   resolveLogoPalette,
   type RGB,
@@ -21,7 +21,9 @@ import {
 import {
   resolveTerminalMascot,
   TERMINAL_MASCOT_COLORS,
+  TERMINAL_MASCOT_PIXELS,
   TERMINAL_MASCOTS,
+  TERMINAL_PIXEL_COLORS,
 } from '../utils/terminalMascot.js'
 
 declare const MACRO: { VERSION: string; DISPLAY_VERSION?: string }
@@ -191,7 +193,8 @@ export function printStartupScreen(modelOverride?: string): void {
   out.push('')
   const version = MACRO.DISPLAY_VERSION ?? MACRO.VERSION
   const mascot = resolveTerminalMascot(getGlobalConfig().logoMascot)
-  const mascotLines = TERMINAL_MASCOTS[mascot]
+  const pixelRows = TERMINAL_MASCOT_PIXELS[mascot]
+  const mascotLines = pixelRows ?? TERMINAL_MASCOTS[mascot]
   const mascotColor = TERMINAL_MASCOT_COLORS[mascot] ?? ACCENT
   const home = process.env.HOME
   const cwd = home && process.cwd().startsWith(home)
@@ -199,7 +202,14 @@ export function printStartupScreen(modelOverride?: string): void {
     : process.cwd()
   const modelLine = `${p.name} · ${p.model}`
   for (let i = 0; i < mascotLines.length; i++) {
-    const left = `${ansiRgb(...mascotColor)}${mascotLines[i]}${RESET}`
+    const left = pixelRows
+      ? Array.from(mascotLines[i] ?? '')
+          .map(cell => {
+            const rgb = TERMINAL_PIXEL_COLORS[cell]
+            return rgb ? `${ansiBgRgb(...rgb)}  ${RESET}` : '  '
+          })
+          .join('')
+      : `${ansiRgb(...mascotColor)}${mascotLines[i]}${RESET}`
     if (i === 0) {
       out.push(`${left}  ${BOLD}OpenClaude${RESET} ${DIM}${ansiRgb(...DIMCOL)}v${version}${RESET}`)
     } else if (i === 1) {

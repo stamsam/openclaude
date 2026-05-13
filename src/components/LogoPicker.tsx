@@ -5,10 +5,12 @@ import {
   DEFAULT_TERMINAL_MASCOT,
   TERMINAL_MASCOT_LABELS,
   TERMINAL_MASCOT_NAMES,
+  TERMINAL_MASCOT_PIXELS,
   TERMINAL_MASCOTS,
+  TERMINAL_PIXEL_COLORS,
   type TerminalMascot,
 } from '../utils/terminalMascot.js'
-import { ANSI_RESET, ansiRgb } from '../utils/terminalAnsi.js'
+import { ANSI_RESET, ansiBgRgb, ansiRgb } from '../utils/terminalAnsi.js'
 import { TERMINAL_MASCOT_COLORS } from '../utils/terminalMascot.js'
 
 export type LogoPickerProps = {
@@ -18,6 +20,21 @@ export type LogoPickerProps = {
 }
 
 function previewMascot(name: TerminalMascot): string {
+  const pixelRows = TERMINAL_MASCOT_PIXELS[name]
+  if (pixelRows) {
+    return pixelRows
+      .slice(1, 3)
+      .map(row =>
+        Array.from(row)
+          .map(cell => {
+            const rgb = TERMINAL_PIXEL_COLORS[cell]
+            return rgb ? `${ansiBgRgb(...rgb)} ${ANSI_RESET}` : ' '
+          })
+          .join(''),
+      )
+      .join(' ')
+  }
+
   const [r, g, b] = TERMINAL_MASCOT_COLORS[name]
   return TERMINAL_MASCOTS[name]
     .slice(0, 2)

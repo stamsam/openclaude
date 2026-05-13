@@ -112,6 +112,48 @@ export const TERMINAL_MASCOTS: Record<TerminalMascot, readonly string[]> = {
   ],
 }
 
+export const TERMINAL_MASCOT_PIXELS: Partial<Record<TerminalMascot, readonly string[]>> = {
+  shiba: [
+    ' OO  OO ',
+    'OOOOOOOO',
+    'OOKOOKOO',
+    'OOCCCCOO',
+    ' OOKKOO ',
+  ],
+  crabby: [
+    'R  RR  R',
+    ' RRRRRR ',
+    'RRKRRKRR',
+    ' RRRRRR ',
+    'R R  R R',
+  ],
+  gorilla: [
+    '  DDDD  ',
+    ' DDDDDD ',
+    'DGKKKKGD',
+    'DDGKKGDD',
+    'D LDD L ',
+  ],
+  shark: [
+    '  BBB   ',
+    ' BBBBB  ',
+    'BBBKBB  ',
+    'BBCCCCBB',
+    '  BB  B ',
+  ],
+}
+
+export const TERMINAL_PIXEL_COLORS: Record<string, RGB> = {
+  O: [224, 126, 76],
+  C: [245, 226, 185],
+  K: [18, 18, 18],
+  R: [220, 108, 72],
+  D: [77, 73, 70],
+  G: [126, 121, 115],
+  L: [170, 164, 157],
+  B: [90, 133, 163],
+}
+
 export const TERMINAL_MASCOT_COLORS: Record<TerminalMascot, RGB> = {
   shiba: [224, 126, 76],
   crabby: [220, 108, 72],
@@ -128,6 +170,10 @@ export const TERMINAL_MASCOT_COLORS: Record<TerminalMascot, RGB> = {
   snail: [184, 137, 89],
   bandit: [115, 115, 112],
   jelly: [217, 105, 91],
+}
+
+export function getTerminalMascotRows(mascot: TerminalMascot): readonly string[] {
+  return TERMINAL_MASCOT_PIXELS[mascot] ?? TERMINAL_MASCOTS[mascot]
 }
 
 export const TERMINAL_MASCOT_LABELS: Record<TerminalMascot, string> = {
