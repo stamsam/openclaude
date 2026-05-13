@@ -501,28 +501,27 @@ function FullscreenOverlayFrame({
   takeover?: ReactNode;
 }) {
   const dialog = usePromptOverlayDialog();
+  const { rows } = useTerminalSize();
+  const takeoverHeight = Math.max(1, rows);
   if (takeover != null) {
-    return <>
-        <Box height={0} overflow="hidden">{main}{bottom}{modal}</Box>
-        <Box flexGrow={1} flexDirection="column" overflow="hidden">{takeover}</Box>
-      </>;
+    return <Box flexDirection="column" width="100%" height={takeoverHeight} overflow="hidden">
+        <Box height={0} flexShrink={0} overflow="hidden">{main}{bottom}{modal}</Box>
+        <Box height={takeoverHeight} flexShrink={0} flexDirection="column" overflow="hidden">{takeover}</Box>
+      </Box>;
   }
   if (dialog?.mode === 'takeover') {
-    return <>
-        <Box height={0} overflow="hidden">{main}{bottom}{modal}</Box>
-        <Box flexGrow={1} flexDirection="column" overflow="hidden">{dialog.node}</Box>
-      </>;
+    return <Box flexDirection="column" width="100%" height={takeoverHeight} overflow="hidden">
+        <Box height={0} flexShrink={0} overflow="hidden">{main}{bottom}{modal}</Box>
+        <Box height={takeoverHeight} flexShrink={0} flexDirection="column" overflow="hidden">{dialog.node}</Box>
+      </Box>;
   }
   return <>{main}{bottom}{modal}</>;
 }
 
-// Slack-style pill. Absolute overlay at bottom={0} of the scrollwrap — floats
-// over the ScrollBox's last content row, only obscuring the centered pill
-// text (the rest of the row shows ScrollBox content). Scroll-smear from
-// DECSTBM shifting the pill's pixels is repaired at the Ink layer
-// (absoluteRectsPrev third-pass in render-node-to-output.ts, #23939). Shows
-// "Jump to bottom" when count is 0 (scrolled away but no new messages yet —
-// the dead zone where users previously thought chat stalled).
+// Slack-style pill. Keep it in normal flow so it reserves a row instead of
+// floating over provider messages, task lists, or the active prompt.
+// Shows "Jump to bottom" when count is 0 (scrolled away but no new messages
+// yet — the dead zone where users previously thought chat stalled).
 function _temp3() {
   if (!isFullscreenEnvEnabled()) {
     return;
@@ -584,7 +583,7 @@ function NewMessagesPill(t0) {
   }
   let t6;
   if ($[7] !== onClick || $[8] !== t5) {
-    t6 = <Box position="absolute" bottom={0} left={0} right={0} justifyContent="center"><Box onClick={onClick} onMouseEnter={t1} onMouseLeave={t2}>{t5}</Box></Box>;
+    t6 = <Box flexShrink={0} height={1} width="100%" justifyContent="center"><Box onClick={onClick} onMouseEnter={t1} onMouseLeave={t2}>{t5}</Box></Box>;
     $[7] = onClick;
     $[8] = t5;
     $[9] = t6;

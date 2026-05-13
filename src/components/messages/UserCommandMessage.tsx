@@ -59,7 +59,7 @@ export function UserCommandMessage(t0) {
     }
     let t7;
     if ($[7] !== t4 || $[8] !== t6) {
-      t7 = <Box flexDirection="column" marginTop={t4} backgroundColor="userMessageBackground" paddingRight={1}>{t6}</Box>;
+      t7 = <Box flexDirection="row" marginTop={t4} backgroundColor="userMessageBackground" paddingRight={1}>{t6}</Box>;
       $[7] = t4;
       $[8] = t6;
       $[9] = t7;
@@ -96,7 +96,7 @@ export function UserCommandMessage(t0) {
   }
   let t8;
   if ($[16] !== t5 || $[17] !== t7) {
-    t8 = <Box flexDirection="column" marginTop={t5} backgroundColor="userMessageBackground" paddingRight={1}>{t7}</Box>;
+    t8 = <Box flexDirection="row" marginTop={t5} backgroundColor="userMessageBackground" paddingRight={1}>{t7}</Box>;
     $[16] = t5;
     $[17] = t7;
     $[18] = t8;

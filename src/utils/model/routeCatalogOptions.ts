@@ -24,6 +24,10 @@ function toDescription(
     parts.push('Vision')
   }
 
+  if (entry.notes?.trim()) {
+    parts.push(entry.notes.trim())
+  }
+
   parts.push(`Provider: ${routeLabel}`)
 
   return parts.join(' · ')

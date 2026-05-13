@@ -263,6 +263,9 @@ bun run profile:codex
 # openai bootstrap with explicit key
 bun run profile:init -- --provider openai --api-key sk-...
 
+# cerebras bootstrap with explicit key (auto-discovers models in /model)
+bun run profile:init -- --provider cerebras --api-key csk-...
+
 # gemini bootstrap with explicit key
 bun run profile:init -- --provider gemini --api-key ...
 
@@ -286,6 +289,9 @@ bun run dev:codex
 
 # OpenAI profile (uses the saved OpenAI profile, or OPENAI_API_KEY from your shell)
 bun run dev:openai
+
+# Cerebras profile (uses the saved Cerebras profile, or CEREBRAS_API_KEY from your shell)
+bun run dev:cerebras
 
 # Gemini profile (uses the saved Gemini profile, or GEMINI_API_KEY / GOOGLE_API_KEY from your shell)
 bun run dev:gemini

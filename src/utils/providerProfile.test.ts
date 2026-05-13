@@ -9,6 +9,7 @@ import {
   applySavedProfileToCurrentSession,
   buildStartupEnvFromProfile,
   buildAtomicChatProfileEnv,
+  buildCerebrasProfileEnv,
   buildCodexProfileEnv,
   buildGeminiProfileEnv,
   buildLaunchEnv,
@@ -1290,6 +1291,38 @@ test('openai profiles normalize multi-model profile values to the primary model'
     OPENAI_MODEL: 'deepseek-v4-flash',
     OPENAI_API_KEY: 'sk-live',
   })
+})
+
+test('cerebras profiles map the Cerebras key into OpenAI-compatible env', () => {
+  const env = buildCerebrasProfileEnv({
+    apiKey: 'csk-test',
+    processEnv: {},
+  })
+
+  assert.equal(env?.OPENAI_BASE_URL, 'https://api.cerebras.ai/v1')
+  assert.equal(env?.OPENAI_MODEL, 'gpt-oss-120b')
+  assert.equal(env?.OPENAI_API_KEY, 'csk-test')
+  assert.equal(env?.CEREBRAS_API_KEY, 'csk-test')
+})
+
+test('cerebras launch reuses persisted Cerebras profile env', async () => {
+  const env = await buildLaunchEnv({
+    profile: 'cerebras',
+    persisted: profile('cerebras', {
+      OPENAI_BASE_URL: 'https://api.cerebras.ai/v1',
+      OPENAI_MODEL: 'zai-glm-4.7',
+      OPENAI_API_KEY: 'persisted-cerebras',
+      CEREBRAS_API_KEY: 'persisted-cerebras',
+    }),
+    goal: 'balanced',
+    processEnv: {},
+  })
+
+  assert.equal(env.CLAUDE_CODE_USE_OPENAI, '1')
+  assert.equal(env.OPENAI_BASE_URL, 'https://api.cerebras.ai/v1')
+  assert.equal(env.OPENAI_MODEL, 'zai-glm-4.7')
+  assert.equal(env.OPENAI_API_KEY, 'persisted-cerebras')
+  assert.equal(env.CEREBRAS_API_KEY, 'persisted-cerebras')
 })
 
 test('startup env ignores poisoned persisted openai model and base url', async () => {

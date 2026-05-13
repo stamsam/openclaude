@@ -9,6 +9,7 @@ import {
 } from '../src/utils/providerRecommendation.ts'
 import {
   buildAtomicChatProfileEnv,
+  buildCerebrasProfileEnv,
   buildCodexProfileEnv,
   buildGeminiProfileEnv,
   buildMistralProfileEnv,
@@ -43,7 +44,7 @@ function parseArg(name: string): string | null {
 
 function parseProviderArg(): ProviderProfile | 'auto' {
   const p = parseArg('--provider')?.toLowerCase()
-  if (p === 'openai' || p === 'ollama' || p === 'omlx' || p === 'omlx-anthropic' || p === 'codex' || p === 'gemini' || p === 'mistral' || p === 'atomic-chat') return p
+  if (p === 'openai' || p === 'ollama' || p === 'omlx' || p === 'omlx-anthropic' || p === 'codex' || p === 'cerebras' || p === 'gemini' || p === 'mistral' || p === 'atomic-chat') return p
   return 'auto'
 }
 
@@ -190,6 +191,21 @@ async function main(): Promise<void> {
       baseUrl: argBaseUrl,
       getAtomicChatChatBaseUrl,
     })
+  } else if (selected === 'cerebras') {
+    const builtEnv = buildCerebrasProfileEnv({
+      model: argModel || null,
+      baseUrl: argBaseUrl || null,
+      apiKey: argApiKey || process.env.CEREBRAS_API_KEY || null,
+      processEnv: process.env,
+    })
+
+    if (!builtEnv) {
+      console.error('Cerebras profile requires an API key. Use --api-key or set CEREBRAS_API_KEY.')
+      console.error('Get a key at: https://cloud.cerebras.ai/platform/')
+      process.exit(1)
+    }
+
+    env = builtEnv
   } else if (selected === 'codex') {
     const builtEnv = buildCodexProfileEnv({
       model: argModel,

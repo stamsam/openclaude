@@ -47,6 +47,8 @@ export const DEFAULT_GEMINI_BASE_URL =
 export const DEFAULT_GEMINI_MODEL = 'gemini-3-flash-preview'
 export const DEFAULT_MISTRAL_BASE_URL = 'https://api.mistral.ai/v1'
 export const DEFAULT_MISTRAL_MODEL = 'devstral-latest'
+export const DEFAULT_CEREBRAS_BASE_URL = 'https://api.cerebras.ai/v1'
+export const DEFAULT_CEREBRAS_MODEL = 'gpt-oss-120b'
 
 const PROFILE_ENV_KEYS = [
   'CLAUDE_CODE_USE_OPENAI',
@@ -73,6 +75,7 @@ const PROFILE_ENV_KEYS = [
   'OPENAI_AUTH_HEADER_VALUE',
   'OPENAI_API_KEY',
   'OMLX_API_KEY',
+  'CEREBRAS_API_KEY',
   'CODEX_API_KEY',
   'CODEX_CREDENTIAL_SOURCE',
   'CHATGPT_ACCOUNT_ID',
@@ -112,6 +115,7 @@ const SECRET_ENV_KEYS = [
   'OPENAI_AUTH_HEADER_VALUE',
   'ANTHROPIC_API_KEY',
   'OMLX_API_KEY',
+  'CEREBRAS_API_KEY',
   'CODEX_API_KEY',
   'GEMINI_API_KEY',
   'GOOGLE_API_KEY',
@@ -129,6 +133,7 @@ export type ProviderProfile =
   | 'omlx'
   | 'omlx-anthropic'
   | 'codex'
+  | 'cerebras'
   | 'gemini'
   | 'atomic-chat'
   | 'nvidia-nim'
@@ -157,6 +162,7 @@ export type ProfileEnv = {
   OPENAI_AUTH_HEADER_VALUE?: string
   OPENAI_API_KEY?: string
   OMLX_API_KEY?: string
+  CEREBRAS_API_KEY?: string
   CODEX_API_KEY?: string
   CODEX_CREDENTIAL_SOURCE?: 'oauth' | 'existing'
   CHATGPT_ACCOUNT_ID?: string
@@ -193,6 +199,7 @@ type SecretValueSource = Partial<
     | 'OPENAI_AUTH_HEADER_VALUE'
     | 'ANTHROPIC_API_KEY'
     | 'OMLX_API_KEY'
+    | 'CEREBRAS_API_KEY'
     | 'CODEX_API_KEY'
     | 'GEMINI_API_KEY'
     | 'GOOGLE_API_KEY'
@@ -308,6 +315,7 @@ export function isProviderProfile(value: unknown): value is ProviderProfile {
     value === 'omlx' ||
     value === 'omlx-anthropic' ||
     value === 'codex' ||
+    value === 'cerebras' ||
     value === 'gemini' ||
     value === 'atomic-chat' ||
     value === 'nvidia-nim' ||
@@ -626,6 +634,43 @@ export function buildOpenAIProfileEnv(options: {
     ...(options.authScheme ? { OPENAI_AUTH_SCHEME: options.authScheme } : {}),
     ...(authHeaderValue ? { OPENAI_AUTH_HEADER_VALUE: authHeaderValue } : {}),
     ...(key ? { OPENAI_API_KEY: key } : {}),
+  }
+}
+
+export function buildCerebrasProfileEnv(options: {
+  model?: string | null
+  baseUrl?: string | null
+  apiKey?: string | null
+  processEnv?: NodeJS.ProcessEnv
+}): ProfileEnv | null {
+  const processEnv = options.processEnv ?? process.env
+  const key = sanitizeApiKey(
+    options.apiKey ?? processEnv.CEREBRAS_API_KEY ?? processEnv.OPENAI_API_KEY,
+  )
+  if (!key) {
+    return null
+  }
+
+  const secretSource: SecretValueSource = {
+    OPENAI_API_KEY: key,
+    CEREBRAS_API_KEY: key,
+  }
+
+  return {
+    OPENAI_BASE_URL:
+      sanitizeProviderConfigValue(options.baseUrl, secretSource) ||
+      sanitizeProviderConfigValue(processEnv.OPENAI_BASE_URL, secretSource) ||
+      DEFAULT_CEREBRAS_BASE_URL,
+    OPENAI_MODEL:
+      normalizeProfileModel(
+        sanitizeProviderConfigValue(options.model, secretSource),
+      ) ||
+      normalizeProfileModel(
+        sanitizeProviderConfigValue(processEnv.OPENAI_MODEL, secretSource),
+      ) ||
+      DEFAULT_CEREBRAS_MODEL,
+    OPENAI_API_KEY: key,
+    CEREBRAS_API_KEY: key,
   }
 }
 
@@ -1231,6 +1276,34 @@ export async function buildLaunchEnv(options: {
       apiKey: xaiKey,
       processEnv,
     })
+    const customHeaders = shellCustomHeaders || persistedCustomHeaders
+    if (customHeaders) {
+      env.ANTHROPIC_CUSTOM_HEADERS = customHeaders
+    }
+
+    return buildCompatibilityProcessEnv({
+      processEnv,
+      compatibilityMode: 'openai',
+      profileEnv: env,
+    })
+  }
+
+  if (options.profile === 'cerebras') {
+    const cerebrasKey =
+      sanitizeApiKey(processEnv.CEREBRAS_API_KEY) ||
+      sanitizeApiKey(persistedEnv.CEREBRAS_API_KEY) ||
+      sanitizeApiKey(processEnv.OPENAI_API_KEY) ||
+      sanitizeApiKey(persistedEnv.OPENAI_API_KEY)
+
+    const env = buildCerebrasProfileEnv({
+      model: shellOpenAIModel || persistedOpenAIModel,
+      baseUrl: shellOpenAIBaseUrl || persistedOpenAIBaseUrl,
+      apiKey: cerebrasKey,
+      processEnv,
+    }) ?? {
+      OPENAI_BASE_URL: DEFAULT_CEREBRAS_BASE_URL,
+      OPENAI_MODEL: DEFAULT_CEREBRAS_MODEL,
+    }
     const customHeaders = shellCustomHeaders || persistedCustomHeaders
     if (customHeaders) {
       env.ANTHROPIC_CUSTOM_HEADERS = customHeaders

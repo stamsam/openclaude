@@ -30,6 +30,7 @@
     "dev:profile": "bun run scripts/provider-launch.ts",
     "dev:profile:fast": "bun run scripts/provider-launch.ts auto --fast --bare",
     "dev:codex": "bun run scripts/provider-launch.ts codex",
+    "dev:cerebras": "bun run scripts/provider-launch.ts cerebras",
     "dev:openai": "bun run scripts/provider-launch.ts openai",
     "dev:gemini": "bun run scripts/provider-launch.ts gemini",
     "dev:ollama": "bun run scripts/provider-launch.ts ollama",

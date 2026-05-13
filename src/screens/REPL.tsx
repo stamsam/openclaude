@@ -582,6 +582,35 @@ export type Props = {
   thinkingConfig: ThinkingConfig;
 };
 export type Screen = 'prompt' | 'transcript';
+
+function LocalAgentViewHeader({
+  task,
+  hasMessages,
+}: {
+  task: LocalAgentTaskState
+  hasMessages: boolean
+}): React.ReactNode {
+  const label = task.selectedAgent?.agentType ?? task.agentType
+  const status = task.status === 'running' ? 'running' : task.status
+  return (
+    <Box flexDirection="column" marginBottom={1}>
+      <Box>
+        <Text>Viewing </Text>
+        <Text color="remember" bold>
+          @{label}
+        </Text>
+        <Text dimColor> · {status} · esc return</Text>
+      </Box>
+      <Text dimColor wrap="truncate-end">{task.prompt}</Text>
+      {!hasMessages ? (
+        <Text dimColor>
+          {task.diskLoaded ? 'No transcript yet.' : 'Loading agent transcript…'}
+        </Text>
+      ) : null}
+    </Box>
+  )
+}
+
 export function REPL({
   commands: initialCommands,
   debug,
@@ -4692,7 +4721,14 @@ export function REPL({
         setCursor(null);
         jumpToNew(scrollRef.current);
       }} takeover={agentViewNode} scrollable={<>
-        <TeammateViewHeader />
+        {viewedAgentTask && !viewedTeammateTask ? (
+          <LocalAgentViewHeader
+            task={viewedAgentTask}
+            hasMessages={displayedMessages.length > 0}
+          />
+        ) : (
+          <TeammateViewHeader />
+        )}
         <Messages messages={displayedMessages} tools={tools} commands={renderCommands} verbose={verbose} toolJSX={toolJSX} toolUseConfirmQueue={toolUseConfirmQueue} inProgressToolUseIDs={viewedTeammateTask ? viewedTeammateTask.inProgressToolUseIDs ?? new Set() : inProgressToolUseIDs} isMessageSelectorVisible={isMessageSelectorVisible} conversationId={conversationId} screen={screen} streamingToolUses={streamingToolUses} showAllInTranscript={showAllInTranscript} agentDefinitions={agentDefinitions} onOpenRateLimitOptions={handleOpenRateLimitOptions} isLoading={isLoading} streamingText={isLoading && !viewedAgentTask ? visibleStreamingText : null} isBriefOnly={viewedAgentTask ? false : isBriefOnly} unseenDivider={viewedAgentTask ? undefined : unseenDivider} scrollRef={isFullscreenEnvEnabled() ? scrollRef : undefined} trackStickyPrompt={isFullscreenEnvEnabled() ? true : undefined} cursor={cursor} setCursor={setCursor} cursorNavRef={cursorNavRef} />
         <AwsAuthStatusBox />
         {/* Hide the processing placeholder while a modal is showing —

@@ -15,6 +15,7 @@ import {
   createProfileFile,
   saveProfileFile,
   buildBedrockProfileEnv,
+  buildCerebrasProfileEnv,
   buildGeminiProfileEnv,
   buildGithubProfileEnv,
   buildMiniMaxProfileEnv,
@@ -522,6 +523,10 @@ function isProcessEnvAlignedWithProfile(
     (profile.baseUrl?.toLowerCase().includes('x.ai')
       ? !includeApiKey ||
         sameOptionalEnvValue(processEnv.XAI_API_KEY, profile.apiKey)
+      : true) &&
+    (profile.baseUrl?.toLowerCase().includes('cerebras.ai')
+      ? !includeApiKey ||
+        sameOptionalEnvValue(processEnv.CEREBRAS_API_KEY, profile.apiKey)
       : true)
   )
 }
@@ -628,6 +633,9 @@ export function applyProviderProfileToProcessEnv(profile: ProviderProfile): void
 
     if (profile.apiKey) {
       openAIProfileEnv.OPENAI_API_KEY = profile.apiKey
+      if (route.gatewayId === 'cerebras' || profile.baseUrl.toLowerCase().includes('cerebras.ai')) {
+        openAIProfileEnv.CEREBRAS_API_KEY = profile.apiKey
+      }
       if (route.routeId === 'omlx' || profile.provider === 'omlx') {
         openAIProfileEnv.OMLX_API_KEY = profile.apiKey
       }
@@ -905,17 +913,24 @@ function buildOpenAICompatibleStartupEnv(
   }
 
   if (activeProfile.apiKey) {
-    const strictEnv = buildOpenAIProfileEnv({
-      goal: 'balanced',
-      model: activeProfile.model,
-      baseUrl: activeProfile.baseUrl,
-      apiKey: activeProfile.apiKey,
-      apiFormat: activeProfile.apiFormat,
-      authHeader: activeProfile.authHeader,
-      authScheme: activeProfile.authScheme,
-      authHeaderValue: activeProfile.authHeaderValue,
-      processEnv: {},
-    })
+    const strictEnv = activeProfile.provider === 'cerebras'
+      ? buildCerebrasProfileEnv({
+          model: activeProfile.model,
+          baseUrl: activeProfile.baseUrl,
+          apiKey: activeProfile.apiKey,
+          processEnv: {},
+        })
+      : buildOpenAIProfileEnv({
+          goal: 'balanced',
+          model: activeProfile.model,
+          baseUrl: activeProfile.baseUrl,
+          apiKey: activeProfile.apiKey,
+          apiFormat: activeProfile.apiFormat,
+          authHeader: activeProfile.authHeader,
+          authScheme: activeProfile.authScheme,
+          authHeaderValue: activeProfile.authHeaderValue,
+          processEnv: {},
+        })
     if (strictEnv) {
       return applySupportedProfileCustomHeaders(activeProfile, strictEnv)
     }
