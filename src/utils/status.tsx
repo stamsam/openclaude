@@ -202,6 +202,7 @@ export function buildMcpProperties(clients: MCPServerConnection[] = [], theme: T
 }
 
 function formatOnOff(value: boolean | undefined): string {
+  if (value === undefined) return 'default';
   return value ? 'on' : 'off';
 }
 
@@ -246,7 +247,7 @@ export function buildLocalRuntimeProperties(): Property[] {
   if (omlx.cache) {
     const cacheParts = [
       formatOnOff(omlx.cache.enabled),
-      `ssd ${omlx.cache.ssdCacheMaxSize ?? 'default'}`,
+      `ssd ${omlx.cache.ssdCacheUsed ?? 'unknown'} / ${omlx.cache.ssdCacheMaxSize ?? 'default'}`,
       `hot ${omlx.cache.hotCacheMaxSize ?? 'default'}`,
       `blocks ${omlx.cache.initialCacheBlocks ?? 'default'}`
     ];

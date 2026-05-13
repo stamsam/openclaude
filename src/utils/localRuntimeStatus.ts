@@ -1,4 +1,4 @@
-import { readFileSync, statSync } from 'fs'
+import { readdirSync, readFileSync, statSync } from 'fs'
 import { homedir } from 'os'
 import { join } from 'path'
 
@@ -13,8 +13,9 @@ export type ProcessMemoryStatus = {
 }
 
 export type OmlxCacheStatus = {
-  enabled: boolean
+  enabled?: boolean
   ssdCacheDir?: string
+  ssdCacheUsed?: string
   ssdCacheMaxSize?: string
   hotCacheMaxSize?: string
   initialCacheBlocks?: number
@@ -87,7 +88,12 @@ function stringValue(value: unknown): string | undefined {
 }
 
 function numberValue(value: unknown): number | undefined {
-  return typeof value === 'number' && Number.isFinite(value) ? value : undefined
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value.trim())
+    return Number.isFinite(parsed) ? parsed : undefined
+  }
+  return undefined
 }
 
 function booleanValue(value: unknown): boolean | undefined {
@@ -99,6 +105,25 @@ function buildEndpoint(settings?: OmlxSettingsPayload): string | undefined {
   const port = numberValue(settings?.server?.port)
   if (!host || !port) return undefined
   return `http://${host}:${port}/v1`
+}
+
+function directorySize(path: string): number | undefined {
+  try {
+    const info = statSync(path)
+    if (!info.isDirectory()) return info.size
+    let total = 0
+    for (const entry of readdirSync(path, { withFileTypes: true })) {
+      const childPath = join(path, entry.name)
+      if (entry.isDirectory()) {
+        total += directorySize(childPath) ?? 0
+      } else if (entry.isFile()) {
+        total += statSync(childPath).size
+      }
+    }
+    return total
+  } catch {
+    return undefined
+  }
 }
 
 export function buildProcessMemoryStatus(): ProcessMemoryStatus {
@@ -187,13 +212,21 @@ export function getLocalRuntimeStatus(
     active: Boolean(activeBaseUrl),
     apiKeyConfigured: Boolean(getOmlxApiKey(undefined, processEnv)),
     cache: settings?.cache
-      ? {
-          enabled: booleanValue(settings.cache.enabled) ?? false,
-          ssdCacheDir: stringValue(settings.cache.ssd_cache_dir),
-          ssdCacheMaxSize: stringValue(settings.cache.ssd_cache_max_size),
-          hotCacheMaxSize: stringValue(settings.cache.hot_cache_max_size),
-          initialCacheBlocks: numberValue(settings.cache.initial_cache_blocks),
-        }
+      ? (() => {
+          const ssdCacheDir = stringValue(settings.cache?.ssd_cache_dir)
+          const ssdCacheBytes = ssdCacheDir
+            ? directorySize(ssdCacheDir)
+            : undefined
+          return {
+            enabled: booleanValue(settings.cache.enabled),
+            ssdCacheDir,
+            ssdCacheUsed:
+              ssdCacheBytes !== undefined ? formatFileSize(ssdCacheBytes) : undefined,
+            ssdCacheMaxSize: stringValue(settings.cache.ssd_cache_max_size),
+            hotCacheMaxSize: stringValue(settings.cache.hot_cache_max_size),
+            initialCacheBlocks: numberValue(settings.cache.initial_cache_blocks),
+          }
+        })()
       : undefined,
     memory:
       settings?.memory || settings?.model || settings?.scheduler

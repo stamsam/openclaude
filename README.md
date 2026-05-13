@@ -22,7 +22,7 @@ Fork map: [`docs/fork-map.md`](docs/fork-map.md)
 
 - `/goal <objective>` now starts the continuation turn automatically. Use `/goal plan` only when you explicitly want plan mode, `/goal act` to force another autonomous step, and `/goal checkpoint` / `/goal restore` around risky edits.
 - oMLX model discovery reads the local oMLX settings/API key, ignores stale non-oMLX cache entries, and refreshes `/model` from the live local server. Selecting an oMLX model applies the provider route for the current process, and `/model` can auto-unload the previous local model after switching.
-- `/status` includes local runtime health for offline work: OpenClaude process memory, auto-unload state, oMLX endpoint/auth state, memory limits, cache settings, cache directory, and cached-token totals from oMLX stats.
+- `/status` includes local runtime health for offline work: OpenClaude process memory, auto-unload state, oMLX endpoint/auth state, memory limits, cache settings, cache disk usage, cache directory, and cached-token totals from oMLX stats.
 - `/model` marks likely multimodal entries as `Vision`, and image paste warns when a local text-only model is selected.
 - `/learn` stores durable reusable lessons and `/learn run` applies pending learning work.
 - Telegram session control keeps runtime pause/resume/model state in sync, reconnects after transient polling/focus interruptions, and keeps phone commands matched to the active CLI session.
