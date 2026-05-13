@@ -13,7 +13,7 @@ import { getSettings_DEPRECATED } from '../utils/settings/settings.js'
 import { parseUserSpecifiedModel } from '../utils/model/model.js'
 import { DEFAULT_GEMINI_MODEL } from '../utils/providerProfile.js'
 import { getGlobalConfig } from '../utils/config.js'
-import { ANSI_DIM, ANSI_RESET, ansiBgRgb, ansiRgb } from '../utils/terminalAnsi.js'
+import { ANSI_RESET, ansiBgRgb, ansiRgb } from '../utils/terminalAnsi.js'
 import {
   resolveLogoPalette,
   type RGB,
@@ -29,7 +29,6 @@ import {
 declare const MACRO: { VERSION: string; DISPLAY_VERSION?: string }
 
 const RESET = ANSI_RESET
-const DIM = ANSI_DIM
 const BOLD = '\x1b[1m'
 
 function lerp(a: RGB, b: RGB, t: number): RGB {
@@ -185,10 +184,12 @@ export function printStartupScreen(modelOverride?: string): void {
 
   const palette = resolveLogoPalette(getGlobalConfig().logoColor)
   const ACCENT = palette.accent
-  const DIMCOL = palette.dim
-
   const p = detectProvider(modelOverride)
   const out: string[] = []
+
+  if (process.env.OPENCLAUDE_NO_STARTUP_CLEAR !== '1') {
+    process.stdout.write('\x1b[2J\x1b[3J\x1b[H')
+  }
 
   out.push('')
   const version = MACRO.DISPLAY_VERSION ?? MACRO.VERSION
@@ -211,18 +212,18 @@ export function printStartupScreen(modelOverride?: string): void {
           .join('')
       : `${ansiRgb(...mascotColor)}${mascotLines[i]}${RESET}`
     if (i === 0) {
-      out.push(`${left}  ${BOLD}OpenClaude${RESET} ${DIM}${ansiRgb(...DIMCOL)}v${version}${RESET}`)
+      out.push(`${left}  ${BOLD}OpenClaude${RESET} v${version}`)
     } else if (i === 1) {
-      out.push(`${left}  ${DIM}${ansiRgb(...DIMCOL)}${modelLine}${RESET}`)
+      out.push(`${left}  ${modelLine}`)
     } else if (i === 2) {
-      out.push(`${left}  ${DIM}${ansiRgb(...DIMCOL)}${cwd}${RESET}`)
+      out.push(`${left}  ${cwd}`)
     } else {
       out.push(left)
     }
   }
   out.push(``)
   const statusColor: RGB = p.isLocal ? [130, 175, 130] : ACCENT
-  out.push(`  ${ansiRgb(...statusColor)}●${RESET} ${DIM}${ansiRgb(...DIMCOL)}${p.isLocal ? 'local' : 'cloud'} · Ready — type ${RESET}${ansiRgb(...ACCENT)}/help${RESET}${DIM}${ansiRgb(...DIMCOL)} to begin${RESET}`)
+  out.push(`  ${ansiRgb(...statusColor)}●${RESET} ${p.isLocal ? 'local' : 'cloud'} · Ready — type ${ansiRgb(...ACCENT)}/help${RESET} to begin`)
   out.push('')
 
   process.stdout.write(out.join('\n') + '\n')

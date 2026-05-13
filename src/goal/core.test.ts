@@ -19,6 +19,10 @@ import {
   parseGoalPlanSignal,
   resetGoalMemoryCache,
   updateGoalAdvisoryPlanFromText,
+  beginGoalRuntimeSession,
+  endGoalRuntimeSession,
+  getGoalElapsedSeconds,
+  heartbeatGoalRuntimeSession,
 } from './core.js'
 import { getGoalPaths } from './paths.js'
 import {
@@ -210,6 +214,29 @@ describe('goal system', () => {
     const goal = await loadGoal()
     expect(goal!.tokens_used).toBe(1500)
     expect(goal!.time_used_seconds).toBeGreaterThanOrEqual(0)
+  })
+
+  test('goal runtime only counts active OpenClaude sessions', async () => {
+    const originalNow = Date.now
+    let now = new Date('2026-05-13T12:00:00.000Z').getTime()
+    Date.now = () => now
+    try {
+      await setGoal('Track active runtime only')
+      now += 5_000
+      await heartbeatGoalRuntimeSession()
+      let goal = await loadGoal()
+      expect(goal!.time_used_seconds).toBe(5)
+      expect(getGoalElapsedSeconds(goal!)).toBe(5)
+
+      await endGoalRuntimeSession()
+      now += 3_600_000
+      await beginGoalRuntimeSession()
+      goal = await loadGoal()
+      expect(goal!.time_used_seconds).toBe(5)
+      expect(getGoalElapsedSeconds(goal!)).toBe(5)
+    } finally {
+      Date.now = originalNow
+    }
   })
 
   test('accountGoalTokens transitions to budget_limited when budget exceeded', async () => {

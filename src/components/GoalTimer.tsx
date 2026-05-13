@@ -1,6 +1,11 @@
 import { useEffect, useState, useRef } from 'react'
 import { Text, Box } from '../ink.js'
-import { loadGoal } from './goalCore.js'
+import {
+  beginGoalRuntimeSession,
+  endGoalRuntimeSession,
+  getGoalElapsedSeconds,
+  heartbeatGoalRuntimeSession,
+} from './goalCore.js'
 
 export function GoalTimer() {
   const [display, setDisplay] = useState<string | null>(null)
@@ -12,16 +17,16 @@ export function GoalTimer() {
     const tick = async () => {
       if (!mounted) return
       try {
-        const goal = await loadGoal()
+        const goal = await heartbeatGoalRuntimeSession()
         if (!mounted) return
         if (!goal || goal.status !== 'active') {
           setDisplay(null)
           return
         }
-        const elapsed = Date.now() - new Date(goal.start_time).getTime()
-        const h = Math.floor(elapsed / 3600000)
-        const m = Math.floor((elapsed % 3600000) / 60000)
-        const s = Math.floor((elapsed % 60000) / 1000)
+        const elapsed = getGoalElapsedSeconds(goal)
+        const h = Math.floor(elapsed / 3600)
+        const m = Math.floor((elapsed % 3600) / 60)
+        const s = Math.floor(elapsed % 60)
         const timeStr =
           h > 0 ? `${h}h ${m}m ${s}s` : m > 0 ? `${m}m ${s}s` : `${s}s`
         const tokens = goal.tokens_used
@@ -33,12 +38,13 @@ export function GoalTimer() {
       }
     }
 
-    tick()
+    void beginGoalRuntimeSession().then(() => tick())
     intervalRef.current = setInterval(tick, 1000)
 
     return () => {
       mounted = false
       if (intervalRef.current) clearInterval(intervalRef.current)
+      void endGoalRuntimeSession()
     }
   }, [])
 

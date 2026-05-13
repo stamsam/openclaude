@@ -11,11 +11,40 @@ export function resetGoalMemoryCache(): void {
 }
 
 function nowIso(): string {
-  return new Date().toISOString()
+  return new Date(Date.now()).toISOString()
 }
 
 function nowSeconds(): number {
   return Math.floor(Date.now() / 1000)
+}
+
+function secondsFromIso(value: string | undefined): number | null {
+  if (!value) return null
+  const time = new Date(value).getTime()
+  if (!Number.isFinite(time)) return null
+  return Math.floor(time / 1000)
+}
+
+function settleRuntimeTime(goal: GoalState, now = nowSeconds()): GoalState {
+  const activeStarted = secondsFromIso(goal.active_session_started_at)
+  if (goal.status !== 'active' || activeStarted === null) {
+    return goal
+  }
+  const delta = Math.max(0, now - activeStarted)
+  goal.time_used_seconds = Math.max(0, goal.time_used_seconds + delta)
+  goal.active_session_started_at = new Date(now * 1000).toISOString()
+  return goal
+}
+
+export function getGoalElapsedSeconds(goal: GoalState): number {
+  if (goal.status !== 'active') {
+    return goal.time_used_seconds
+  }
+  const activeStarted = secondsFromIso(goal.active_session_started_at)
+  if (activeStarted === null) {
+    return goal.time_used_seconds
+  }
+  return Math.max(0, goal.time_used_seconds + nowSeconds() - activeStarted)
 }
 
 export function isGoalFeatureEnabled(): boolean {
@@ -133,6 +162,7 @@ export async function setGoal(
     token_budget: tokenBudget && tokenBudget > 0 ? tokenBudget : undefined,
     tokens_used: 0,
     time_used_seconds: 0,
+    active_session_started_at: nowIso(),
   }
   await ensureGoalStorage()
   await saveGoal(goal)
@@ -160,7 +190,9 @@ export async function clearGoal(): Promise<void> {
 export async function pauseGoal(): Promise<GoalState | null> {
   const goal = await loadGoal()
   if (!goal || goal.status !== 'active') return goal
+  settleRuntimeTime(goal)
   goal.status = 'paused'
+  goal.active_session_started_at = undefined
   goal.last_updated = nowIso()
   await saveGoal(goal)
   emitOpenClaudeEvent({
@@ -175,6 +207,7 @@ export async function resumeGoal(): Promise<GoalState | null> {
   const goal = await loadGoal()
   if (!goal || goal.status !== 'paused') return goal
   goal.status = 'active'
+  goal.active_session_started_at = nowIso()
   goal.last_updated = nowIso()
   await saveGoal(goal)
   emitOpenClaudeEvent({
@@ -188,12 +221,10 @@ export async function resumeGoal(): Promise<GoalState | null> {
 export async function completeGoal(reason = ''): Promise<GoalState | null> {
   const goal = await loadGoal()
   if (!goal || goal.status !== 'active') return goal
+  settleRuntimeTime(goal)
   goal.status = 'complete'
   goal.last_updated = nowIso()
-  goal.time_used_seconds = Math.max(
-    0,
-    nowSeconds() - Math.floor(new Date(goal.start_time).getTime() / 1000),
-  )
+  goal.active_session_started_at = undefined
   goal.progress_log += `\n[completed at ${nowIso()}${reason ? `: ${reason}` : ''}]`
   await saveGoal(goal)
   emitOpenClaudeEvent({
@@ -231,11 +262,8 @@ export async function recordGoalCheckpoint(
 export async function accountGoalTokens(tokens: number): Promise<void> {
   const goal = await loadGoal()
   if (!goal || goal.status !== 'active') return
+  settleRuntimeTime(goal)
   goal.tokens_used += tokens
-  goal.time_used_seconds = Math.max(
-    0,
-    nowSeconds() - Math.floor(new Date(goal.start_time).getTime() / 1000),
-  )
   goal.last_updated = nowIso()
   if (goal.token_budget && goal.tokens_used >= goal.token_budget) {
     goal.status = 'budget_limited'
@@ -250,13 +278,38 @@ export async function accountGoalTokens(tokens: number): Promise<void> {
   })
 }
 
+export async function beginGoalRuntimeSession(): Promise<GoalState | null> {
+  const goal = await loadGoal()
+  if (!goal || goal.status !== 'active') return goal
+  goal.active_session_started_at = nowIso()
+  await saveGoal(goal)
+  return goal
+}
+
+export async function heartbeatGoalRuntimeSession(): Promise<GoalState | null> {
+  const goal = await loadGoal()
+  if (!goal || goal.status !== 'active') return goal
+  settleRuntimeTime(goal)
+  await saveGoal(goal)
+  return goal
+}
+
+export async function endGoalRuntimeSession(): Promise<GoalState | null> {
+  const goal = await loadGoal()
+  if (!goal || goal.status !== 'active') return goal
+  settleRuntimeTime(goal)
+  goal.active_session_started_at = undefined
+  await saveGoal(goal)
+  return goal
+}
+
 export async function goalStatus(): Promise<string> {
   const goal = await loadGoal()
   if (!goal) return 'No active goal.'
-  const elapsed = Date.now() - new Date(goal.start_time).getTime()
-  const h = Math.floor(elapsed / 3600000)
-  const m = Math.floor((elapsed % 3600000) / 60000)
-  const s = Math.floor((elapsed % 60000) / 1000)
+  const elapsed = getGoalElapsedSeconds(goal)
+  const h = Math.floor(elapsed / 3600)
+  const m = Math.floor((elapsed % 3600) / 60)
+  const s = Math.floor(elapsed % 60)
   const elapsedStr =
     h > 0 ? `${h}h ${m}m ${s}s` : m > 0 ? `${m}m ${s}s` : `${s}s`
   const icon =
