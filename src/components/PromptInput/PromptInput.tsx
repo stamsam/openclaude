@@ -2175,24 +2175,24 @@ function PromptInput({
         ? agentViewAttachId
           ? <AgentAttachPanel
               id={agentViewAttachId}
-              fullscreen={isFullscreenEnvEnabled()}
+              fullscreen={true}
               onBack={() => setAgentViewAttachId(null)}
             />
           : <AgentViewDashboard
               cwd={getCwd()}
               model={mainLoopModel}
               permissionMode={toolPermissionContext.mode}
-              fullscreen={isFullscreenEnvEnabled()}
+              fullscreen={true}
               onAttach={id => setAgentViewAttachId(id)}
               onExit={() => setShowAgentView(false)}
             />
         : null,
     [showAgentView, agentViewAttachId, mainLoopModel, toolPermissionContext.mode],
   );
-  const fullscreenOverlayDialog = isFullscreenEnvEnabled() ? agentViewNode ?? autoModeOptInDialog : null;
-  useSetPromptOverlayDialog(fullscreenOverlayDialog, agentViewNode ? 'takeover' : 'float');
+  const overlayDialog = agentViewNode ?? (isFullscreenEnvEnabled() ? autoModeOptInDialog : null);
+  useSetPromptOverlayDialog(overlayDialog, agentViewNode ? 'takeover' : 'float');
   if (showAgentView) {
-    return isFullscreenEnvEnabled() ? null : agentViewNode;
+    return null;
   }
   if (showBashesDialog) {
     return <BackgroundTasksDialog onDone={() => setShowBashesDialog(false)} toolUseContext={getToolUseContext(messages, [], new AbortController(), mainLoopModel)} initialDetailTaskId={typeof showBashesDialog === 'string' ? showBashesDialog : undefined} />;

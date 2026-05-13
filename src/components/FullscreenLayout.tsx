@@ -269,7 +269,7 @@ export function computeUnseenDivider(messages: readonly Message[], dividerIndex:
  * so nothing can accidentally render outside it.
  */
 export function FullscreenLayout(t0) {
-  const $ = _c(50);
+  const $ = _c(54);
   const {
     scrollable,
     bottom,
@@ -454,17 +454,33 @@ export function FullscreenLayout(t0) {
     return t20;
   }
   let t8;
-  if ($[44] !== bottom || $[45] !== modal || $[46] !== overlay || $[47] !== scrollable) {
-    t8 = <>{scrollable}{bottom}{overlay}{modal}</>;
-    $[44] = bottom;
-    $[45] = modal;
-    $[46] = overlay;
-    $[47] = scrollable;
-    $[48] = t8;
+  let t21;
+  if ($[44] === Symbol.for("react.memo_cache_sentinel")) {
+    t21 = <OpenClaudeHeader />;
+    $[44] = t21;
   } else {
-    t8 = $[48];
+    t21 = $[44];
   }
-  return t8;
+  if ($[45] !== bottom || $[46] !== modal || $[47] !== overlay || $[48] !== scrollable || $[49] !== t21) {
+    t8 = <>{t21}{scrollable}{bottom}{overlay}{modal}</>;
+    $[45] = bottom;
+    $[46] = modal;
+    $[47] = overlay;
+    $[48] = scrollable;
+    $[49] = t21;
+    $[50] = t8;
+  } else {
+    t8 = $[50];
+  }
+  let t22;
+  if ($[51] !== t8) {
+    t22 = <PromptOverlayProvider><FullscreenOverlayFrame main={t8} bottom={null} modal={null} /></PromptOverlayProvider>;
+    $[51] = t8;
+    $[52] = t22;
+  } else {
+    t22 = $[52];
+  }
+  return t22;
 }
 
 function FullscreenOverlayFrame({
