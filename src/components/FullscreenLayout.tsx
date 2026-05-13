@@ -494,7 +494,10 @@ function FullscreenOverlayFrame({
 }) {
   const dialog = usePromptOverlayDialog();
   if (dialog?.mode === 'takeover') {
-    return <Box flexGrow={1} flexDirection="column" overflow="hidden">{dialog.node}</Box>;
+    return <>
+        <Box height={0} overflow="hidden">{main}{bottom}{modal}</Box>
+        <Box flexGrow={1} flexDirection="column" overflow="hidden">{dialog.node}</Box>
+      </>;
   }
   return <>{main}{bottom}{modal}</>;
 }
