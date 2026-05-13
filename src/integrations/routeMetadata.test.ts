@@ -42,6 +42,9 @@ test('getRouteCredentialEnvVars keeps descriptor env vars and openai fallback fo
     'HICAP_API_KEY',
     'OPENAI_API_KEY',
   ])
+  expect(getRouteCredentialEnvVars('cerebras')).toEqual([
+    'CEREBRAS_API_KEY',
+  ])
   expect(getRouteCredentialEnvVars('custom')).toEqual(['OPENAI_API_KEY'])
 })
 
@@ -56,6 +59,17 @@ test('getRouteCredentialValue reads the first configured route credential', () =
       OPENAI_API_KEY: 'sk-openai-fallback',
     }),
   ).toBe('sk-openai-fallback')
+  expect(
+    getRouteCredentialValue('cerebras', {
+      OPENAI_API_KEY: 'sk-openai-only',
+    }),
+  ).toBeUndefined()
+  expect(
+    getRouteCredentialValue('cerebras', {
+      CEREBRAS_API_KEY: 'csk-cerebras',
+      OPENAI_API_KEY: 'sk-openai',
+    }),
+  ).toBe('csk-cerebras')
 })
 
 test('resolveRouteCredentialValue recognizes oMLX credentials on local routes', () => {

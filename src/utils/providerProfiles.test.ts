@@ -188,7 +188,7 @@ function buildCerebrasProfile(overrides: Partial<ProviderProfile> = {}): Provide
   return buildProfile({
     provider: 'cerebras',
     baseUrl: 'https://api.cerebras.ai/v1',
-    model: 'gpt-oss-120b',
+    model: 'qwen-3-235b-a22b-instruct-2507',
     apiKey: 'cerebras-test-key',
     ...overrides,
   })
@@ -675,7 +675,7 @@ describe('applyProviderProfileToProcessEnv', () => {
 
     expect(process.env.CLAUDE_CODE_USE_OPENAI).toBe('1')
     expect(process.env.OPENAI_BASE_URL).toBe('https://api.cerebras.ai/v1')
-    expect(process.env.OPENAI_MODEL).toBe('gpt-oss-120b')
+    expect(process.env.OPENAI_MODEL).toBe('qwen-3-235b-a22b-instruct-2507')
     expect(process.env.OPENAI_API_KEY).toBe('cerebras-test-key')
     expect(process.env.CEREBRAS_API_KEY).toBe('cerebras-test-key')
     expect(getFreshAPIProvider()).toBe('openai')

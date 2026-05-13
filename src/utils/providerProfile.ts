@@ -48,7 +48,7 @@ export const DEFAULT_GEMINI_MODEL = 'gemini-3-flash-preview'
 export const DEFAULT_MISTRAL_BASE_URL = 'https://api.mistral.ai/v1'
 export const DEFAULT_MISTRAL_MODEL = 'devstral-latest'
 export const DEFAULT_CEREBRAS_BASE_URL = 'https://api.cerebras.ai/v1'
-export const DEFAULT_CEREBRAS_MODEL = 'gpt-oss-120b'
+export const DEFAULT_CEREBRAS_MODEL = 'qwen-3-235b-a22b-instruct-2507'
 
 const PROFILE_ENV_KEYS = [
   'CLAUDE_CODE_USE_OPENAI',
@@ -645,7 +645,7 @@ export function buildCerebrasProfileEnv(options: {
 }): ProfileEnv | null {
   const processEnv = options.processEnv ?? process.env
   const key = sanitizeApiKey(
-    options.apiKey ?? processEnv.CEREBRAS_API_KEY ?? processEnv.OPENAI_API_KEY,
+    options.apiKey ?? processEnv.CEREBRAS_API_KEY,
   )
   if (!key) {
     return null
@@ -1291,9 +1291,7 @@ export async function buildLaunchEnv(options: {
   if (options.profile === 'cerebras') {
     const cerebrasKey =
       sanitizeApiKey(processEnv.CEREBRAS_API_KEY) ||
-      sanitizeApiKey(persistedEnv.CEREBRAS_API_KEY) ||
-      sanitizeApiKey(processEnv.OPENAI_API_KEY) ||
-      sanitizeApiKey(persistedEnv.OPENAI_API_KEY)
+      sanitizeApiKey(persistedEnv.CEREBRAS_API_KEY)
 
     const env = buildCerebrasProfileEnv({
       model: shellOpenAIModel || persistedOpenAIModel,
