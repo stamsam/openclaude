@@ -1,0 +1,19 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "files": [
+    "src/telegram/runtimeState.ts",
+    "src/utils/localRuntimeStatus.ts",
+    "src/utils/omlxModelLifecycle.ts",
+    "src/utils/terminalMascot.ts"
+  ],
+  "include": [],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx"
+  ]
+}

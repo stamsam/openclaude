@@ -402,6 +402,9 @@ node dist/cli.mjs
 Helpful commands:
 
 - `bun run dev`
+- `bun run typecheck` for the maintained TypeScript gate covering recently hardened local-runtime, oMLX, mascot, and Telegram state surfaces
+- `bun run typecheck:all` for the full historical repo scan; this intentionally remains a debt tracker until the broader app graph is cleaned up
+- `bun run typecheck:tests` for the separate test TypeScript debt scan
 - `bun test`
 - `bun run test:coverage`
 - `bun run security:pr-scan -- --base origin/main`
