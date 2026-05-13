@@ -5,8 +5,6 @@ import * as React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useNotifications } from 'src/context/notifications.js';
 import { useCommandQueue } from 'src/hooks/useCommandQueue.js';
-import { AgentAttachPanel } from '../../agentview/AttachPanel.js';
-import { AgentViewDashboard } from '../../agentview/Dashboard.js';
 import { type IDEAtMentioned, useIdeAtMentioned } from 'src/hooks/useIdeAtMentioned.js';
 import { type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS, logEvent } from 'src/services/analytics/index.js';
 import { type AppState, useAppState, useAppStateStore, useSetAppState } from 'src/state/AppState.js';
@@ -156,6 +154,7 @@ type Props = {
   onShowMessageSelector: () => void;
   /** Fullscreen message actions: shift+↑ enters cursor. */
   onMessageActionsEnter?: () => void;
+  onOpenAgentView?: () => void;
   mcpClients: MCPServerConnection[];
   pastedContents: Record<number, PastedContent>;
   setPastedContents: React.Dispatch<React.SetStateAction<Record<number, PastedContent>>>;
@@ -217,6 +216,7 @@ function PromptInput({
   submitCount,
   onShowMessageSelector,
   onMessageActionsEnter,
+  onOpenAgentView,
   mcpClients,
   pastedContents,
   setPastedContents,
@@ -387,8 +387,6 @@ function PromptInput({
   const pendingSpaceAfterPillRef = useRef(false);
   const [showTeamsDialog, setShowTeamsDialog] = useState(false);
   const [showBridgeDialog, setShowBridgeDialog] = useState(false);
-  const [showAgentView, setShowAgentView] = useState(false);
-  const [agentViewAttachId, setAgentViewAttachId] = useState<string | null>(null);
   const [teammateFooterIndex, setTeammateFooterIndex] = useState(0);
   // -1 sentinel: tasks pill is selected but no specific agent row is selected yet.
   // First ↓ selects the pill, second ↓ moves to row 0. Prevents double-select
@@ -1904,10 +1902,6 @@ function PromptInput({
     isActive: !!footerItemSelected && !isModalOverlayActive
   });
   useInput((char, key) => {
-    if (showAgentView) {
-      return;
-    }
-
     // Skip all input handling when a full-screen dialog is open. These dialogs
     // render via early return, but hooks run unconditionally — so without this
     // guard, Escape inside a dialog leaks to the double-press message-selector.
@@ -1934,8 +1928,7 @@ function PromptInput({
 
     // Footer navigation is handled via useKeybindings above (Footer context)
     if (key.leftArrow && !input && cursorOffset === 0 && !isLoading && !isModalOverlayActive && !footerItemSelected) {
-      setAgentViewAttachId(null);
-      setShowAgentView(true);
+      onOpenAgentView?.();
       return;
     }
 
@@ -2169,31 +2162,7 @@ function PromptInput({
   // Must be called before early returns below to satisfy rules-of-hooks.
   // Memoized so the portal useEffect doesn't churn on every PromptInput render.
   const autoModeOptInDialog = useMemo(() => feature('TRANSCRIPT_CLASSIFIER') && showAutoModeOptIn ? <AutoModeOptInDialog onAccept={handleAutoModeOptInAccept} onDecline={handleAutoModeOptInDecline} /> : null, [showAutoModeOptIn, handleAutoModeOptInAccept, handleAutoModeOptInDecline]);
-  const agentViewNode = useMemo(
-    () =>
-      showAgentView
-        ? agentViewAttachId
-          ? <AgentAttachPanel
-              id={agentViewAttachId}
-              fullscreen={true}
-              onBack={() => setAgentViewAttachId(null)}
-            />
-          : <AgentViewDashboard
-              cwd={getCwd()}
-              model={mainLoopModel}
-              permissionMode={toolPermissionContext.mode}
-              fullscreen={true}
-              onAttach={id => setAgentViewAttachId(id)}
-              onExit={() => setShowAgentView(false)}
-            />
-        : null,
-    [showAgentView, agentViewAttachId, mainLoopModel, toolPermissionContext.mode],
-  );
-  const overlayDialog = agentViewNode ?? (isFullscreenEnvEnabled() ? autoModeOptInDialog : null);
-  useSetPromptOverlayDialog(overlayDialog, agentViewNode ? 'takeover' : 'float');
-  if (showAgentView) {
-    return null;
-  }
+  useSetPromptOverlayDialog(isFullscreenEnvEnabled() ? autoModeOptInDialog : null);
   if (showBashesDialog) {
     return <BackgroundTasksDialog onDone={() => setShowBashesDialog(false)} toolUseContext={getToolUseContext(messages, [], new AbortController(), mainLoopModel)} initialDetailTaskId={typeof showBashesDialog === 'string' ? showBashesDialog : undefined} />;
   }
