@@ -5,7 +5,10 @@ import { type Message } from '../types/message.js'
 import { getContentText } from '../utils/messages.js'
 import { renderDefaultModelSetting } from '../utils/model/model.js'
 import { validateModel } from '../utils/model/validateModel.js'
-import { getActiveProviderProfile } from '../utils/providerProfiles.js'
+import {
+  getActiveProviderProfile,
+  getProviderProfiles,
+} from '../utils/providerProfiles.js'
 import {
   buildBtwPrompt,
   type TelegramCommand,
@@ -204,6 +207,16 @@ async function formatCombinedTaskSummary(
 }
 
 function getProviderLabel(): string | undefined {
+  const appliedProfileId = process.env.CLAUDE_CODE_PROVIDER_PROFILE_ENV_APPLIED_ID
+  if (appliedProfileId) {
+    const appliedProfile = getProviderProfiles().find(
+      profile => profile.id === appliedProfileId,
+    )
+    if (appliedProfile) {
+      return appliedProfile.name || appliedProfile.provider
+    }
+  }
+
   const activeProfile = getActiveProviderProfile()
   if (activeProfile) {
     return activeProfile.name || activeProfile.provider

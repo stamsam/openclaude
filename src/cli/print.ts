@@ -272,8 +272,8 @@ import {
 } from 'src/utils/model/model.js'
 import { getPrimaryModel } from 'src/utils/providerModels.js'
 import {
+  applyProviderProfileToProcessEnv,
   getProviderProfiles,
-  setActiveProviderProfile,
 } from 'src/utils/providerProfiles.js'
 import { getModelOptions } from 'src/utils/model/modelOptions.js'
 import {
@@ -2959,14 +2959,7 @@ function runHeadlessStreaming(
               return
             }
 
-            const activeProfile = setActiveProviderProfile(profile.id)
-            if (!activeProfile) {
-              sendControlResponseError(
-                message,
-                `Provider profile not found: ${profile.id}`,
-              )
-              return
-            }
+            applyProviderProfileToProcessEnv(profile)
             const requestedModel = message.request.model?.trim() || getPrimaryModel(profile.model)
             if (requestedModel) {
               activeUserSpecifiedModel = requestedModel
@@ -2976,8 +2969,8 @@ function runHeadlessStreaming(
             }
 
             sendControlResponseSuccess(message, {
-              provider: activeProfile.provider,
-              provider_profile_id: activeProfile.id,
+              provider: profile.provider,
+              provider_profile_id: profile.id,
               model: requestedModel,
             })
           } catch (error) {
