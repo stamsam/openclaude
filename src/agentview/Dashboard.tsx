@@ -175,6 +175,7 @@ export function AgentViewDashboard({
   const [selectedIndex, setSelectedIndex] = React.useState(0)
   const [input, setInput] = React.useState('')
   const [message, setMessage] = React.useState('')
+  const lastDeleteAtRef = React.useRef(0)
 
   const refresh = React.useCallback(() => {
     void listJobs().then(next => {
@@ -194,6 +195,31 @@ export function AgentViewDashboard({
       app.exit()
     }
   }, [app, onAttach, onExit])
+  const deleteSelected = React.useCallback((id: string) => {
+    const now = Date.now()
+    if (now - lastDeleteAtRef.current < 250) return
+    lastDeleteAtRef.current = now
+    void deleteBackgroundSession(id)
+      .then(deleted => {
+        setMessage(deleted ? `Deleted ${id}` : `Could not delete ${id}`)
+        refresh()
+      })
+      .catch(error => setMessage(`Failed to delete: ${(error as Error).message}`))
+  }, [refresh])
+
+  React.useLayoutEffect(() => {
+    if (!selected) return
+    const onData = (chunk: Buffer | string) => {
+      const raw = typeof chunk === 'string' ? chunk : chunk.toString('utf8')
+      if (raw.includes('\x18')) {
+        deleteSelected(selected.id)
+      }
+    }
+    process.stdin.on('data', onData)
+    return () => {
+      process.stdin.off('data', onData)
+    }
+  }, [deleteSelected, selected])
 
   useInput((chunk, key) => {
     if (key.escape) {
@@ -222,12 +248,7 @@ export function AgentViewDashboard({
       return
     }
     if (key.ctrl && (chunk === 'x' || chunk === '\x18') && selected) {
-      void deleteBackgroundSession(selected.id)
-        .then(deleted => {
-          setMessage(deleted ? `Deleted ${selected.id}` : `Could not delete ${selected.id}`)
-          refresh()
-        })
-        .catch(error => setMessage(`Failed to delete: ${(error as Error).message}`))
+      deleteSelected(selected.id)
       return
     }
     if (chunk === 'r' && selected && !input) {
