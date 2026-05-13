@@ -630,11 +630,15 @@ export type GlobalConfig = {
   // Knowledge Graph configuration
   knowledgeGraphEnabled: boolean
 
-  // Startup splash logo color scheme — set via /logo. See
+  // Startup splash logo color scheme — set via /logo in older builds. See
   // src/components/StartupScreen.palettes.ts for valid values. Stored as a
   // plain string (validated on read) to avoid pulling a UI module into the
   // config layer. Falls back to 'sunset' if missing or unrecognized.
   logoColor?: string
+
+  // Startup/header mascot — set via /logo. See src/utils/terminalMascot.ts
+  // for valid values. Stored as a string so config stays decoupled from UI.
+  logoMascot?: string
   telegramBridgeConfig?: TelegramBridgeStoredConfig
 }
 
@@ -735,6 +739,7 @@ export const GLOBAL_CONFIG_KEYS = [
   'remoteDialogSeen',
   'knowledgeGraphEnabled',
   'logoColor',
+  'logoMascot',
 ] as const
 
 export type GlobalConfigKey = (typeof GLOBAL_CONFIG_KEYS)[number]

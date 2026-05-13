@@ -1,5 +1,6 @@
 // biome-ignore-all assist/source/organizeImports: internal-only import markers must not be reordered
 import addDir from './commands/add-dir/index.js'
+import background from './commands/background/index.js'
 import autofixPr from './commands/autofix-pr/index.js'
 import backfillSessions from './commands/backfill-sessions/index.js'
 import benchmark from './commands/benchmark/index.js'
@@ -283,6 +284,7 @@ const COMMANDS = memoize((): Command[] => [
   addDir,
   advisor,
   agents,
+  background,
   autoFix,
   benchmark,
   branch,

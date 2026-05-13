@@ -2,29 +2,27 @@ import * as React from 'react'
 import { Box, Text } from '../ink.js'
 import { Select } from './CustomSelect/index.js'
 import {
-  LOGO_PALETTE_LABELS,
-  LOGO_PALETTE_NAMES,
-  LOGO_PALETTES,
-  type LogoPaletteName,
-} from './StartupScreen.palettes.js'
+  DEFAULT_TERMINAL_MASCOT,
+  TERMINAL_MASCOT_LABELS,
+  TERMINAL_MASCOT_NAMES,
+  TERMINAL_MASCOTS,
+  type TerminalMascot,
+} from '../utils/terminalMascot.js'
 import { ANSI_RESET, ansiRgb } from '../utils/terminalAnsi.js'
+import { TERMINAL_MASCOT_COLORS } from '../utils/terminalMascot.js'
 
 export type LogoPickerProps = {
-  initial?: LogoPaletteName
-  onSelect: (name: LogoPaletteName) => void
+  initial?: TerminalMascot
+  onSelect: (name: TerminalMascot) => void
   onCancel: () => void
 }
 
-/**
- * Render a colored preview swatch using the palette's gradient stops.
- * Six block characters, one per gradient stop — gives an immediate sense
- * of the palette's range without re-painting the full ASCII logo.
- */
-function previewSwatch(name: LogoPaletteName): string {
-  const stops = LOGO_PALETTES[name].gradient
-  return stops
-    .map(([r, g, b]) => `${ansiRgb(r, g, b)}\u2587${ANSI_RESET}`)
-    .join('')
+function previewMascot(name: TerminalMascot): string {
+  const [r, g, b] = TERMINAL_MASCOT_COLORS[name]
+  return TERMINAL_MASCOTS[name]
+    .slice(0, 2)
+    .map(line => `${ansiRgb(r, g, b)}${line}${ANSI_RESET}`)
+    .join(' ')
 }
 
 export function LogoPicker({
@@ -34,8 +32,8 @@ export function LogoPicker({
 }: LogoPickerProps): React.ReactElement {
   const options = React.useMemo(
     () =>
-      LOGO_PALETTE_NAMES.map(name => ({
-        label: `${previewSwatch(name)}  ${LOGO_PALETTE_LABELS[name]}`,
+      TERMINAL_MASCOT_NAMES.map(name => ({
+        label: `${previewMascot(name)}  ${TERMINAL_MASCOT_LABELS[name]}`,
         value: name,
       })),
     [],
@@ -43,14 +41,14 @@ export function LogoPicker({
 
   return (
     <Box flexDirection="column" gap={1}>
-      <Text bold>Choose the startup logo color scheme</Text>
+      <Text bold>Choose the startup mascot</Text>
       <Select
         options={options}
-        onChange={value => onSelect(value as LogoPaletteName)}
+        onChange={value => onSelect(value as TerminalMascot)}
         onCancel={onCancel}
         visibleOptionCount={options.length}
-        defaultValue={initial}
-        defaultFocusValue={initial}
+        defaultValue={initial ?? DEFAULT_TERMINAL_MASCOT}
+        defaultFocusValue={initial ?? DEFAULT_TERMINAL_MASCOT}
       />
     </Box>
   )

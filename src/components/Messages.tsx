@@ -34,6 +34,7 @@ import { renderableSearchText } from '../utils/transcriptSearch.js';
 import { Divider } from './design-system/Divider.js';
 import type { UnseenDivider } from './FullscreenLayout.js';
 import { LogoV2 } from './LogoV2/LogoV2.js';
+import { OpenClaudeHeader } from './OpenClaudeHeader.js';
 import { StreamingMarkdown } from './Markdown.js';
 import { hasContentAfterIndex, MessageRow } from './MessageRow.js';
 import { InVirtualListContext, type MessageActionsNav, MessageActionsSelectedContext, type MessageActionsState } from './messageActions.js';
@@ -52,6 +53,27 @@ import type { JumpHandle } from './VirtualMessageList.js';
 // and pegs CPU at 100%. Memo on agentDefinitions so a new messages array
 // doesn't invalidate the logo subtree. LogoV2/StatusNotices internally
 // subscribe to useAppState/useSettings for their own updates.
+function FullscreenWelcomeHeader(): React.ReactNode {
+  const copyHint = getGlobalConfig().copyOnSelect === false
+    ? null
+    : <Text dimColor>    · By default, text auto-copies when you select it (/config to change)</Text>;
+
+  return (
+    <>
+      <OpenClaudeHeader />
+      <Box flexDirection="column" marginLeft={2} marginBottom={1}>
+        <Text>
+          <Text color="success">✓ Using flicker-free rendering</Text>
+          <Text dimColor> · go back with /tui default</Text>
+        </Text>
+        <Text dimColor>    · Click to move your cursor in the text input</Text>
+        <Text dimColor>    · Click to expand collapsed tool results</Text>
+        {copyHint}
+      </Box>
+    </>
+  );
+}
+
 const LogoHeader = React.memo(function LogoHeader(t0) {
   const $ = _c(3);
   const {
@@ -59,7 +81,7 @@ const LogoHeader = React.memo(function LogoHeader(t0) {
   } = t0;
   let t1;
   if ($[0] === Symbol.for("react.memo_cache_sentinel")) {
-    t1 = null;
+    t1 = isFullscreenEnvEnabled() ? <FullscreenWelcomeHeader /> : null;
     $[0] = t1;
   } else {
     t1 = $[0];

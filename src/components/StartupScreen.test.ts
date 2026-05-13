@@ -90,8 +90,8 @@ function setupOpenAIMode(baseUrl: string, model: string): void {
   process.env.OPENAI_API_KEY = 'test-key'
 }
 
-describe('printStartupScreen logo', () => {
-  test('renders CLAUDE with a D-shaped D instead of an O-shaped block', () => {
+describe('printStartupScreen', () => {
+  test('renders a compact Claude-style identity header', () => {
     ;(globalThis as Record<string, unknown>).MACRO = { VERSION: 'test-version' }
     Object.defineProperty(process.stdout, 'isTTY', {
       configurable: true,
@@ -107,10 +107,11 @@ describe('printStartupScreen logo', () => {
     printStartupScreen()
 
     const plainOutput = stripAnsi(output)
-    expect(plainOutput).toContain('███████╗ ████████╗')
-    expect(plainOutput).toContain('██╔═══██╗ ██╔═════╝')
-    expect(plainOutput).toContain('███████╔╝ ████████╗')
-    expect(plainOutput).not.toContain('████████║ ████████╗')
+    expect(plainOutput).toContain('OpenClaude vtest-version')
+    expect(plainOutput).toContain('Anthropic · claude-sonnet-4-6')
+    expect(plainOutput).toContain(process.cwd().replace(process.env.HOME ?? '', '~'))
+    expect(plainOutput).toContain('Ready — type /help to begin')
+    expect(plainOutput).not.toContain('███████╗')
   })
 })
 

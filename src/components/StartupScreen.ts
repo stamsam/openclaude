@@ -1,8 +1,6 @@
 /**
- * OpenClaude startup screen — filled-block text logo with sunset gradient.
+ * OpenClaude startup screen.
  * Called once at CLI startup before the Ink UI renders.
- *
- * Addresses: https://github.com/stamsam/openclaude-private/issues/55
  */
 
 import { isLocalProviderUrl, resolveProviderRequest } from '../services/api/providerConfig.js'
@@ -20,11 +18,17 @@ import {
   resolveLogoPalette,
   type RGB,
 } from './StartupScreen.palettes.js'
+import {
+  resolveTerminalMascot,
+  TERMINAL_MASCOT_COLORS,
+  TERMINAL_MASCOTS,
+} from '../utils/terminalMascot.js'
 
 declare const MACRO: { VERSION: string; DISPLAY_VERSION?: string }
 
 const RESET = ANSI_RESET
 const DIM = ANSI_DIM
+const BOLD = '\x1b[1m'
 
 function lerp(a: RGB, b: RGB, t: number): RGB {
   return [
@@ -179,62 +183,36 @@ export function printStartupScreen(modelOverride?: string): void {
 
   const palette = resolveLogoPalette(getGlobalConfig().logoColor)
   const ACCENT = palette.accent
-  const CREAM = palette.cream
   const DIMCOL = palette.dim
-  const BORDER = palette.border
-  const GRAD = palette.gradient
 
   const p = detectProvider(modelOverride)
-  const W = 62
   const out: string[] = []
 
   out.push('')
-
-  // Gradient logo
-  const allLogo = [...LOGO_OPEN, '', ...LOGO_CLAUDE]
-  const total = allLogo.length
-  for (let i = 0; i < total; i++) {
-    const t = total > 1 ? i / (total - 1) : 0
-    if (allLogo[i] === '') {
-      out.push('')
+  const version = MACRO.DISPLAY_VERSION ?? MACRO.VERSION
+  const mascot = resolveTerminalMascot(getGlobalConfig().logoMascot)
+  const mascotLines = TERMINAL_MASCOTS[mascot]
+  const mascotColor = TERMINAL_MASCOT_COLORS[mascot] ?? ACCENT
+  const home = process.env.HOME
+  const cwd = home && process.cwd().startsWith(home)
+    ? `~${process.cwd().slice(home.length)}`
+    : process.cwd()
+  const modelLine = `${p.name} · ${p.model}`
+  for (let i = 0; i < mascotLines.length; i++) {
+    const left = `${ansiRgb(...mascotColor)}${mascotLines[i]}${RESET}`
+    if (i === 0) {
+      out.push(`${left}  ${BOLD}OpenClaude${RESET} ${DIM}${ansiRgb(...DIMCOL)}v${version}${RESET}`)
+    } else if (i === 1) {
+      out.push(`${left}  ${DIM}${ansiRgb(...DIMCOL)}${modelLine}${RESET}`)
+    } else if (i === 2) {
+      out.push(`${left}  ${DIM}${ansiRgb(...DIMCOL)}${cwd}${RESET}`)
     } else {
-      out.push(paintLine(allLogo[i], GRAD, t))
+      out.push(left)
     }
   }
-
-  out.push('')
-
-  // Tagline
-  out.push(`  ${ansiRgb(...ACCENT)}\u2726${RESET} ${ansiRgb(...CREAM)}Any model. Every tool. Zero limits.${RESET} ${ansiRgb(...ACCENT)}\u2726${RESET}`)
-  out.push('')
-
-  // Provider info box
-  out.push(`${ansiRgb(...BORDER)}\u2554${'\u2550'.repeat(W - 2)}\u2557${RESET}`)
-
-  const lbl = (k: string, v: string, c: RGB = CREAM): [string, number] => {
-    const padK = k.padEnd(9)
-    return [` ${DIM}${ansiRgb(...DIMCOL)}${padK}${RESET} ${ansiRgb(...c)}${v}${RESET}`, ` ${padK} ${v}`.length]
-  }
-
-  const provC: RGB = p.isLocal ? [130, 175, 130] : ACCENT
-  let [r, l] = lbl('Provider', p.name, provC)
-  out.push(boxRow(r, W, l, BORDER))
-  ;[r, l] = lbl('Model', p.model)
-  out.push(boxRow(r, W, l, BORDER))
-  const ep = p.baseUrl.length > 38 ? p.baseUrl.slice(0, 35) + '...' : p.baseUrl
-  ;[r, l] = lbl('Endpoint', ep)
-  out.push(boxRow(r, W, l, BORDER))
-
-  out.push(`${ansiRgb(...BORDER)}\u2560${'\u2550'.repeat(W - 2)}\u2563${RESET}`)
-
-  const sC: RGB = p.isLocal ? [130, 175, 130] : ACCENT
-  const sL = p.isLocal ? 'local' : 'cloud'
-  const sRow = ` ${ansiRgb(...sC)}\u25cf${RESET} ${DIM}${ansiRgb(...DIMCOL)}${sL}${RESET}    ${DIM}${ansiRgb(...DIMCOL)}Ready \u2014 type ${RESET}${ansiRgb(...ACCENT)}/help${RESET}${DIM}${ansiRgb(...DIMCOL)} to begin${RESET}`
-  const sLen = ` \u25cf ${sL}    Ready \u2014 type /help to begin`.length
-  out.push(boxRow(sRow, W, sLen, BORDER))
-
-  out.push(`${ansiRgb(...BORDER)}\u255a${'\u2550'.repeat(W - 2)}\u255d${RESET}`)
-  out.push(`  ${DIM}${ansiRgb(...DIMCOL)}openclaude ${RESET}${ansiRgb(...ACCENT)}v${MACRO.DISPLAY_VERSION ?? MACRO.VERSION}${RESET}`)
+  out.push(``)
+  const statusColor: RGB = p.isLocal ? [130, 175, 130] : ACCENT
+  out.push(`  ${ansiRgb(...statusColor)}●${RESET} ${DIM}${ansiRgb(...DIMCOL)}${p.isLocal ? 'local' : 'cloud'} · Ready — type ${RESET}${ansiRgb(...ACCENT)}/help${RESET}${DIM}${ansiRgb(...DIMCOL)} to begin${RESET}`)
   out.push('')
 
   process.stdout.write(out.join('\n') + '\n')
