@@ -19,6 +19,7 @@ export type KeybindingContextName =
   | 'ModelPicker'
   | 'Select'
   | 'Plugin'
+  | 'AgentView'
 
 export type KeybindingAction =
   | 'app:interrupt'
@@ -104,6 +105,7 @@ export type KeybindingAction =
   | 'select:cancel'
   | 'plugin:toggle'
   | 'plugin:install'
+  | 'agentView:delete'
   | 'permission:toggleDebug'
   | 'settings:search'
   | 'settings:retry'

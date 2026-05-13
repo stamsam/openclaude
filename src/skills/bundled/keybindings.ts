@@ -78,6 +78,7 @@ function inferContextFromAction(action: string): string {
     diff: 'DiffDialog',
     modelPicker: 'ModelPicker',
     select: 'Select',
+    agentView: 'AgentView',
     permission: 'Confirmation',
   }
   return prefixToContext[prefix ?? ''] ?? 'Unknown'

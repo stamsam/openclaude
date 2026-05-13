@@ -2,6 +2,8 @@ import React from 'react'
 import { Box, Text, useApp, useInput, useInterval } from '../ink.js'
 import { useTerminalSize } from '../hooks/useTerminalSize.js'
 import { OpenClaudeHeader } from '../components/OpenClaudeHeader.js'
+import { useRegisterKeybindingContext } from '../keybindings/KeybindingContext.js'
+import { useKeybinding } from '../keybindings/useKeybinding.js'
 import {
   createBackgroundJob,
   displayDirectory,
@@ -176,6 +178,7 @@ export function AgentViewDashboard({
   const [input, setInput] = React.useState('')
   const [message, setMessage] = React.useState('')
   const lastDeleteAtRef = React.useRef(0)
+  useRegisterKeybindingContext('AgentView')
 
   const refresh = React.useCallback(() => {
     void listJobs().then(next => {
@@ -207,19 +210,14 @@ export function AgentViewDashboard({
       .catch(error => setMessage(`Failed to delete: ${(error as Error).message}`))
   }, [refresh])
 
-  React.useLayoutEffect(() => {
-    if (!selected) return
-    const onData = (chunk: Buffer | string) => {
-      const raw = typeof chunk === 'string' ? chunk : chunk.toString('utf8')
-      if (raw.includes('\x18')) {
-        deleteSelected(selected.id)
-      }
-    }
-    process.stdin.on('data', onData)
-    return () => {
-      process.stdin.off('data', onData)
-    }
-  }, [deleteSelected, selected])
+  useKeybinding(
+    'agentView:delete',
+    () => {
+      if (!selected) return false
+      deleteSelected(selected.id)
+    },
+    { context: 'AgentView', isActive: Boolean(selected) },
+  )
 
   useInput((chunk, key) => {
     if (key.escape) {
