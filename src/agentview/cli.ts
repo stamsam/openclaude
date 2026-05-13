@@ -1,5 +1,11 @@
 import { createBackgroundJob, listJobs, loadJob, readJobLogTail, removeJob } from './store.js'
-import { attachToJob, launchBackgroundJob, runBackgroundJob, stopJob } from './runner.js'
+import {
+  attachToJob,
+  launchBackgroundJob,
+  runBackgroundJob,
+  stopJob,
+  waitForProcessExit,
+} from './runner.js'
 import type { BackgroundJob } from './types.js'
 
 export type ParsedDashboardPrompt = {
@@ -132,6 +138,9 @@ export async function deleteBackgroundSession(id: string): Promise<boolean> {
   }
   const stopped = await stopJob(id)
   if (!stopped) {
+    return false
+  }
+  if (!(await waitForProcessExit(stopped.pid))) {
     return false
   }
   return removeJob(id)

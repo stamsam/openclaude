@@ -1927,7 +1927,7 @@ function PromptInput({
     }
 
     // Footer navigation is handled via useKeybindings above (Footer context)
-    if (key.leftArrow && !input && cursorOffset === 0 && !isLoading && !isModalOverlayActive && !footerItemSelected) {
+    if (onOpenAgentView && key.leftArrow && !input && cursorOffset === 0 && !isLoading && !isModalOverlayActive && !isSearchingHistory && !footerItemSelected) {
       onOpenAgentView?.();
       return;
     }

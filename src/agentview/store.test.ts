@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import { execFile, spawn } from 'child_process'
+import { once } from 'events'
 import { existsSync } from 'fs'
 import { mkdtemp, realpath, rm } from 'fs/promises'
 import { tmpdir } from 'os'
@@ -17,6 +18,7 @@ import {
   loadJob,
   readJobLogTail,
   removeJob,
+  isProcessAlive,
   updateJob,
 } from './store.js'
 import { attachToJob, stopJob } from './runner.js'
@@ -236,6 +238,20 @@ describe.serial('agent view job store', () => {
     }
   })
 
+  test('refuses to remove stopped jobs while their process is still alive', async () => {
+    const job = await createBackgroundJob({ prompt: 'sleep', cwd: process.cwd() }, testEnv)
+    const statePath = getJobStatePath(job.id, testEnv)
+    const child = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'])
+    await updateJob(job.id, { status: 'stopped', pid: child.pid }, testEnv)
+
+    try {
+      expect(await removeJob(job.id, testEnv)).toBe(false)
+      expect(existsSync(statePath)).toBe(true)
+    } finally {
+      child.kill('SIGKILL')
+    }
+  })
+
   test('dashboard delete stops and removes live jobs', async () => {
     const job = await createBackgroundJob({ prompt: 'sleep', cwd: process.cwd() }, testEnv)
     const statePath = getJobStatePath(job.id, testEnv)
@@ -247,6 +263,37 @@ describe.serial('agent view job store', () => {
       expect(existsSync(statePath)).toBe(false)
     } finally {
       child.kill('SIGKILL')
+    }
+  })
+
+  test('dashboard delete keeps state for jobs that ignore stop', async () => {
+    const job = await createBackgroundJob({ prompt: 'sleep', cwd: process.cwd() }, testEnv)
+    const statePath = getJobStatePath(job.id, testEnv)
+    const child = spawn(process.execPath, [
+      '-e',
+      'process.on("SIGTERM", () => {}); process.stdout.write("ready\\n"); setInterval(() => {}, 1000)',
+    ], {
+      stdio: ['ignore', 'pipe', 'ignore'],
+    })
+    await once(child.stdout!, 'data')
+    await updateJob(job.id, { status: 'idle', pid: child.pid }, testEnv)
+    expect(isProcessAlive(child.pid)).toBe(true)
+
+    try {
+      expect(await deleteBackgroundSession(job.id)).toBe(false)
+      expect(existsSync(statePath)).toBe(true)
+    } finally {
+      if (child.pid) {
+        try {
+          process.kill(-child.pid, 'SIGKILL')
+        } catch {
+          try {
+            process.kill(child.pid, 'SIGKILL')
+          } catch {
+            // already gone
+          }
+        }
+      }
     }
   })
 

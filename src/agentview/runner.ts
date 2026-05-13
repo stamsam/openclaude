@@ -261,6 +261,19 @@ export async function stopJob(id: string): Promise<BackgroundJob | null> {
   })
 }
 
+export async function waitForProcessExit(
+  pid: number | undefined,
+  timeoutMs = 750,
+): Promise<boolean> {
+  if (!pid || pid <= 0) return true
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    if (!isProcessAlive(pid)) return true
+    await new Promise(resolveTimer => setTimeout(resolveTimer, 25))
+  }
+  return !isProcessAlive(pid)
+}
+
 export type AttachResult = 'exit' | 'dashboard'
 
 export async function attachToJob(id: string): Promise<AttachResult> {

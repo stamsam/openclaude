@@ -21,6 +21,7 @@ import { prepareAgentViewWorktree } from './worktree.js'
 
 const MAX_PROMPT_SUMMARY = 80
 const MAX_NAME = 42
+const REMOVABLE_STATUSES = new Set<AgentViewStatus>(['completed', 'failed', 'stopped'])
 
 export function createJobId(): string {
   return randomBytes(4).toString('hex')
@@ -311,7 +312,10 @@ export async function removeJob(
     return false
   }
   if (!job) return false
-  if (job.pid && isProcessAlive(job.pid) && job.status !== 'stopped') {
+  if (!REMOVABLE_STATUSES.has(job.status)) {
+    return false
+  }
+  if (job.pid && isProcessAlive(job.pid)) {
     return false
   }
   try {
