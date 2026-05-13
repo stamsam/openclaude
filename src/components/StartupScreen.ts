@@ -13,6 +13,7 @@ import { getSettings_DEPRECATED } from '../utils/settings/settings.js'
 import { parseUserSpecifiedModel } from '../utils/model/model.js'
 import { DEFAULT_GEMINI_MODEL } from '../utils/providerProfile.js'
 import { getGlobalConfig } from '../utils/config.js'
+import { isFullscreenEnvEnabled } from '../utils/fullscreen.js'
 import { ANSI_RESET, ansiBgRgb, ansiRgb } from '../utils/terminalAnsi.js'
 import {
   resolveLogoPalette,
@@ -181,6 +182,9 @@ function boxRow(content: string, width: number, rawLen: number, border: RGB): st
 export function printStartupScreen(modelOverride?: string): void {
   // Skip in non-interactive / CI / print mode
   if (process.env.CI || !process.stdout.isTTY) return
+  // Fullscreen mode already renders a pinned Ink header. Printing the legacy
+  // pre-Ink banner would leave two identity blocks visible on first render.
+  if (isFullscreenEnvEnabled()) return
 
   const palette = resolveLogoPalette(getGlobalConfig().logoColor)
   const ACCENT = palette.accent

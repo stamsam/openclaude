@@ -23,6 +23,7 @@ import {
 
 const ENV_KEYS = [
   'CI',
+  'CLAUDE_CODE_NO_FLICKER',
   'CLAUDE_CODE_USE_OPENAI',
   'CLAUDE_CODE_USE_GEMINI',
   'CLAUDE_CODE_USE_GITHUB',
@@ -112,6 +113,25 @@ describe('printStartupScreen', () => {
     expect(plainOutput).toContain(process.cwd().replace(process.env.HOME ?? '', '~'))
     expect(plainOutput).toContain('Ready — type /help to begin')
     expect(plainOutput).not.toContain('███████╗')
+  })
+
+  test('does not print the pre-Ink banner in fullscreen mode', () => {
+    ;(globalThis as Record<string, unknown>).MACRO = { VERSION: 'test-version' }
+    process.env.CLAUDE_CODE_NO_FLICKER = '1'
+    Object.defineProperty(process.stdout, 'isTTY', {
+      configurable: true,
+      value: true,
+    })
+
+    let output = ''
+    process.stdout.write = ((chunk: string | Uint8Array) => {
+      output += chunk.toString()
+      return true
+    }) as typeof process.stdout.write
+
+    printStartupScreen()
+
+    expect(output).toBe('')
   })
 })
 
