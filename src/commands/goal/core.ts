@@ -6,4 +6,5 @@ export {
   goalStatus,
   loadGoal,
   recordGoalCheckpoint,
+  beginGoalRuntimeSession,
 } from '../../goal/core.js'

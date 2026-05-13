@@ -1,11 +1,13 @@
 import { useEffect, useState, useRef } from 'react'
 import { Text, Box } from '../ink.js'
 import {
-  beginGoalRuntimeSession,
+  discardGoalRuntimeSession,
   endGoalRuntimeSession,
   getGoalElapsedSeconds,
   heartbeatGoalRuntimeSession,
 } from './goalCore.js'
+
+let didClearStaleRuntimeSession = false
 
 export function GoalTimer() {
   const [display, setDisplay] = useState<string | null>(null)
@@ -19,7 +21,7 @@ export function GoalTimer() {
       try {
         const goal = await heartbeatGoalRuntimeSession()
         if (!mounted) return
-        if (!goal || goal.status !== 'active') {
+        if (!goal || goal.status !== 'active' || !goal.active_session_started_at) {
           setDisplay(null)
           return
         }
@@ -38,7 +40,15 @@ export function GoalTimer() {
       }
     }
 
-    void beginGoalRuntimeSession().then(() => tick())
+    const start = async () => {
+      if (!didClearStaleRuntimeSession) {
+        didClearStaleRuntimeSession = true
+        await discardGoalRuntimeSession()
+      }
+      await tick()
+    }
+
+    void start()
     intervalRef.current = setInterval(tick, 1000)
 
     return () => {

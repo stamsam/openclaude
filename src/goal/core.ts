@@ -36,6 +36,11 @@ function settleRuntimeTime(goal: GoalState, now = nowSeconds()): GoalState {
   return goal
 }
 
+function clearRuntimeSession(goal: GoalState): GoalState {
+  goal.active_session_started_at = undefined
+  return goal
+}
+
 export function getGoalElapsedSeconds(goal: GoalState): number {
   if (goal.status !== 'active') {
     return goal.time_used_seconds
@@ -162,7 +167,6 @@ export async function setGoal(
     token_budget: tokenBudget && tokenBudget > 0 ? tokenBudget : undefined,
     tokens_used: 0,
     time_used_seconds: 0,
-    active_session_started_at: nowIso(),
   }
   await ensureGoalStorage()
   await saveGoal(goal)
@@ -207,7 +211,6 @@ export async function resumeGoal(): Promise<GoalState | null> {
   const goal = await loadGoal()
   if (!goal || goal.status !== 'paused') return goal
   goal.status = 'active'
-  goal.active_session_started_at = nowIso()
   goal.last_updated = nowIso()
   await saveGoal(goal)
   emitOpenClaudeEvent({
@@ -267,6 +270,7 @@ export async function accountGoalTokens(tokens: number): Promise<void> {
   goal.last_updated = nowIso()
   if (goal.token_budget && goal.tokens_used >= goal.token_budget) {
     goal.status = 'budget_limited'
+    goal.active_session_started_at = undefined
     goal.progress_log += `\n[budget exhausted at ${nowIso()}: ${goal.tokens_used}/${goal.token_budget} tokens]`
   }
   await saveGoal(goal)
@@ -289,6 +293,7 @@ export async function beginGoalRuntimeSession(): Promise<GoalState | null> {
 export async function heartbeatGoalRuntimeSession(): Promise<GoalState | null> {
   const goal = await loadGoal()
   if (!goal || goal.status !== 'active') return goal
+  if (!goal.active_session_started_at) return goal
   settleRuntimeTime(goal)
   await saveGoal(goal)
   return goal
@@ -297,8 +302,19 @@ export async function heartbeatGoalRuntimeSession(): Promise<GoalState | null> {
 export async function endGoalRuntimeSession(): Promise<GoalState | null> {
   const goal = await loadGoal()
   if (!goal || goal.status !== 'active') return goal
+  if (!goal.active_session_started_at) return goal
   settleRuntimeTime(goal)
   goal.active_session_started_at = undefined
+  await saveGoal(goal)
+  return goal
+}
+
+export async function discardGoalRuntimeSession(): Promise<GoalState | null> {
+  const goal = await loadGoal()
+  if (!goal || goal.status !== 'active' || !goal.active_session_started_at) {
+    return goal
+  }
+  clearRuntimeSession(goal)
   await saveGoal(goal)
   return goal
 }

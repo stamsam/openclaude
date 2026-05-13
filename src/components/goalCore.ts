@@ -1,5 +1,6 @@
 export {
   beginGoalRuntimeSession,
+  discardGoalRuntimeSession,
   endGoalRuntimeSession,
   getGoalElapsedSeconds,
   heartbeatGoalRuntimeSession,

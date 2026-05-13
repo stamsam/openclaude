@@ -20,6 +20,7 @@ import {
   resetGoalMemoryCache,
   updateGoalAdvisoryPlanFromText,
   beginGoalRuntimeSession,
+  discardGoalRuntimeSession,
   endGoalRuntimeSession,
   getGoalElapsedSeconds,
   heartbeatGoalRuntimeSession,
@@ -225,6 +226,14 @@ describe('goal system', () => {
       now += 5_000
       await heartbeatGoalRuntimeSession()
       let goal = await loadGoal()
+      expect(goal!.active_session_started_at).toBeUndefined()
+      expect(goal!.time_used_seconds).toBe(0)
+      expect(getGoalElapsedSeconds(goal!)).toBe(0)
+
+      await beginGoalRuntimeSession()
+      now += 5_000
+      await heartbeatGoalRuntimeSession()
+      goal = await loadGoal()
       expect(goal!.time_used_seconds).toBe(5)
       expect(getGoalElapsedSeconds(goal!)).toBe(5)
 
@@ -234,6 +243,24 @@ describe('goal system', () => {
       goal = await loadGoal()
       expect(goal!.time_used_seconds).toBe(5)
       expect(getGoalElapsedSeconds(goal!)).toBe(5)
+    } finally {
+      Date.now = originalNow
+    }
+  })
+
+  test('discardGoalRuntimeSession clears stale launch timers without counting offline time', async () => {
+    const originalNow = Date.now
+    let now = new Date('2026-05-13T12:00:00.000Z').getTime()
+    Date.now = () => now
+    try {
+      await setGoal('Do not count while app is closed')
+      await beginGoalRuntimeSession()
+      now += 3_600_000
+
+      const discarded = await discardGoalRuntimeSession()
+      expect(discarded!.active_session_started_at).toBeUndefined()
+      expect(discarded!.time_used_seconds).toBe(0)
+      expect(getGoalElapsedSeconds(discarded!)).toBe(0)
     } finally {
       Date.now = originalNow
     }

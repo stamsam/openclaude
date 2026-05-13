@@ -39,6 +39,8 @@ describe('/goal command', () => {
     expect(result.value).toContain('Starting now.')
     expect(result.nextInput).toBe(AUTOSTART_NEXT_INPUT)
     expect(result.submitNextInput).toBe(true)
+    const goal = await loadGoal()
+    expect(goal!.active_session_started_at).toBeDefined()
   })
 
   test('resuming a paused goal requests an immediate follow-up turn', async () => {
@@ -53,6 +55,8 @@ describe('/goal command', () => {
     expect(result.value).toContain('Goal resumed:')
     expect(result.nextInput).toBe(AUTOSTART_NEXT_INPUT)
     expect(result.submitNextInput).toBe(true)
+    const goal = await loadGoal()
+    expect(goal!.active_session_started_at).toBeDefined()
   })
 
   test('act continues without forcing plan mode', async () => {
@@ -65,6 +69,8 @@ describe('/goal command', () => {
 
     expect(result.nextInput).toBe(AUTOSTART_NEXT_INPUT)
     expect(result.submitNextInput).toBe(true)
+    const goal = await loadGoal()
+    expect(goal!.active_session_started_at).toBeDefined()
   })
 
   test('plan routes through existing plan command', async () => {
@@ -77,6 +83,8 @@ describe('/goal command', () => {
 
     expect(result.nextInput).toBe(PLAN_NEXT_INPUT)
     expect(result.submitNextInput).toBe(true)
+    const goal = await loadGoal()
+    expect(goal!.active_session_started_at).toBeDefined()
   })
 
   test('restore and tasks route through existing commands', async () => {
