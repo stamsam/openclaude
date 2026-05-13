@@ -24,6 +24,7 @@ import {
 const ENV_KEYS = [
   'CI',
   'CLAUDE_CODE_NO_FLICKER',
+  'OPENCLAUDE_SHOW_STARTUP_BANNER',
   'CLAUDE_CODE_USE_OPENAI',
   'CLAUDE_CODE_USE_GEMINI',
   'CLAUDE_CODE_USE_GITHUB',
@@ -98,6 +99,7 @@ describe('printStartupScreen', () => {
       configurable: true,
       value: true,
     })
+    process.env.OPENCLAUDE_SHOW_STARTUP_BANNER = '1'
 
     let output = ''
     process.stdout.write = ((chunk: string | Uint8Array) => {
@@ -118,6 +120,24 @@ describe('printStartupScreen', () => {
   test('does not print the pre-Ink banner in fullscreen mode', () => {
     ;(globalThis as Record<string, unknown>).MACRO = { VERSION: 'test-version' }
     process.env.CLAUDE_CODE_NO_FLICKER = '1'
+    Object.defineProperty(process.stdout, 'isTTY', {
+      configurable: true,
+      value: true,
+    })
+
+    let output = ''
+    process.stdout.write = ((chunk: string | Uint8Array) => {
+      output += chunk.toString()
+      return true
+    }) as typeof process.stdout.write
+
+    printStartupScreen()
+
+    expect(output).toBe('')
+  })
+
+  test('does not print the pre-Ink banner by default', () => {
+    ;(globalThis as Record<string, unknown>).MACRO = { VERSION: 'test-version' }
     Object.defineProperty(process.stdout, 'isTTY', {
       configurable: true,
       value: true,
