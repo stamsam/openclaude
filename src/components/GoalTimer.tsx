@@ -2,7 +2,6 @@ import { useEffect, useState, useRef } from 'react'
 import { Text, Box } from '../ink.js'
 import {
   discardGoalRuntimeSession,
-  endGoalRuntimeSession,
   getGoalElapsedSeconds,
   heartbeatGoalRuntimeSession,
 } from './goalCore.js'
@@ -54,7 +53,6 @@ export function GoalTimer() {
     return () => {
       mounted = false
       if (intervalRef.current) clearInterval(intervalRef.current)
-      void endGoalRuntimeSession()
     }
   }, [])
 

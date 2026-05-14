@@ -28,8 +28,9 @@ Fork map: [`docs/fork-map.md`](docs/fork-map.md)
 - Telegram session control keeps runtime pause/resume/model state in sync, reconnects after transient polling/focus interruptions, and keeps phone commands matched to the active CLI session.
 - `/benchmark` is split into a command module with local model benchmark helpers and tests.
 - `/tui fullscreen` enables flicker-free alternate-screen rendering with a persistent OpenClaude header, fixed prompt placement, virtualized scrollback, and honest env/tmux override reporting.
+- Goal/status footers now keep live elapsed time, token usage, and `CTX` context percentage visible in CLI, `/tui default`, and `/tui fullscreen`. Local providers without usage metadata fall back to streamed-token estimates, and unknown context windows show `CTX ?`.
 - `/logo` now picks the startup/header mascot, including Shiba, gorilla, shark, and the rest of the pixel mascot set.
-- Agent View adds `openclaude agents`, `openclaude --bg`, `attach`, `logs`, `stop`, `respawn`, and `rm` for managing detached background sessions from one terminal, with git worktree isolation when available. In fullscreen mode it now opens as a clean full-screen dashboard instead of leaking the current chat transcript behind it. Attached threads support interactive `/model` and `/provider` pickers for switching that thread without leaving the session. See [`docs/agent-view.md`](docs/agent-view.md).
+- Agent View adds `openclaude agents`, `openclaude --bg`, `attach`, `logs`, `stop`, `respawn`, and `rm` for managing detached background sessions from one terminal, with git worktree isolation when available. In fullscreen mode it now opens as a clean full-screen dashboard instead of leaking the current chat transcript behind it. Attached threads support interactive `/model` and `/provider` pickers for switching that thread without leaving the session, and dashboard rows keep their own model/provider context for `CTX` reporting. See [`docs/agent-view.md`](docs/agent-view.md).
 - Practical feature backlog and comparison notes live in [`docs/planning/implementation-list.md`](docs/planning/implementation-list.md).
 
 ## Why OpenClaude
@@ -267,6 +268,7 @@ What it does:
 - stores the active goal locally
 - injects a continuation prompt while the goal is active
 - tracks elapsed time and token usage
+- keeps the footer live when switching permission modes or opening Agent View
 - supports pause, resume, and clear flows from the CLI
 
 The goal command is local-first and works without any external service.

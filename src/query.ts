@@ -90,6 +90,7 @@ import {
   getTokenCountFromUsage,
   tokenCountWithEstimation,
 } from './utils/tokens.js'
+import { roughTokenCountEstimation } from './services/tokenEstimation.js'
 import { ESCALATED_MAX_TOKENS } from './utils/context.js'
 import { getFeatureValue_CACHED_MAY_BE_STALE } from './services/analytics/growthbook.js'
 import { SLEEP_TOOL_NAME } from './tools/SleepTool/prompt.js'
@@ -130,6 +131,36 @@ const taskSummaryModule = feature('BG_SESSIONS')
 /* eslint-enable @typescript-eslint/no-require-imports */
 
 const GOAL_TOKEN_LIVE_UPDATE_STEP = 50
+
+function hasPositiveUsage(usage: NonNullableUsage): boolean {
+  return getTokenCountFromUsage(usage) > 0
+}
+
+export function getStreamingTextDeltaTokenEstimate(text: string): number {
+  return Math.max(0, roughTokenCountEstimation(text))
+}
+
+export function getStreamEventTextDelta(
+  event: StreamEvent['event'],
+): string | undefined {
+  if (event.type !== 'content_block_delta') {
+    return undefined
+  }
+  const delta = event.delta
+  if (delta.type === 'text_delta' && typeof delta.text === 'string') {
+    return delta.text
+  }
+  if (delta.type === 'thinking_delta' && typeof delta.thinking === 'string') {
+    return delta.thinking
+  }
+  if (
+    delta.type === 'input_json_delta' &&
+    typeof delta.partial_json === 'string'
+  ) {
+    return delta.partial_json
+  }
+  return undefined
+}
 
 function* yieldMissingToolResultBlocks(
   assistantMessages: AssistantMessage[],
@@ -640,14 +671,30 @@ async function* queryLoop(
     let needsFollowUp = false
     let currentGoalUsage: NonNullableUsage = { ...EMPTY_USAGE }
     let accountedGoalTokensForMessage = 0
+    let estimatedGoalOutputText = ''
+    let estimatedGoalOutputTokens = 0
     const accountGoalUsageSnapshot = async (force = false): Promise<void> => {
       if (toolUseContext.agentId) return
-      const goalTokens = getTokenCountFromUsage(currentGoalUsage)
+      const goalTokens = hasPositiveUsage(currentGoalUsage)
+        ? getTokenCountFromUsage(currentGoalUsage)
+        : estimatedGoalOutputTokens
       const delta = goalTokens - accountedGoalTokensForMessage
       if (delta <= 0) return
       if (!force && delta < GOAL_TOKEN_LIVE_UPDATE_STEP) return
       accountedGoalTokensForMessage = goalTokens
       await accountGoalTokens(delta)
+    }
+    const accountGoalStreamingTextDelta = async (
+      text: string | undefined,
+    ): Promise<void> => {
+      if (!text || toolUseContext.agentId || hasPositiveUsage(currentGoalUsage)) {
+        return
+      }
+      estimatedGoalOutputText += text
+      estimatedGoalOutputTokens = getStreamingTextDeltaTokenEstimate(
+        estimatedGoalOutputText,
+      )
+      await accountGoalUsageSnapshot(false)
     }
 
     queryCheckpoint('query_setup_start')
@@ -849,6 +896,8 @@ async function* queryLoop(
               needsFollowUp = false
               currentGoalUsage = { ...EMPTY_USAGE }
               accountedGoalTokensForMessage = 0
+              estimatedGoalOutputText = ''
+              estimatedGoalOutputTokens = 0
 
               // Discard pending results from the failed streaming attempt and create
               // a fresh executor. This prevents orphan tool_results (with old tool_use_ids)
@@ -869,7 +918,13 @@ async function* queryLoop(
                   message.event.message.usage,
                 )
                 accountedGoalTokensForMessage = 0
+                estimatedGoalOutputText = ''
+                estimatedGoalOutputTokens = 0
                 await accountGoalUsageSnapshot(true)
+              } else if (message.event.type === 'content_block_delta') {
+                await accountGoalStreamingTextDelta(
+                  getStreamEventTextDelta(message.event),
+                )
               } else if (message.event.type === 'message_delta') {
                 currentGoalUsage = updateUsage(
                   currentGoalUsage,
@@ -1011,6 +1066,8 @@ async function* queryLoop(
             const finalUsage = assistantMessages.at(-1)?.message.usage
             if (finalUsage) {
               currentGoalUsage = finalUsage
+              await accountGoalUsageSnapshot(true)
+            } else {
               await accountGoalUsageSnapshot(true)
             }
           }

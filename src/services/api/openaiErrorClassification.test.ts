@@ -70,6 +70,16 @@ test('classifies context-overflow responses', () => {
   expect(failure.retryable).toBe(false)
 })
 
+test('classifies OpenAI-compatible 400 prompt-too-long responses as context overflow', () => {
+  const failure = classifyOpenAIHttpFailure({
+    status: 400,
+    body: 'This model has a maximum context length of 32768 tokens. However, your messages resulted in 49152 tokens.',
+  })
+
+  expect(failure.category).toBe('context_overflow')
+  expect(failure.retryable).toBe(false)
+})
+
 test('classifies tool compatibility failures', () => {
   const failure = classifyOpenAIHttpFailure({
     status: 400,

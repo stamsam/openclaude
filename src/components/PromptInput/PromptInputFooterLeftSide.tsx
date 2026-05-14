@@ -334,7 +334,7 @@ function ModeIndicator({
   // the local permission mode shown here doesn't reflect the agent's state.
   // Rendered before the tasks pill so a long pill label (e.g. ultraplan URL)
   // doesn't push the mode indicator off-screen.
-  const modePart = currentMode && hasActiveMode && !getIsRemoteMode() ? <Text color={getModeColor(currentMode)} key="mode">
+  const modePart = currentMode && hasActiveMode && !getIsRemoteMode() ? <Text color={getModeColor(currentMode)} key="mode" wrap="truncate-end">
         {permissionModeSymbol(currentMode)}{' '}
         {permissionModeTitle(currentMode).toLowerCase()} on
         {shouldShowModeHint && <Text dimColor>
@@ -458,7 +458,7 @@ function ModeIndicator({
   // flexShrink=0 keeps mode + pill at natural width; the remaining parts
   // truncate at the tail as one string inside the Text wrapper.
   return <Box height={1} overflow="hidden">
-      {modePart && <Box flexShrink={0}>
+      {modePart && <Box flexShrink={1} overflow="hidden">
           {modePart}
           {(tasksPart || parts.length > 0) && <Text dimColor> · </Text>}
         </Box>}

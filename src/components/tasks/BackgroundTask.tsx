@@ -7,6 +7,7 @@ import { truncate } from 'src/utils/format.js';
 import { toInkColor } from 'src/utils/ink.js';
 import { plural } from 'src/utils/stringUtils.js';
 import { DIAMOND_FILLED, DIAMOND_OPEN } from '../../constants/figures.js';
+import { ContextPercentIndicator } from '../ContextPercentIndicator.js';
 import { RemoteSessionProgress } from './RemoteSessionProgress.js';
 import { ShellProgress, TaskStatusText } from './ShellProgress.js';
 import { describeTeammateActivity } from './taskStatusUtils.js';
@@ -15,7 +16,7 @@ type Props = {
   maxActivityWidth?: number;
 };
 export function BackgroundTask(t0) {
-  const $ = _c(92);
+  const $ = _c(98);
   const {
     task,
     maxActivityWidth
@@ -136,10 +137,13 @@ export function BackgroundTask(t0) {
           t4 = $[28];
         }
         let t5;
-        if ($[29] !== t1 || $[30] !== t4) {
-          t5 = <Text>{t1}{" "}{t4}</Text>;
+        if ($[29] !== t1 || $[30] !== t4 || $[92] !== task.messages || $[93] !== task.model || $[94] !== task.providerBaseUrl) {
+          t5 = <Text>{t1}{" "}{t4}{" · "}<ContextPercentIndicator messages={task.messages ?? []} model={task.model} providerBaseUrl={task.providerBaseUrl} /></Text>;
           $[29] = t1;
           $[30] = t4;
+          $[92] = task.messages;
+          $[93] = task.model;
+          $[94] = task.providerBaseUrl;
           $[31] = t5;
         } else {
           t5 = $[31];
@@ -194,12 +198,15 @@ export function BackgroundTask(t0) {
           t4 = $[39];
         }
         let t5;
-        if ($[45] !== T0 || $[46] !== t1 || $[47] !== t2 || $[48] !== t3) {
-          t5 = <T0 dimColor={t1}>{t2}{t3}</T0>;
+        if ($[45] !== T0 || $[46] !== t1 || $[47] !== t2 || $[48] !== t3 || $[95] !== task.messages || $[96] !== task.model || $[97] !== task.providerBaseUrl) {
+          t5 = <T0 dimColor={t1}>{t2}{t3}{" · "}<ContextPercentIndicator messages={task.messages ?? []} model={task.model} providerBaseUrl={task.providerBaseUrl} /></T0>;
           $[45] = T0;
           $[46] = t1;
           $[47] = t2;
           $[48] = t3;
+          $[95] = task.messages;
+          $[96] = task.model;
+          $[97] = task.providerBaseUrl;
           $[49] = t5;
         } else {
           t5 = $[49];

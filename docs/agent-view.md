@@ -72,6 +72,8 @@ Agent View participates in OpenClaude's `/tui fullscreen` renderer. In a normal 
 
 Running `openclaude agents` directly also uses the alternate-screen fullscreen renderer when `/tui fullscreen` or `CLAUDE_CODE_NO_FLICKER=1` is active.
 
+Agent rows preserve their own model/provider metadata for context reporting. When OpenClaude knows a row's context window it shows `CTX N%`; when a local or custom provider does not expose the window it shows `CTX ?` instead of borrowing the main chat's model or displaying a fake zero.
+
 You can put provider/model overrides at the start of a dashboard prompt:
 
 ```text
