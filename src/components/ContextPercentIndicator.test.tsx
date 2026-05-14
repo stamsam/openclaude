@@ -4,6 +4,23 @@ import { renderToString } from '../utils/staticRender.js'
 import { ContextPercentIndicator } from './ContextPercentIndicator.js'
 
 describe('ContextPercentIndicator', () => {
+  function assistantWithUsage(totalTokens: number) {
+    return {
+      type: 'assistant' as const,
+      message: {
+        id: `msg_${totalTokens}`,
+        model: 'Qwen3.6-35B-A3B-oQ4-mtp',
+        content: [{ type: 'text' as const, text: 'done' }],
+        usage: {
+          input_tokens: totalTokens,
+          output_tokens: 0,
+          cache_creation_input_tokens: 0,
+          cache_read_input_tokens: 0,
+        },
+      },
+    }
+  }
+
   test('renders a percentage when the context window is known', async () => {
     const messages = [
       {
@@ -30,6 +47,32 @@ describe('ContextPercentIndicator', () => {
     )
 
     expect(output).toContain('CTX 25%')
+  })
+
+  test('shows low but non-zero local context usage instead of rounding to zero', async () => {
+    const originalOmlxContextWindow = process.env.OMLX_CONTEXT_WINDOW
+    process.env.OMLX_CONTEXT_WINDOW = '1000000'
+
+    try {
+      const output = await renderToString(
+        <AppStateProvider>
+          <ContextPercentIndicator
+            messages={[assistantWithUsage(3_000)]}
+            model="Qwen3.6-35B-A3B-oQ4-mtp"
+            providerBaseUrl="http://127.0.0.1:8000/v1"
+          />
+        </AppStateProvider>,
+        80,
+      )
+
+      expect(output).toContain('CTX 0.3%')
+    } finally {
+      if (originalOmlxContextWindow === undefined) {
+        delete process.env.OMLX_CONTEXT_WINDOW
+      } else {
+        process.env.OMLX_CONTEXT_WINDOW = originalOmlxContextWindow
+      }
+    }
   })
 
   test('renders unknown state when runtime metadata cannot resolve a context window', async () => {

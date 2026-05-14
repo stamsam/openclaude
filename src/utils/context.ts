@@ -84,8 +84,19 @@ export function modelSupports1M(model: string): boolean {
 
 function shouldUseIntegrationRuntimeLimits(
   processEnv: NodeJS.ProcessEnv = process.env,
+  options?: {
+    baseUrl?: string
+    activeProfileProvider?: string
+  },
 ): boolean {
-  const routeId = resolveActiveRouteIdFromEnv(processEnv)
+  const runtimeEnv: NodeJS.ProcessEnv = { ...processEnv }
+  if (options?.baseUrl !== undefined) {
+    runtimeEnv.OPENAI_BASE_URL = options.baseUrl
+    runtimeEnv.CLAUDE_CODE_USE_OPENAI = '1'
+  }
+  const routeId = resolveActiveRouteIdFromEnv(runtimeEnv, {
+    activeProfileProvider: options?.activeProfileProvider,
+  })
   const transportKind = routeId ? getTransportKindForRoute(routeId) : null
 
   return (
@@ -144,7 +155,7 @@ export function resolveContextWindowForModel(
   // Unknown models get a conservative 128k default. This was previously 8k,
   // but that caused auto-compact to fire on every turn because the effective
   // context (8k minus output reservation) became negative (issue #635).
-  if (shouldUseIntegrationRuntimeLimits(processEnv)) {
+  if (shouldUseIntegrationRuntimeLimits(processEnv, options)) {
     const runtimeLimits = resolveModelRuntimeLimits({
       model,
       processEnv,

@@ -321,6 +321,22 @@ test('oMLX local context window env resolves with local source', () => {
   expect(getContextWindowForModel('local-omlx-model')).toBe(262_144)
 })
 
+test('oMLX provider base URL option resolves local context without global env route', () => {
+  process.env.OMLX_CONTEXT_WINDOW = '262144'
+  delete process.env.CLAUDE_CODE_USE_OPENAI
+  delete process.env.OPENAI_BASE_URL
+  delete process.env.OPENAI_MODEL
+
+  expect(
+    resolveContextWindowForModel('local-omlx-model', [], {
+      baseUrl: 'http://127.0.0.1:8000/v1',
+    }),
+  ).toEqual({
+    contextWindow: 262_144,
+    source: 'omlx-local',
+  })
+})
+
 test('OpenAI-compatible custom model limits honor documented env overrides', () => {
   process.env.CLAUDE_CODE_USE_OPENAI = '1'
   process.env.CLAUDE_CODE_OPENAI_CONTEXT_WINDOWS = JSON.stringify({
