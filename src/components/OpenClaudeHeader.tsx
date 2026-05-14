@@ -68,7 +68,14 @@ export function OpenClaudeHeader({
   const safeStatusLine = statusLine ? truncate(statusLine, textWidth) : undefined
 
   return (
-    <Box flexDirection="row" gap={2} paddingLeft={1} paddingTop={1} marginBottom={1}>
+    <Box
+      flexDirection="row"
+      flexShrink={0}
+      gap={2}
+      paddingLeft={1}
+      paddingTop={1}
+      marginBottom={1}
+    >
       <Box flexShrink={0}>
         <TerminalMascot variant={mascot} />
       </Box>
