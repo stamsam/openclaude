@@ -18,6 +18,10 @@ import {
   resolveRouteIdFromBaseUrl,
   type RouteDescriptor,
 } from './routeMetadata.js'
+import {
+  isLikelyOmlxBaseUrl,
+  readOmlxContextWindow,
+} from '../utils/omlxSettings.js'
 
 function normalizeModelApiName(
   value: string | undefined,
@@ -175,7 +179,9 @@ export type OpenAIShimRuntimeContext = {
 
 export type ModelRuntimeLimits = {
   contextWindow?: number
+  contextWindowSource?: 'env' | 'catalog' | 'descriptor' | 'omlx-local'
   maxOutputTokens?: number
+  maxOutputTokensSource?: 'env' | 'catalog' | 'descriptor'
 }
 
 export function resolveOpenAIShimRuntimeContext(options?: {
@@ -323,6 +329,13 @@ export function resolveModelRuntimeLimits(options: {
   const runtimeEnv: NodeJS.ProcessEnv = { ...processEnv }
   if (options.baseUrl !== undefined) {
     runtimeEnv.OPENAI_BASE_URL = options.baseUrl
+    runtimeEnv.CLAUDE_CODE_USE_OPENAI = '1'
+    delete runtimeEnv.CLAUDE_CODE_USE_GEMINI
+    delete runtimeEnv.CLAUDE_CODE_USE_MISTRAL
+    delete runtimeEnv.CLAUDE_CODE_USE_GITHUB
+    delete runtimeEnv.CLAUDE_CODE_USE_BEDROCK
+    delete runtimeEnv.CLAUDE_CODE_USE_VERTEX
+    delete runtimeEnv.CLAUDE_CODE_USE_FOUNDRY
   }
 
   const routeId = resolveActiveRouteIdFromEnv(runtimeEnv, {
@@ -337,16 +350,52 @@ export function resolveModelRuntimeLimits(options: {
     options.model,
     runtimeEnv,
   )
+  const baseUrl =
+    options.baseUrl ??
+    runtimeEnv.OPENAI_BASE_URL ??
+    runtimeEnv.ANTHROPIC_BASE_URL ??
+    runtimeEnv.OPENAI_API_BASE
+  const omlxContextWindow =
+    routeId === 'omlx' ||
+    routeId === 'omlx-anthropic' ||
+    isLikelyOmlxBaseUrl(baseUrl)
+      ? readOmlxContextWindow({
+          model: options.model,
+          processEnv: runtimeEnv,
+        })
+      : undefined
+
+  const contextWindow =
+    externalContextWindow ??
+    catalogEntry?.contextWindow ??
+    modelDescriptor?.contextWindow ??
+    omlxContextWindow
+  const maxOutputTokens =
+    externalMaxOutputTokens ??
+    catalogEntry?.maxOutputTokens ??
+    modelDescriptor?.maxOutputTokens
 
   return {
-    contextWindow:
-      externalContextWindow ??
-      catalogEntry?.contextWindow ??
-      modelDescriptor?.contextWindow,
-    maxOutputTokens:
-      externalMaxOutputTokens ??
-      catalogEntry?.maxOutputTokens ??
-      modelDescriptor?.maxOutputTokens,
+    contextWindow,
+    contextWindowSource:
+      externalContextWindow !== undefined
+        ? 'env'
+        : catalogEntry?.contextWindow !== undefined
+          ? 'catalog'
+          : modelDescriptor?.contextWindow !== undefined
+            ? 'descriptor'
+            : omlxContextWindow !== undefined
+              ? 'omlx-local'
+              : undefined,
+    maxOutputTokens,
+    maxOutputTokensSource:
+      externalMaxOutputTokens !== undefined
+        ? 'env'
+        : catalogEntry?.maxOutputTokens !== undefined
+          ? 'catalog'
+          : modelDescriptor?.maxOutputTokens !== undefined
+            ? 'descriptor'
+            : undefined,
   }
 }
 

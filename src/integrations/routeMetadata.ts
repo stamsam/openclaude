@@ -329,6 +329,7 @@ export function getRouteCredentialEnvVars(
   if (
     (descriptor.transportConfig.kind === 'openai-compatible' ||
       descriptor.transportConfig.kind === 'local') &&
+    routeId !== 'cerebras' &&
     !envVars.includes('OPENAI_API_KEY')
   ) {
     envVars.push('OPENAI_API_KEY')

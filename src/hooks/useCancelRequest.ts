@@ -54,6 +54,7 @@ type CancelRequestHandlerProps = {
   inputMode?: PromptInputMode
   inputValue?: string
   streamMode?: SpinnerMode
+  isActive?: boolean
 }
 
 /**
@@ -76,6 +77,7 @@ export function CancelRequestHandler(props: CancelRequestHandlerProps): null {
     inputMode,
     inputValue,
     streamMode,
+    isActive = true,
   } = props
   const store = useAppStateStore()
   const setAppState = useSetAppState()
@@ -143,6 +145,7 @@ export function CancelRequestHandler(props: CancelRequestHandlerProps): null {
     !isLocalJSXCommand &&
     !isHelpOpen &&
     !isOverlayActive &&
+    isActive &&
     !(isVimModeEnabled() && vimMode === 'INSERT')
 
   // Escape (chat:cancel) defers to mode-exit when in special mode with empty
@@ -223,6 +226,8 @@ export function CancelRequestHandler(props: CancelRequestHandlerProps): null {
   // confirmation hint, second press within the window actually kills all
   // agents. Reads tasks from the store directly to avoid stale closures.
   const handleKillAgents = useCallback(() => {
+    if (!isActive) return false
+
     const tasks = store.getState().tasks
     const hasRunningAgents = Object.values(tasks).some(
       t => t.type === 'local_agent' && t.status === 'running',
@@ -263,7 +268,7 @@ export function CancelRequestHandler(props: CancelRequestHandlerProps): null {
       priority: 'immediate',
       timeoutMs: KILL_AGENTS_CONFIRM_WINDOW_MS,
     })
-  }, [store, addNotification, removeNotification, killAllAgentsAndNotify])
+  }, [isActive, store, addNotification, removeNotification, killAllAgentsAndNotify])
 
   // Must stay always-active: ctrl+x is consumed as a chord prefix regardless
   // of isActive (because ctrl+x ctrl+e is always live), so an inactive handler

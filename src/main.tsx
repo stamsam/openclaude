@@ -1020,7 +1020,7 @@ async function run(): Promise<CommanderCommand> {
   // `mcp` and `add` as paths, then choked on --transport as an unknown
   // top-level option. Single-value + collect accumulator means each
   // --plugin-dir takes exactly one arg; repeat the flag for multiple dirs.
-  .option('--plugin-dir <path>', 'Load plugins from a directory for this session only (repeatable: --plugin-dir A --plugin-dir B)', (val: string, prev: string[]) => [...prev, val], [] as string[]).option('--disable-slash-commands', 'Disable all skills', () => true).option('--chrome', 'Enable Claude in Chrome integration').option('--no-chrome', 'Disable Claude in Chrome integration').option('--file <specs...>', 'File resources to download at startup. Format: file_id:relative_path (e.g., --file file_abc:doc.txt file_def:img.png)').action(async (prompt, options) => {
+	  .option('--plugin-dir <path>', 'Load plugins from a directory for this session only (repeatable: --plugin-dir A --plugin-dir B)', (val: string, prev: string[]) => [...prev, val], [] as string[]).option('--disable-slash-commands', 'Disable all skills', () => true).option('--chrome', 'Enable Claude in Chrome integration').option('--no-chrome', 'Disable Claude in Chrome integration').addOption(new Option('--bg <prompt...>', 'Start a background OpenClaude session and return immediately')).option('--file <specs...>', 'File resources to download at startup. Format: file_id:relative_path (e.g., --file file_abc:doc.txt file_def:img.png)').action(async (prompt, options) => {
     profileCheckpoint('action_handler_start');
 
     // --bare = one-switch minimal mode. Sets SIMPLE so all the existing
@@ -1030,6 +1030,28 @@ async function run(): Promise<CommanderCommand> {
       bare?: boolean;
     }).bare) {
       process.env.CLAUDE_CODE_SIMPLE = '1';
+    }
+
+	    const bgOption = (options as {
+	      bg?: string | string[]
+	    }).bg
+	    const bgPrompt = Array.isArray(bgOption) ? bgOption.join(' ') : bgOption
+	    if (bgPrompt) {
+	      const {
+	        startBackgroundSession,
+        formatBackgroundStarted,
+      } = await import('./agentview/cli.js')
+      const job = await startBackgroundSession({
+        prompt: bgPrompt,
+        cwd: getOriginalCwd(),
+        provider: options.provider,
+        model: options.model,
+        permissionMode: options.permissionMode,
+        name: options.name,
+      })
+      process.stdout.write(`${formatBackgroundStarted(job)}\n`)
+      gracefulShutdownSync(0)
+      return
     }
 
     // Ignore "code" as a prompt - treat it the same as no prompt
@@ -4283,13 +4305,81 @@ async function run(): Promise<CommanderCommand> {
     await setupTokenHandler(root);
   });
 
-  // Agents command - list configured agents
-  program.command('agents').description('List configured agents').option('--setting-sources <sources>', 'Comma-separated list of setting sources to load (user, project, local).').action(async () => {
+  program.command('agents').description('Open Agent View for background OpenClaude sessions').option('--list-configured', 'List configured subagents instead of opening Agent View').option('--provider <provider>', 'Default provider for new Agent View sessions').option('--model <model>', 'Default model for new Agent View sessions').option('--permission-mode <mode>', 'Default permission mode for new Agent View sessions').option('--setting-sources <sources>', 'Comma-separated list of setting sources to load (user, project, local).').action(async options => {
+    if (options.listConfigured) {
+      const {
+        agentsHandler
+      } = await import('./cli/handlers/agents.js');
+      await agentsHandler();
+      process.exit(0);
+    }
     const {
-      agentsHandler
-    } = await import('./cli/handlers/agents.js');
-    await agentsHandler();
+      openAgentView
+    } = await import('./agentview/view.js');
+    await openAgentView({
+      cwd: getOriginalCwd(),
+      provider: options.provider,
+      model: options.model,
+      permissionMode: options.permissionMode,
+    });
     process.exit(0);
+  });
+
+  program.command('attach <id>').description('Attach to a background session').action(async id => {
+    const {
+      attachToJob
+    } = await import('./agentview/cli.js');
+    const result = await attachToJob(id);
+    if (result === 'dashboard') {
+      const {
+        openAgentView
+      } = await import('./agentview/view.js');
+      await openAgentView({
+        cwd: getOriginalCwd()
+      });
+    }
+    gracefulShutdownSync(process.exitCode ?? 0);
+  });
+
+  program.command('logs <id>').description('Show recent output for a background session').action(async id => {
+    const {
+      printLogs
+    } = await import('./agentview/cli.js');
+    await printLogs(id);
+    gracefulShutdownSync(process.exitCode ?? 0);
+  });
+
+  program.command('stop <id>').description('Stop a background session safely').action(async id => {
+    const {
+      stopAndReport
+    } = await import('./agentview/cli.js');
+    await stopAndReport(id);
+    gracefulShutdownSync(process.exitCode ?? 0);
+  });
+  program.command('respawn <id>').description('Start a fresh copy of a background session').action(async id => {
+    const {
+      respawnAndReport
+    } = await import('./agentview/cli.js');
+    await respawnAndReport(id);
+    gracefulShutdownSync(process.exitCode ?? 0);
+  });
+
+  program.command('rm <id>').description('Remove a completed or stopped background session').action(async id => {
+    const {
+      removeAndReport
+    } = await import('./agentview/cli.js');
+    await removeAndReport(id);
+    gracefulShutdownSync(process.exitCode ?? 0);
+  });
+
+  program.command('bg-runner <id>', {
+    hidden: true
+  }).description('Run a background session worker').action(async id => {
+    const {
+      runBackgroundJob
+    } = await import('./agentview/cli.js');
+    await runBackgroundJob(id);
+    gracefulShutdownSync(process.exitCode ?? 0);
   });
   if (feature('TRANSCRIPT_CLASSIFIER')) {
     // Skip when tengu_auto_mode_config.enabled === 'disabled' (circuit breaker).

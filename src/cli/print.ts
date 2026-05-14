@@ -270,6 +270,11 @@ import {
   modelDisplayString,
   parseUserSpecifiedModel,
 } from 'src/utils/model/model.js'
+import { getPrimaryModel } from 'src/utils/providerModels.js'
+import {
+  applyProviderProfileToProcessEnv,
+  getProviderProfiles,
+} from 'src/utils/providerProfiles.js'
 import { getModelOptions } from 'src/utils/model/modelOptions.js'
 import {
   modelSupportsEffort,
@@ -2932,6 +2937,45 @@ function runHeadlessStreaming(
           injectModelSwitchBreadcrumbs(requestedModel, model)
 
           sendControlResponseSuccess(message)
+        } else if (message.request.subtype === 'set_provider') {
+          try {
+            const requestedProfileId = message.request.provider_profile_id?.trim()
+            const requestedProvider = message.request.provider?.trim()
+            const profiles = getProviderProfiles()
+            const profile = profiles.find(item => item.id === requestedProfileId) ??
+              profiles.find(item =>
+                item.name === requestedProvider ||
+                item.provider === requestedProvider ||
+                item.id === requestedProvider,
+              )
+
+            if (!profile) {
+              sendControlResponseError(
+                message,
+                requestedProvider
+                  ? `Provider profile not found: ${requestedProvider}`
+                  : 'Provider profile not found.',
+              )
+              return
+            }
+
+            applyProviderProfileToProcessEnv(profile)
+            const requestedModel = message.request.model?.trim() || getPrimaryModel(profile.model)
+            if (requestedModel) {
+              activeUserSpecifiedModel = requestedModel
+              setMainLoopModelOverride(requestedModel)
+              notifySessionMetadataChanged({ model: requestedModel })
+              injectModelSwitchBreadcrumbs(requestedModel, requestedModel)
+            }
+
+            sendControlResponseSuccess(message, {
+              provider: profile.provider,
+              provider_profile_id: profile.id,
+              model: requestedModel,
+            })
+          } catch (error) {
+            sendControlResponseError(message, errorMessage(error))
+          }
         } else if (message.request.subtype === 'set_max_thinking_tokens') {
           if (message.request.max_thinking_tokens === null) {
             options.thinkingConfig = undefined

@@ -1,0 +1,70 @@
+import { describe, expect, test } from 'bun:test'
+
+import { conversationFromLog, mergeConversationTurns } from './AttachPanel.js'
+
+function logLine(value: Record<string, unknown>): string {
+  return `${JSON.stringify(value)}\n`
+}
+
+describe('AgentAttachPanel conversation log rendering', () => {
+  test('hides local command replay breadcrumbs from thread conversation', () => {
+    const raw = [
+      logLine({
+        type: 'user',
+        isReplay: true,
+        message: {
+          role: 'user',
+          content: '<local-command-stdout>Set model to deepseek</local-command-stdout>',
+        },
+      }),
+      logLine({
+        type: 'user',
+        message: {
+          role: 'user',
+          content: 'hello',
+        },
+      }),
+      logLine({
+        type: 'assistant',
+        message: {
+          role: 'assistant',
+          content: [{ type: 'text', text: 'hi there' }],
+        },
+      }),
+    ].join('')
+
+    expect(conversationFromLog(raw)).toEqual([
+      { role: 'You', text: 'hello' },
+      { role: 'Agent', text: 'hi there' },
+    ])
+  })
+
+  test('keeps submitted user text visible before the job log catches up', () => {
+    expect(
+      mergeConversationTurns(
+        [{ role: 'Agent', text: 'what now?' }],
+        [{ role: 'You', text: 'experiment' }],
+      ),
+    ).toEqual([
+      { role: 'Agent', text: 'what now?' },
+      { role: 'You', text: 'experiment' },
+    ])
+  })
+
+  test('dedupes optimistic user text once it is present in the job log', () => {
+    expect(
+      mergeConversationTurns(
+        [
+          { role: 'Agent', text: 'what now?' },
+          { role: 'You', text: 'experiment' },
+          { role: 'Agent', text: 'nice' },
+        ],
+        [{ role: 'You', text: 'experiment' }],
+      ),
+    ).toEqual([
+      { role: 'Agent', text: 'what now?' },
+      { role: 'You', text: 'experiment' },
+      { role: 'Agent', text: 'nice' },
+    ])
+  })
+})

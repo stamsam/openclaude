@@ -33,6 +33,7 @@ const RESTORED_KEYS = [
   'OPENAI_AUTH_HEADER_VALUE',
   'OPENAI_API_KEY',
   'OMLX_API_KEY',
+  'CEREBRAS_API_KEY',
   'CODEX_API_KEY',
   'CODEX_CREDENTIAL_SOURCE',
   'CHATGPT_ACCOUNT_ID',
@@ -179,6 +180,16 @@ function buildXaiProfile(overrides: Partial<ProviderProfile> = {}): ProviderProf
     baseUrl: 'https://api.x.ai/v1',
     model: 'grok-4',
     apiKey: 'xai-test-key',
+    ...overrides,
+  })
+}
+
+function buildCerebrasProfile(overrides: Partial<ProviderProfile> = {}): ProviderProfile {
+  return buildProfile({
+    provider: 'cerebras',
+    baseUrl: 'https://api.cerebras.ai/v1',
+    model: 'qwen-3-235b-a22b-instruct-2507',
+    apiKey: 'cerebras-test-key',
     ...overrides,
   })
 }
@@ -652,6 +663,22 @@ describe('applyProviderProfileToProcessEnv', () => {
 
     expect(String(process.env.XAI_API_KEY)).toBe('xai-test-key')
     expect(getFreshAPIProvider()).toBe('xai')
+  })
+
+  test('cerebras profile sets Cerebras key alias and stays OpenAI-compatible', async () => {
+    const { applyProviderProfileToProcessEnv } =
+      await importFreshProviderProfileModules()
+
+    applyProviderProfileToProcessEnv(buildCerebrasProfile())
+    const { getAPIProvider: getFreshAPIProvider } =
+      await importFreshProvidersModule()
+
+    expect(process.env.CLAUDE_CODE_USE_OPENAI).toBe('1')
+    expect(process.env.OPENAI_BASE_URL).toBe('https://api.cerebras.ai/v1')
+    expect(process.env.OPENAI_MODEL).toBe('qwen-3-235b-a22b-instruct-2507')
+    expect(process.env.OPENAI_API_KEY).toBe('cerebras-test-key')
+    expect(process.env.CEREBRAS_API_KEY).toBe('cerebras-test-key')
+    expect(getFreshAPIProvider()).toBe('openai')
   })
 })
 

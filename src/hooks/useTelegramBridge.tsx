@@ -5,7 +5,10 @@ import { type Message } from '../types/message.js'
 import { getContentText } from '../utils/messages.js'
 import { renderDefaultModelSetting } from '../utils/model/model.js'
 import { validateModel } from '../utils/model/validateModel.js'
-import { getActiveProviderProfile } from '../utils/providerProfiles.js'
+import {
+  getActiveProviderProfile,
+  getProviderProfiles,
+} from '../utils/providerProfiles.js'
 import {
   buildBtwPrompt,
   type TelegramCommand,
@@ -15,13 +18,14 @@ import {
 import { TelegramClient } from '../telegram/client.js'
 import { splitTelegramMessage } from '../telegram/messageChunking.js'
 import {
-  BUSY_NOTICE_COOLDOWN_MS,
+  POLL_RETRY_DELAY_MS,
   createInitialChatRunState,
   markBusyNoticeSent,
   markOverlayNoticeSent,
   markRunCompleted,
   markRunStarted,
   markRunStopped,
+  shouldDisableBridgeAfterRuntimeError,
   shouldAbortTelegramRun,
   shouldIgnoreUpdate,
   shouldSendOverlayNotice,
@@ -64,6 +68,10 @@ type TelegramSideQuestionRun = {
 }
 
 const POLL_TIMEOUT_SECONDS = 30
+
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
 
 function getTelegramRuntimeConfig(workspaceOverride?: string): TelegramRuntimeConfig {
   const saved = getSavedTelegramSettings()
@@ -199,6 +207,16 @@ async function formatCombinedTaskSummary(
 }
 
 function getProviderLabel(): string | undefined {
+  const appliedProfileId = process.env.CLAUDE_CODE_PROVIDER_PROFILE_ENV_APPLIED_ID
+  if (appliedProfileId) {
+    const appliedProfile = getProviderProfiles().find(
+      profile => profile.id === appliedProfileId,
+    )
+    if (appliedProfile) {
+      return appliedProfile.name || appliedProfile.provider
+    }
+  }
+
   const activeProfile = getActiveProviderProfile()
   if (activeProfile) {
     return activeProfile.name || activeProfile.provider
@@ -267,7 +285,9 @@ export function useTelegramBridge({
   const paused = useAppState(s => s.telegramBridgePaused ?? false)
   const workspaceOverride = useAppState(s => s.telegramBridgeWorkspaceDir)
   const configVersion = useAppState(s => s.telegramBridgeConfigVersion ?? 0)
-  const currentModel = useAppState(s => s.mainLoopModel)
+  const currentModel = useAppState(
+    s => s.mainLoopModelForSession ?? s.mainLoopModel,
+  )
   const error = useAppState(s => s.telegramBridgeError)
   const tasks = useAppState(s => s.tasks)
   const activeLocalOverlayKind = useAppState(s => s.activeLocalOverlayKind)
@@ -365,6 +385,7 @@ export function useTelegramBridge({
 
     let cancelled = false
     let offset: number | undefined
+    let hasNotifiedRuntimeError = false
 
     const config = safeReadRuntimeConfig(workspaceOverrideRef.current)
     if (!config) {
@@ -730,10 +751,44 @@ export function useTelegramBridge({
       }
     }
 
+    function markRuntimeError(detail: string): void {
+      logForDebugging(`[telegram:session] ${detail}`, { level: 'error' })
+      const fatal = shouldDisableBridgeAfterRuntimeError(detail)
+      setAppState(prev => ({
+        ...prev,
+        telegramBridgeConnected: false,
+        telegramBridgeError: detail,
+        telegramBridgeEnabled: fatal ? false : prev.telegramBridgeEnabled,
+      }))
+      if (!hasNotifiedRuntimeError || fatal) {
+        hasNotifiedRuntimeError = true
+        addNotification({
+          key: 'telegram-bridge-runtime-error',
+          priority: 'immediate',
+          text: fatal
+            ? `Telegram bridge stopped: ${detail}`
+            : `Telegram bridge reconnecting: ${detail}`,
+        })
+      }
+    }
+
     async function loop(): Promise<void> {
-      try {
-        while (!cancelled) {
+      while (!cancelled) {
+        try {
           const updates = await client.getUpdates(offset, POLL_TIMEOUT_SECONDS)
+          if (cancelled) return
+          if (hasNotifiedRuntimeError) {
+            hasNotifiedRuntimeError = false
+          }
+          setAppState(prev =>
+            prev.telegramBridgeConnected && !prev.telegramBridgeError
+              ? prev
+              : {
+                  ...prev,
+                  telegramBridgeConnected: true,
+                  telegramBridgeError: undefined,
+                },
+          )
           for (const update of updates) {
             offset = update.update_id + 1
             if (shouldIgnoreUpdate(lastGlobalUpdateIdRef.current, update.update_id)) {
@@ -756,23 +811,15 @@ export function useTelegramBridge({
             const command = parseTelegramCommand(message.text)
             await handleCommand(command, message.chat.id)
           }
-        }
-      } catch (error) {
-        const detail =
-          error instanceof Error ? error.message : 'Telegram bridge failed'
-        logForDebugging(`[telegram:session] ${detail}`, { level: 'error' })
-        if (!cancelled) {
-          setAppState(prev => ({
-            ...prev,
-            telegramBridgeConnected: false,
-            telegramBridgeError: detail,
-            telegramBridgeEnabled: false,
-          }))
-          addNotification({
-            key: 'telegram-bridge-runtime-error',
-            priority: 'immediate',
-            text: `Telegram bridge stopped: ${detail}`,
-          })
+        } catch (error) {
+          if (cancelled) return
+          const detail =
+            error instanceof Error ? error.message : 'Telegram bridge failed'
+          markRuntimeError(detail)
+          if (shouldDisableBridgeAfterRuntimeError(detail)) {
+            return
+          }
+          await sleep(POLL_RETRY_DELAY_MS)
         }
       }
     }
@@ -797,19 +844,12 @@ export function useTelegramBridge({
       } catch (error) {
         const detail =
           error instanceof Error ? error.message : 'Telegram bridge failed'
-        logForDebugging(`[telegram:session] ${detail}`, { level: 'error' })
         if (!cancelled) {
-          setAppState(prev => ({
-            ...prev,
-            telegramBridgeConnected: false,
-            telegramBridgeError: detail,
-            telegramBridgeEnabled: false,
-          }))
-          addNotification({
-            key: 'telegram-bridge-runtime-error',
-            priority: 'immediate',
-            text: `Telegram bridge stopped: ${detail}`,
-          })
+          markRuntimeError(detail)
+          if (!shouldDisableBridgeAfterRuntimeError(detail)) {
+            await sleep(POLL_RETRY_DELAY_MS)
+            if (!cancelled) void start()
+          }
         }
       }
     }

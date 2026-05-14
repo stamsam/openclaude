@@ -1,6 +1,7 @@
 import type { TelegramChatRunState } from './types.js'
 
 export const BUSY_NOTICE_COOLDOWN_MS = 60_000
+export const POLL_RETRY_DELAY_MS = 5_000
 
 export function createInitialChatRunState(): TelegramChatRunState {
   return {
@@ -98,3 +99,13 @@ export function shouldAbortTelegramRun(
 }
 
 export const markRunCompleted = markRunStopped
+
+export function shouldDisableBridgeAfterRuntimeError(message: string): boolean {
+  const normalized = message.toLowerCase()
+  const compact = normalized.trim()
+  return (
+    normalized.includes('unauthorized') ||
+    normalized.includes('bot token') ||
+    compact === 'not found'
+  )
+}

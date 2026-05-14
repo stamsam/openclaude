@@ -30,6 +30,9 @@ export type InProcessTeammateTaskState = TaskStateBase & {
   prompt: string
   // Optional model override for this teammate
   model?: string
+  // Optional provider base URL used by this teammate when it routes to a
+  // non-global local/OpenAI-compatible provider.
+  providerBaseUrl?: string
   // Optional: Only set if teammate uses a specific agent definition
   // Many teammates run as general-purpose agents without a predefined definition
   selectedAgent?: AgentDefinition

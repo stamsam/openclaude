@@ -3,6 +3,7 @@ import { feature } from 'bun:bundle';
 import figures from 'figures';
 import React, { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { isCoordinatorMode } from 'src/coordinator/coordinatorMode.js';
+import { useSetPromptOverlayDialog } from 'src/context/promptOverlayContext.js';
 import { useEffectEventCompat } from 'src/hooks/useEffectEventCompat.js';
 import { useTerminalSize } from 'src/hooks/useTerminalSize.js';
 import { useAppState, useSetAppState } from 'src/state/AppState.js';
@@ -22,6 +23,7 @@ import { RemoteAgentTask, type RemoteAgentTaskState } from 'src/tasks/RemoteAgen
 import { type BackgroundTaskState, isBackgroundTask, type TaskState } from 'src/tasks/types.js';
 import type { DeepImmutable } from 'src/types/utils.js';
 import { intersperse } from 'src/utils/array.js';
+import { isFullscreenEnvEnabled } from 'src/utils/fullscreen.js';
 import { TEAM_LEAD_NAME } from 'src/utils/swarm/constants.js';
 import { stopUltraplan } from '../../commands/ultraplan.js';
 import type { CommandResultDisplay } from '../../commands.js';
@@ -35,6 +37,7 @@ import { count } from '../../utils/array.js';
 import { Byline } from '../design-system/Byline.js';
 import { Dialog } from '../design-system/Dialog.js';
 import { KeyboardShortcutHint } from '../design-system/KeyboardShortcutHint.js';
+import { OpenClaudeHeader } from '../OpenClaudeHeader.js';
 import { AsyncAgentDetailDialog } from './AsyncAgentDetailDialog.js';
 import { BackgroundTask as BackgroundTaskComponent } from './BackgroundTask.js';
 import { DreamDetailDialog } from './DreamDetailDialog.js';
@@ -134,6 +137,10 @@ export function BackgroundTasksDialog({
   const foregroundedTaskId = useAppState(s_0 => s_0.foregroundedTaskId);
   const showSpinnerTree = useAppState(s_1 => s_1.expandedView) === 'teammates';
   const setAppState = useSetAppState();
+  const {
+    rows: terminalRows
+  } = useTerminalSize();
+  const isFullscreen = isFullscreenEnvEnabled();
   const killAgentsShortcut = useShortcutDisplay('chat:killAgents', 'Chat', 'ctrl+x ctrl+k');
   const typedTasks = tasks as Record<string, TaskState> | undefined;
 
@@ -365,38 +372,43 @@ export function BackgroundTasksDialog({
     }
   };
 
+  let content: React.ReactNode = null;
+
   // If an item is selected, show the appropriate view
   if (viewState.mode !== 'list' && typedTasks) {
     const task_0 = typedTasks[viewState.itemId];
-    if (!task_0) {
-      return null;
-    }
-
-    // Detail mode - show appropriate detail dialog
-    switch (task_0.type) {
-      case 'local_bash':
-        return <ShellDetailDialog shell={task_0} onDone={onDone} onKillShell={() => void killShellTask(task_0.id)} onBack={goBackToList} key={`shell-${task_0.id}`} />;
-      case 'local_agent':
-        return <AsyncAgentDetailDialog agent={task_0} onDone={onDone} onKillAgent={() => void killAgentTask(task_0.id)} onBack={goBackToList} key={`agent-${task_0.id}`} />;
-      case 'remote_agent':
-        return <RemoteSessionDetailDialog session={task_0} onDone={onDone} toolUseContext={toolUseContext} onBack={goBackToList} onKill={task_0.status !== 'running' ? undefined : task_0.isUltraplan ? () => void stopUltraplan(task_0.id, task_0.sessionId, setAppState) : () => void killRemoteAgentTask(task_0.id)} key={`session-${task_0.id}`} />;
-      case 'in_process_teammate':
-        return <InProcessTeammateDetailDialog teammate={task_0} onDone={onDone} onKill={task_0.status === 'running' ? () => void killTeammateTask(task_0.id) : undefined} onBack={goBackToList} onForeground={task_0.status === 'running' ? () => {
-          enterTeammateView(task_0.id, setAppState);
-          onDone('Viewing teammate', {
+    if (task_0) {
+      // Detail mode - show appropriate detail dialog
+      switch (task_0.type) {
+        case 'local_bash':
+          content = <ShellDetailDialog shell={task_0} onDone={onDone} onKillShell={() => void killShellTask(task_0.id)} onBack={goBackToList} key={`shell-${task_0.id}`} />;
+          break;
+        case 'local_agent':
+          content = <AsyncAgentDetailDialog agent={task_0} onDone={onDone} onKillAgent={() => void killAgentTask(task_0.id)} onBack={goBackToList} key={`agent-${task_0.id}`} />;
+          break;
+        case 'remote_agent':
+          content = <RemoteSessionDetailDialog session={task_0} onDone={onDone} toolUseContext={toolUseContext} onBack={goBackToList} onKill={task_0.status !== 'running' ? undefined : task_0.isUltraplan ? () => void stopUltraplan(task_0.id, task_0.sessionId, setAppState) : () => void killRemoteAgentTask(task_0.id)} key={`session-${task_0.id}`} />;
+          break;
+        case 'in_process_teammate':
+          content = <InProcessTeammateDetailDialog teammate={task_0} onDone={onDone} onKill={task_0.status === 'running' ? () => void killTeammateTask(task_0.id) : undefined} onBack={goBackToList} onForeground={task_0.status === 'running' ? () => {
+            enterTeammateView(task_0.id, setAppState);
+            onDone('Viewing teammate', {
+              display: 'system'
+            });
+          } : undefined} key={`teammate-${task_0.id}`} />;
+          break;
+        case 'local_workflow':
+          content = WorkflowDetailDialog ? <WorkflowDetailDialog workflow={task_0} onDone={onDone} onKill={task_0.status === 'running' && killWorkflowTask ? () => killWorkflowTask(task_0.id, setAppState) : undefined} onSkipAgent={task_0.status === 'running' && skipWorkflowAgent ? agentId => skipWorkflowAgent(task_0.id, agentId, setAppState) : undefined} onRetryAgent={task_0.status === 'running' && retryWorkflowAgent ? agentId_0 => retryWorkflowAgent(task_0.id, agentId_0, setAppState) : undefined} onBack={goBackToList} key={`workflow-${task_0.id}`} /> : null;
+          break;
+        case 'monitor_mcp':
+          content = MonitorMcpDetailDialog ? <MonitorMcpDetailDialog task={task_0} onKill={task_0.status === 'running' && killMonitorMcp ? () => killMonitorMcp(task_0.id, setAppState) : undefined} onBack={goBackToList} key={`monitor-mcp-${task_0.id}`} /> : null;
+          break;
+        case 'dream':
+          content = <DreamDetailDialog task={task_0} onDone={() => onDone('Background tasks dialog dismissed', {
             display: 'system'
-          });
-        } : undefined} key={`teammate-${task_0.id}`} />;
-      case 'local_workflow':
-        if (!WorkflowDetailDialog) return null;
-        return <WorkflowDetailDialog workflow={task_0} onDone={onDone} onKill={task_0.status === 'running' && killWorkflowTask ? () => killWorkflowTask(task_0.id, setAppState) : undefined} onSkipAgent={task_0.status === 'running' && skipWorkflowAgent ? agentId => skipWorkflowAgent(task_0.id, agentId, setAppState) : undefined} onRetryAgent={task_0.status === 'running' && retryWorkflowAgent ? agentId_0 => retryWorkflowAgent(task_0.id, agentId_0, setAppState) : undefined} onBack={goBackToList} key={`workflow-${task_0.id}`} />;
-      case 'monitor_mcp':
-        if (!MonitorMcpDetailDialog) return null;
-        return <MonitorMcpDetailDialog task={task_0} onKill={task_0.status === 'running' && killMonitorMcp ? () => killMonitorMcp(task_0.id, setAppState) : undefined} onBack={goBackToList} key={`monitor-mcp-${task_0.id}`} />;
-      case 'dream':
-        return <DreamDetailDialog task={task_0} onDone={() => onDone('Background tasks dialog dismissed', {
-          display: 'system'
-        })} onBack={goBackToList} onKill={task_0.status === 'running' ? () => void killDreamTask(task_0.id) : undefined} key={`dream-${task_0.id}`} />;
+          })} onBack={goBackToList} onKill={task_0.status === 'running' ? () => void killDreamTask(task_0.id) : undefined} key={`dream-${task_0.id}`} />;
+          break;
+      }
     }
   }
   const runningBashCount = count(bashTasks, _ => _.status === 'running');
@@ -422,7 +434,8 @@ export function BackgroundTasksDialog({
     }
     return <Byline>{actions}</Byline>;
   }
-  return <Box flexDirection="column" tabIndex={0} autoFocus onKeyDown={handleKeyDown}>
+  if (content === null) {
+    content = <Box flexDirection="column" tabIndex={0} autoFocus onKeyDown={handleKeyDown}>
       <Dialog title="Background tasks" subtitle={<>{subtitle}</>} onCancel={handleCancel} color="background" inputGuide={renderInputGuide}>
         {allSelectableItems.length === 0 ? <Text dimColor>No tasks currently running</Text> : <Box flexDirection="column">
             {teammateTasks.length > 0 && <Box flexDirection="column">
@@ -489,6 +502,20 @@ export function BackgroundTasksDialog({
           </Box>}
       </Dialog>
     </Box>;
+  }
+  const fullscreenStatusLine = [
+    runningTeammateCount > 0 ? `${runningTeammateCount} ${runningTeammateCount !== 1 ? 'agents' : 'agent'}` : null,
+    runningBashCount > 0 ? `${runningBashCount} ${runningBashCount !== 1 ? 'active shells' : 'active shell'}` : null,
+    runningAgentCount > 0 ? `${runningAgentCount} ${runningAgentCount !== 1 ? 'active agents' : 'active agent'}` : null,
+  ].filter(Boolean).join(' · ');
+  const fullscreenContent = isFullscreen ? <Box flexDirection="column" width="100%" height={Math.max(1, terminalRows)} overflow="hidden">
+      <OpenClaudeHeader title="Agent Dashboard" statusLine={fullscreenStatusLine || 'No tasks currently running'} />
+      <Box flexDirection="column" flexGrow={1} overflow="hidden">
+        {content}
+      </Box>
+    </Box> : null;
+  useSetPromptOverlayDialog(fullscreenContent, 'takeover');
+  return isFullscreen ? null : content;
 }
 function toListItem(task: BackgroundTaskState): ListItem {
   switch (task.type) {

@@ -19,6 +19,11 @@ import {
   parseGoalPlanSignal,
   resetGoalMemoryCache,
   updateGoalAdvisoryPlanFromText,
+  beginGoalRuntimeSession,
+  discardGoalRuntimeSession,
+  endGoalRuntimeSession,
+  getGoalElapsedSeconds,
+  heartbeatGoalRuntimeSession,
 } from './core.js'
 import { getGoalPaths } from './paths.js'
 import {
@@ -212,6 +217,55 @@ describe('goal system', () => {
     expect(goal!.time_used_seconds).toBeGreaterThanOrEqual(0)
   })
 
+  test('goal runtime only counts active OpenClaude sessions', async () => {
+    const originalNow = Date.now
+    let now = new Date('2026-05-13T12:00:00.000Z').getTime()
+    Date.now = () => now
+    try {
+      await setGoal('Track active runtime only')
+      now += 5_000
+      await heartbeatGoalRuntimeSession()
+      let goal = await loadGoal()
+      expect(goal!.active_session_started_at).toBeUndefined()
+      expect(goal!.time_used_seconds).toBe(0)
+      expect(getGoalElapsedSeconds(goal!)).toBe(0)
+
+      await beginGoalRuntimeSession()
+      now += 5_000
+      await heartbeatGoalRuntimeSession()
+      goal = await loadGoal()
+      expect(goal!.time_used_seconds).toBe(5)
+      expect(getGoalElapsedSeconds(goal!)).toBe(5)
+
+      await endGoalRuntimeSession()
+      now += 3_600_000
+      await beginGoalRuntimeSession()
+      goal = await loadGoal()
+      expect(goal!.time_used_seconds).toBe(5)
+      expect(getGoalElapsedSeconds(goal!)).toBe(5)
+    } finally {
+      Date.now = originalNow
+    }
+  })
+
+  test('discardGoalRuntimeSession clears stale launch timers without counting offline time', async () => {
+    const originalNow = Date.now
+    let now = new Date('2026-05-13T12:00:00.000Z').getTime()
+    Date.now = () => now
+    try {
+      await setGoal('Do not count while app is closed')
+      await beginGoalRuntimeSession()
+      now += 3_600_000
+
+      const discarded = await discardGoalRuntimeSession()
+      expect(discarded!.active_session_started_at).toBeUndefined()
+      expect(discarded!.time_used_seconds).toBe(0)
+      expect(getGoalElapsedSeconds(discarded!)).toBe(0)
+    } finally {
+      Date.now = originalNow
+    }
+  })
+
   test('accountGoalTokens transitions to budget_limited when budget exceeded', async () => {
     await setGoal('Expensive operation', '', 1000)
     await accountGoalTokens(500)
@@ -360,6 +414,17 @@ describe('goal system', () => {
     } finally {
       if (prev === undefined) delete process.env.OPENCLAUDE_DISABLE_GOALS
       else process.env.OPENCLAUDE_DISABLE_GOALS = prev
+    }
+  })
+
+  test('agent dashboard child processes do not touch the main goal', () => {
+    const prev = process.env.OPENCLAUDE_BG_CHILD
+    process.env.OPENCLAUDE_BG_CHILD = '1'
+    try {
+      expect(isGoalFeatureEnabled()).toBe(false)
+    } finally {
+      if (prev === undefined) delete process.env.OPENCLAUDE_BG_CHILD
+      else process.env.OPENCLAUDE_BG_CHILD = prev
     }
   })
 

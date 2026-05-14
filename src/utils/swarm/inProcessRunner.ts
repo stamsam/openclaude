@@ -44,6 +44,7 @@ import {
   getProgressUpdate,
   updateProgressFromMessage,
 } from '../../tasks/LocalAgentTask/LocalAgentTask.js'
+import { resolveAgentProvider } from '../../services/api/agentRouting.js'
 import type { CustomAgentDefinition } from '../../tools/AgentTool/loadAgentsDir.js'
 import { runAgent } from '../../tools/AgentTool/runAgent.js'
 import { awaitClassifierAutoApproval } from '../../tools/BashTool/bashPermissions.js'
@@ -69,6 +70,8 @@ import { type AgentContext, runWithAgentContext } from '../agentContext.js'
 import { count } from '../array.js'
 import { logForDebugging } from '../debug.js'
 import { cloneFileStateCache } from '../fileStateCache.js'
+import { getAgentModel } from '../model/agent.js'
+import { isModelAlias } from '../model/aliases.js'
 import {
   SUBAGENT_REJECT_MESSAGE,
   SUBAGENT_REJECT_MESSAGE_WITH_REASON_PREFIX,
@@ -81,6 +84,7 @@ import {
 import type { PermissionUpdate } from '../permissions/PermissionUpdateSchema.js'
 import { hasPermissionsToUseTool } from '../permissions/permissions.js'
 import { emitTaskTerminatedSdk } from '../sdkEventQueue.js'
+import { getInitialSettings } from '../settings/settings.js'
 import { sleep } from '../sleep.js'
 import { jsonStringify } from '../slowOperations.js'
 import { asSystemPrompt } from '../systemPromptType.js'
@@ -1011,6 +1015,30 @@ export async function runInProcessTeammate(
   )
   let currentPrompt = wrappedInitialPrompt
   let shouldExit = false
+  const resolvedProvider = resolveAgentProvider(
+    identity.agentName,
+    agentDefinition?.agentType ?? identity.agentName,
+    getInitialSettings(),
+  )
+  const effectiveModel =
+    resolvedProvider?.model ??
+    getAgentModel(
+      agentDefinition?.model,
+      toolUseContext.options.mainLoopModel,
+      model && isModelAlias(model) ? model : undefined,
+      'default',
+    )
+  const effectiveProviderBaseUrl =
+    resolvedProvider?.baseURL ?? toolUseContext.options.providerOverride?.baseURL
+  updateTaskState(
+    taskId,
+    task => ({
+      ...task,
+      model: effectiveModel,
+      providerBaseUrl: effectiveProviderBaseUrl,
+    }),
+    setAppState,
+  )
 
   // Try to claim an available task immediately so the UI can show activity
   // from the very start. The idle loop handles claiming for subsequent tasks.

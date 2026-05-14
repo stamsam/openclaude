@@ -21,11 +21,16 @@ Fork map: [`docs/fork-map.md`](docs/fork-map.md)
 ## Current Fork Additions
 
 - `/goal <objective>` now starts the continuation turn automatically. Use `/goal plan` only when you explicitly want plan mode, `/goal act` to force another autonomous step, and `/goal checkpoint` / `/goal restore` around risky edits.
-- oMLX model discovery reads the local oMLX settings/API key, ignores stale non-oMLX cache entries, and refreshes `/model` from the live local server. Selecting an oMLX model applies the provider route for the current process.
+- oMLX model discovery reads the local oMLX settings/API key, ignores stale non-oMLX cache entries, and refreshes `/model` from the live local server. Selecting an oMLX model applies the provider route for the current process, and `/model` can auto-unload the previous local model after switching.
+- `/status` includes local runtime health for offline work: OpenClaude process memory, auto-unload state, oMLX endpoint/auth state, memory limits, cache settings, cache disk usage, cache directory, and cached-token totals from oMLX stats.
 - `/model` marks likely multimodal entries as `Vision`, and image paste warns when a local text-only model is selected.
 - `/learn` stores durable reusable lessons and `/learn run` applies pending learning work.
-- Telegram session control keeps runtime pause/resume/model state in sync so phone commands match the active CLI session.
+- Telegram session control keeps runtime pause/resume/model state in sync, reconnects after transient polling/focus interruptions, and keeps phone commands matched to the active CLI session.
 - `/benchmark` is split into a command module with local model benchmark helpers and tests.
+- `/tui fullscreen` enables flicker-free alternate-screen rendering with a persistent OpenClaude header, fixed prompt placement, virtualized scrollback, and honest env/tmux override reporting.
+- Goal/status footers now keep live elapsed time, token usage, and `CTX` context percentage visible in CLI, `/tui default`, and `/tui fullscreen`. Local providers without usage metadata fall back to streamed-token estimates, and unknown context windows show `CTX ?`.
+- `/logo` now picks the startup/header mascot, including Shiba, gorilla, shark, and the rest of the pixel mascot set.
+- Agent View adds `openclaude agents`, `openclaude --bg`, `attach`, `logs`, `stop`, `respawn`, and `rm` for managing detached background sessions from one terminal, with git worktree isolation when available. In fullscreen mode it now opens as a clean full-screen dashboard instead of leaking the current chat transcript behind it. Attached threads support interactive `/model` and `/provider` pickers for switching that thread without leaving the session, and dashboard rows keep their own model/provider context for `CTX` reporting. See [`docs/agent-view.md`](docs/agent-view.md).
 - Practical feature backlog and comparison notes live in [`docs/planning/implementation-list.md`](docs/planning/implementation-list.md).
 
 ## Why OpenClaude
@@ -263,6 +268,7 @@ What it does:
 - stores the active goal locally
 - injects a continuation prompt while the goal is active
 - tracks elapsed time and token usage
+- keeps the footer live when switching permission modes or opening Agent View
 - supports pause, resume, and clear flows from the CLI
 
 The goal command is local-first and works without any external service.
@@ -398,6 +404,9 @@ node dist/cli.mjs
 Helpful commands:
 
 - `bun run dev`
+- `bun run typecheck` for the maintained TypeScript gate covering recently hardened local-runtime, oMLX, mascot, and Telegram state surfaces
+- `bun run typecheck:all` for the full historical repo scan; this intentionally remains a debt tracker until the broader app graph is cleaned up
+- `bun run typecheck:tests` for the separate test TypeScript debt scan
 - `bun test`
 - `bun run test:coverage`
 - `bun run security:pr-scan -- --base origin/main`

@@ -4,29 +4,40 @@
  * OpenClaude — Claude Code with any LLM
  *
  * If dist/cli.mjs exists (built), run that.
- * Otherwise, tell the user to build first or use `bun run dev`.
+ * Otherwise, build this linked source checkout once and continue.
  */
 
 import { existsSync } from 'fs'
+import { spawnSync } from 'child_process'
 import { join, dirname } from 'path'
 import { fileURLToPath, pathToFileURL } from 'url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
+const projectRoot = join(__dirname, '..')
 const distPath = join(__dirname, '..', 'dist', 'cli.mjs')
 
-if (existsSync(distPath)) {
-  await import(pathToFileURL(distPath).href)
-} else {
-  console.error(`
-  openclaude: dist/cli.mjs not found.
-
-  Build first:
-    bun run build
-
-  Or run directly with Bun:
-    bun run dev
-
-  See README.md for setup instructions.
-`)
-  process.exit(1)
+function run(command, args) {
+  const result = spawnSync(command, args, {
+    cwd: projectRoot,
+    stdio: 'inherit',
+  })
+  if (result.error) {
+    console.error(`\nopenclaude: failed to run ${command}: ${result.error.message}`)
+    process.exit(1)
+  }
+  if (result.status !== 0) {
+    process.exit(result.status ?? 1)
+  }
 }
+
+if (!existsSync(distPath)) {
+  console.error('openclaude: dist/cli.mjs not found; building linked checkout...\n')
+  run('bun', ['install'])
+  run('bun', ['run', 'build'])
+  if (!existsSync(distPath)) {
+    console.error('\nopenclaude: build finished but dist/cli.mjs is still missing.')
+    process.exit(1)
+  }
+}
+
+await import(pathToFileURL(distPath).href)

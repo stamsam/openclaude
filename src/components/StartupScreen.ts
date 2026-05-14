@@ -1,8 +1,6 @@
 /**
- * OpenClaude startup screen — filled-block text logo with sunset gradient.
+ * OpenClaude startup screen.
  * Called once at CLI startup before the Ink UI renders.
- *
- * Addresses: https://github.com/stamsam/openclaude-private/issues/55
  */
 
 import { isLocalProviderUrl, resolveProviderRequest } from '../services/api/providerConfig.js'
@@ -15,16 +13,23 @@ import { getSettings_DEPRECATED } from '../utils/settings/settings.js'
 import { parseUserSpecifiedModel } from '../utils/model/model.js'
 import { DEFAULT_GEMINI_MODEL } from '../utils/providerProfile.js'
 import { getGlobalConfig } from '../utils/config.js'
-import { ANSI_DIM, ANSI_RESET, ansiRgb } from '../utils/terminalAnsi.js'
+import { ANSI_RESET, ansiBgRgb, ansiRgb } from '../utils/terminalAnsi.js'
 import {
   resolveLogoPalette,
   type RGB,
 } from './StartupScreen.palettes.js'
+import {
+  resolveTerminalMascot,
+  TERMINAL_MASCOT_COLORS,
+  TERMINAL_MASCOT_PIXELS,
+  TERMINAL_MASCOTS,
+  TERMINAL_PIXEL_COLORS,
+} from '../utils/terminalMascot.js'
 
 declare const MACRO: { VERSION: string; DISPLAY_VERSION?: string }
 
 const RESET = ANSI_RESET
-const DIM = ANSI_DIM
+const BOLD = '\x1b[1m'
 
 function lerp(a: RGB, b: RGB, t: number): RGB {
   return [
@@ -176,65 +181,53 @@ function boxRow(content: string, width: number, rawLen: number, border: RGB): st
 export function printStartupScreen(modelOverride?: string): void {
   // Skip in non-interactive / CI / print mode
   if (process.env.CI || !process.stdout.isTTY) return
+  // The live Ink UI now owns the identity header in both normal and fullscreen
+  // modes. Keep this legacy pre-Ink banner opt-in for debugging only so boot
+  // never shows duplicate OpenClaude headers.
+  if (process.env.OPENCLAUDE_SHOW_STARTUP_BANNER !== '1') return
 
   const palette = resolveLogoPalette(getGlobalConfig().logoColor)
   const ACCENT = palette.accent
-  const CREAM = palette.cream
-  const DIMCOL = palette.dim
-  const BORDER = palette.border
-  const GRAD = palette.gradient
-
   const p = detectProvider(modelOverride)
-  const W = 62
   const out: string[] = []
 
-  out.push('')
+  if (process.env.OPENCLAUDE_NO_STARTUP_CLEAR !== '1') {
+    process.stdout.write('\x1b[2J\x1b[3J\x1b[H')
+  }
 
-  // Gradient logo
-  const allLogo = [...LOGO_OPEN, '', ...LOGO_CLAUDE]
-  const total = allLogo.length
-  for (let i = 0; i < total; i++) {
-    const t = total > 1 ? i / (total - 1) : 0
-    if (allLogo[i] === '') {
-      out.push('')
+  out.push('')
+  const version = MACRO.DISPLAY_VERSION ?? MACRO.VERSION
+  const mascot = resolveTerminalMascot(getGlobalConfig().logoMascot)
+  const pixelRows = TERMINAL_MASCOT_PIXELS[mascot]
+  const mascotLines = pixelRows ?? TERMINAL_MASCOTS[mascot]
+  const mascotColor = TERMINAL_MASCOT_COLORS[mascot] ?? ACCENT
+  const home = process.env.HOME
+  const cwd = home && process.cwd().startsWith(home)
+    ? `~${process.cwd().slice(home.length)}`
+    : process.cwd()
+  const modelLine = `${p.name} · ${p.model}`
+  for (let i = 0; i < mascotLines.length; i++) {
+    const left = pixelRows
+      ? Array.from(mascotLines[i] ?? '')
+          .map(cell => {
+            const rgb = TERMINAL_PIXEL_COLORS[cell]
+            return rgb ? `${ansiBgRgb(...rgb)}  ${RESET}` : '  '
+          })
+          .join('')
+      : `${ansiRgb(...mascotColor)}${mascotLines[i]}${RESET}`
+    if (i === 0) {
+      out.push(`${left}  ${BOLD}OpenClaude${RESET} v${version}`)
+    } else if (i === 1) {
+      out.push(`${left}  ${modelLine}`)
+    } else if (i === 2) {
+      out.push(`${left}  ${cwd}`)
     } else {
-      out.push(paintLine(allLogo[i], GRAD, t))
+      out.push(left)
     }
   }
-
-  out.push('')
-
-  // Tagline
-  out.push(`  ${ansiRgb(...ACCENT)}\u2726${RESET} ${ansiRgb(...CREAM)}Any model. Every tool. Zero limits.${RESET} ${ansiRgb(...ACCENT)}\u2726${RESET}`)
-  out.push('')
-
-  // Provider info box
-  out.push(`${ansiRgb(...BORDER)}\u2554${'\u2550'.repeat(W - 2)}\u2557${RESET}`)
-
-  const lbl = (k: string, v: string, c: RGB = CREAM): [string, number] => {
-    const padK = k.padEnd(9)
-    return [` ${DIM}${ansiRgb(...DIMCOL)}${padK}${RESET} ${ansiRgb(...c)}${v}${RESET}`, ` ${padK} ${v}`.length]
-  }
-
-  const provC: RGB = p.isLocal ? [130, 175, 130] : ACCENT
-  let [r, l] = lbl('Provider', p.name, provC)
-  out.push(boxRow(r, W, l, BORDER))
-  ;[r, l] = lbl('Model', p.model)
-  out.push(boxRow(r, W, l, BORDER))
-  const ep = p.baseUrl.length > 38 ? p.baseUrl.slice(0, 35) + '...' : p.baseUrl
-  ;[r, l] = lbl('Endpoint', ep)
-  out.push(boxRow(r, W, l, BORDER))
-
-  out.push(`${ansiRgb(...BORDER)}\u2560${'\u2550'.repeat(W - 2)}\u2563${RESET}`)
-
-  const sC: RGB = p.isLocal ? [130, 175, 130] : ACCENT
-  const sL = p.isLocal ? 'local' : 'cloud'
-  const sRow = ` ${ansiRgb(...sC)}\u25cf${RESET} ${DIM}${ansiRgb(...DIMCOL)}${sL}${RESET}    ${DIM}${ansiRgb(...DIMCOL)}Ready \u2014 type ${RESET}${ansiRgb(...ACCENT)}/help${RESET}${DIM}${ansiRgb(...DIMCOL)} to begin${RESET}`
-  const sLen = ` \u25cf ${sL}    Ready \u2014 type /help to begin`.length
-  out.push(boxRow(sRow, W, sLen, BORDER))
-
-  out.push(`${ansiRgb(...BORDER)}\u255a${'\u2550'.repeat(W - 2)}\u255d${RESET}`)
-  out.push(`  ${DIM}${ansiRgb(...DIMCOL)}openclaude ${RESET}${ansiRgb(...ACCENT)}v${MACRO.DISPLAY_VERSION ?? MACRO.VERSION}${RESET}`)
+  out.push(``)
+  const statusColor: RGB = p.isLocal ? [130, 175, 130] : ACCENT
+  out.push(`  ${ansiRgb(...statusColor)}●${RESET} ${p.isLocal ? 'local' : 'cloud'} · Ready — type ${ansiRgb(...ACCENT)}/help${RESET} to begin`)
   out.push('')
 
   process.stdout.write(out.join('\n') + '\n')

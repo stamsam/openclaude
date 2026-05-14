@@ -14,6 +14,7 @@ import vendorZai from '../vendors/zai.js'
 import gatewayAtomicChat from '../gateways/atomic-chat.js'
 import gatewayAzureOpenai from '../gateways/azure-openai.js'
 import gatewayBedrock from '../gateways/bedrock.js'
+import gatewayCerebras from '../gateways/cerebras.js'
 import gatewayCustom from '../gateways/custom.js'
 import gatewayDashscopeCn from '../gateways/dashscope-cn.js'
 import gatewayDashscopeIntl from '../gateways/dashscope-intl.js'
@@ -58,7 +59,7 @@ import modelQwen from '../models/qwen.js'
 import modelXai from '../models/xai.js'
 
 export const VENDOR_DESCRIPTORS = [vendorAnthropic, vendorBankr, vendorDeepseek, vendorGemini, vendorMinimax, vendorMoonshot, vendorOpenai, vendorXai, vendorZai] as const satisfies readonly VendorDescriptor[]
-export const GATEWAY_DESCRIPTORS = [gatewayAtomicChat, gatewayAzureOpenai, gatewayBedrock, gatewayCustom, gatewayDashscopeCn, gatewayDashscopeIntl, gatewayGithub, gatewayGroq, gatewayHicap, gatewayKimiCode, gatewayLmstudio, gatewayMistral, gatewayNvidiaNim, gatewayOllama, gatewayOmlx, gatewayOpenrouter, gatewayTogether, gatewayVertex] as const satisfies readonly GatewayDescriptor[]
+export const GATEWAY_DESCRIPTORS = [gatewayAtomicChat, gatewayAzureOpenai, gatewayBedrock, gatewayCerebras, gatewayCustom, gatewayDashscopeCn, gatewayDashscopeIntl, gatewayGithub, gatewayGroq, gatewayHicap, gatewayKimiCode, gatewayLmstudio, gatewayMistral, gatewayNvidiaNim, gatewayOllama, gatewayOmlx, gatewayOpenrouter, gatewayTogether, gatewayVertex] as const satisfies readonly GatewayDescriptor[]
 export const ANTHROPIC_PROXY_DESCRIPTORS = [anthropicproxyOmlx] as const satisfies readonly AnthropicProxyDescriptor[]
 export const BRAND_DESCRIPTORS = [brandClaude, brandDeepseek, brandGemini, brandGlm, brandGpt, brandKimi, brandLlama, brandMinimax, brandMistral, brandNemotron, brandOpenaiCompatibleAlias, brandQwen, brandXai] as const satisfies readonly BrandDescriptor[]
 export const MODEL_DESCRIPTOR_GROUPS = [modelClaude, modelDeepseek, modelGemini, modelGlm, modelGpt, modelKimi, modelLlama, modelMinimax, modelMistral, modelNemotron, modelOpenaiCompatibleAlias, modelQwen, modelXai] as const satisfies readonly (readonly ModelDescriptor[])[]
@@ -126,6 +127,17 @@ export const PROVIDER_PRESET_MANIFEST = [
     "modelEnvVars": [
       "BANKR_MODEL",
       "OPENAI_MODEL"
+    ]
+  },
+  {
+    "preset": "cerebras",
+    "routeKind": "gateway",
+    "routeId": "cerebras",
+    "vendorId": "openai",
+    "gatewayId": "cerebras",
+    "description": "Cerebras OpenAI-compatible endpoint",
+    "apiKeyEnvVars": [
+      "CEREBRAS_API_KEY"
     ]
   },
   {
@@ -386,6 +398,7 @@ export const ORDERED_PROVIDER_PRESETS = [
   "dashscope-intl",
   "azure-openai",
   "bankr",
+  "cerebras",
   "deepseek",
   "gemini",
   "groq",

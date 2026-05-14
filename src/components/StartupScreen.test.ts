@@ -23,6 +23,8 @@ import {
 
 const ENV_KEYS = [
   'CI',
+  'CLAUDE_CODE_NO_FLICKER',
+  'OPENCLAUDE_SHOW_STARTUP_BANNER',
   'CLAUDE_CODE_USE_OPENAI',
   'CLAUDE_CODE_USE_GEMINI',
   'CLAUDE_CODE_USE_GITHUB',
@@ -90,8 +92,51 @@ function setupOpenAIMode(baseUrl: string, model: string): void {
   process.env.OPENAI_API_KEY = 'test-key'
 }
 
-describe('printStartupScreen logo', () => {
-  test('renders CLAUDE with a D-shaped D instead of an O-shaped block', () => {
+describe('printStartupScreen', () => {
+  test('renders a compact Claude-style identity header', () => {
+    ;(globalThis as Record<string, unknown>).MACRO = { VERSION: 'test-version' }
+    Object.defineProperty(process.stdout, 'isTTY', {
+      configurable: true,
+      value: true,
+    })
+    process.env.OPENCLAUDE_SHOW_STARTUP_BANNER = '1'
+
+    let output = ''
+    process.stdout.write = ((chunk: string | Uint8Array) => {
+      output += chunk.toString()
+      return true
+    }) as typeof process.stdout.write
+
+    printStartupScreen()
+
+    const plainOutput = stripAnsi(output)
+    expect(plainOutput).toContain('OpenClaude vtest-version')
+    expect(plainOutput).toContain('Anthropic · claude-sonnet-4-6')
+    expect(plainOutput).toContain(process.cwd().replace(process.env.HOME ?? '', '~'))
+    expect(plainOutput).toContain('Ready — type /help to begin')
+    expect(plainOutput).not.toContain('███████╗')
+  })
+
+  test('does not print the pre-Ink banner in fullscreen mode', () => {
+    ;(globalThis as Record<string, unknown>).MACRO = { VERSION: 'test-version' }
+    process.env.CLAUDE_CODE_NO_FLICKER = '1'
+    Object.defineProperty(process.stdout, 'isTTY', {
+      configurable: true,
+      value: true,
+    })
+
+    let output = ''
+    process.stdout.write = ((chunk: string | Uint8Array) => {
+      output += chunk.toString()
+      return true
+    }) as typeof process.stdout.write
+
+    printStartupScreen()
+
+    expect(output).toBe('')
+  })
+
+  test('does not print the pre-Ink banner by default', () => {
     ;(globalThis as Record<string, unknown>).MACRO = { VERSION: 'test-version' }
     Object.defineProperty(process.stdout, 'isTTY', {
       configurable: true,
@@ -106,11 +151,7 @@ describe('printStartupScreen logo', () => {
 
     printStartupScreen()
 
-    const plainOutput = stripAnsi(output)
-    expect(plainOutput).toContain('███████╗ ████████╗')
-    expect(plainOutput).toContain('██╔═══██╗ ██╔═════╝')
-    expect(plainOutput).toContain('███████╔╝ ████████╗')
-    expect(plainOutput).not.toContain('████████║ ████████╗')
+    expect(output).toBe('')
   })
 })
 

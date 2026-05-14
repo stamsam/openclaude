@@ -10,6 +10,7 @@ import {
   goalStatus,
   loadGoal,
   recordGoalCheckpoint,
+  beginGoalRuntimeSession,
 } from './core.js'
 
 const GOAL_AUTOSTART_PROMPT = 'Continue making progress on the active goal.'
@@ -51,6 +52,7 @@ export async function call(
       case 'resume': {
         const goal = await resumeGoal()
         if (!goal) return { type: 'text', value: 'No paused goal to resume.' }
+        await beginGoalRuntimeSession()
         return {
           type: 'text',
           value: `Goal resumed: "${goal.objective}"`,
@@ -64,6 +66,7 @@ export async function call(
           return { type: 'text', value: 'No active goal to plan.' }
         }
         if (!canUseInteractiveGoalCommands(context)) {
+          await beginGoalRuntimeSession()
           return {
             type: 'text',
             value:
@@ -72,6 +75,7 @@ export async function call(
             submitNextInput: true,
           }
         }
+        await beginGoalRuntimeSession()
         return {
           type: 'text',
           value: `Opening plan mode for goal: "${goal.objective}"`,
@@ -84,6 +88,7 @@ export async function call(
         if (!goal || goal.status !== 'active') {
           return { type: 'text', value: 'No active goal to continue.' }
         }
+        await beginGoalRuntimeSession()
         return {
           type: 'text',
           value: `Continuing active goal: "${goal.objective}"`,
@@ -137,6 +142,7 @@ export async function call(
       }
       default: {
         const goal = await setGoal(trimmed)
+        await beginGoalRuntimeSession()
         return {
           type: 'text',
           value: `Goal set: "${goal.objective}"\nStatus: active\nStart time: ${goal.start_time}\nStarting now.`,

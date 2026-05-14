@@ -19,25 +19,37 @@ import { c as _c } from "react-compiler-runtime";
  * Split into data/setter context pairs so writers never re-render on
  * their own writes — the setter contexts are stable.
  */
-import React, { createContext, type ReactNode, useContext, useEffect, useState } from 'react';
+import React, { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from 'react';
 import type { SuggestionItem } from '../components/PromptInput/PromptInputFooterSuggestions.js';
 export type PromptOverlayData = {
   suggestions: SuggestionItem[];
   selectedSuggestion: number;
   maxColumnWidth?: number;
 };
+export type PromptOverlayDialogMode = 'float' | 'takeover';
+export type PromptOverlayDialogState = {
+  node: ReactNode;
+  mode: PromptOverlayDialogMode;
+} | null;
 type Setter<T> = (d: T | null) => void;
+type DialogSetter = (node: ReactNode | null, mode?: PromptOverlayDialogMode) => void;
 const DataContext = createContext<PromptOverlayData | null>(null);
 const SetContext = createContext<Setter<PromptOverlayData> | null>(null);
-const DialogContext = createContext<ReactNode>(null);
-const SetDialogContext = createContext<Setter<ReactNode> | null>(null);
+const DialogContext = createContext<PromptOverlayDialogState>(null);
+const SetDialogContext = createContext<DialogSetter | null>(null);
 export function PromptOverlayProvider(t0) {
-  const $ = _c(6);
+  const $ = _c(8);
   const {
     children
   } = t0;
   const [data, setData] = useState(null);
-  const [dialog, setDialog] = useState(null);
+  const [dialog, setDialogState] = useState<PromptOverlayDialogState>(null);
+  const setDialog = useCallback<DialogSetter>((node, mode = 'float') => {
+    setDialogState(node == null ? null : {
+      node,
+      mode
+    });
+  }, []);
   let t1;
   if ($[0] !== children || $[1] !== dialog) {
     t1 = <DialogContext.Provider value={dialog}>{children}</DialogContext.Provider>;
@@ -48,13 +60,14 @@ export function PromptOverlayProvider(t0) {
     t1 = $[2];
   }
   let t2;
-  if ($[3] !== data || $[4] !== t1) {
+  if ($[3] !== data || $[4] !== setDialog || $[5] !== t1) {
     t2 = <SetContext.Provider value={setData}><SetDialogContext.Provider value={setDialog}><DataContext.Provider value={data}>{t1}</DataContext.Provider></SetDialogContext.Provider></SetContext.Provider>;
     $[3] = data;
-    $[4] = t1;
-    $[5] = t2;
+    $[4] = setDialog;
+    $[5] = t1;
+    $[6] = t2;
   } else {
-    t2 = $[5];
+    t2 = $[6];
   }
   return t2;
 }
@@ -115,30 +128,31 @@ export function useSetPromptOverlay(data) {
  * Register a dialog node to float above the prompt. Clears on unmount.
  * No-op outside the provider (non-fullscreen renders inline instead).
  */
-export function useSetPromptOverlayDialog(node) {
-  const $ = _c(8);
+export function useSetPromptOverlayDialog(node, mode: PromptOverlayDialogMode = 'float') {
+  const $ = _c(10);
   const set = useContext(SetDialogContext);
   let t0;
   let t1;
   let t2;
   let t3;
-  if ($[0] !== node || $[1] !== set) {
+  if ($[0] !== mode || $[1] !== node || $[2] !== set) {
     t0 = () => {
       if (!set) {
         return;
       }
-      set(node);
+      set(node, mode);
     };
-    t1 = [set, node];
-    $[0] = node;
-    $[1] = set;
-    $[2] = t0;
-    $[3] = t1;
+    t1 = [set, node, mode];
+    $[0] = mode;
+    $[1] = node;
+    $[2] = set;
+    $[3] = t0;
+    $[4] = t1;
   } else {
-    t0 = $[2];
-    t1 = $[3];
+    t0 = $[3];
+    t1 = $[4];
   }
-  if ($[4] !== set) {
+  if ($[5] !== set) {
     t2 = () => {
       if (!set) {
         return;
@@ -146,12 +160,12 @@ export function useSetPromptOverlayDialog(node) {
       return () => set(null);
     };
     t3 = [set];
-    $[4] = set;
-    $[5] = t2;
-    $[6] = t3;
+    $[5] = set;
+    $[6] = t2;
+    $[7] = t3;
   } else {
-    t2 = $[5];
-    t3 = $[6];
+    t2 = $[6];
+    t3 = $[7];
   }
   useEffect(t0, t1);
   useEffect(t2, t3);

@@ -38,6 +38,7 @@ export const goalSchema = z.object({
   token_budget: z.number().int().positive().optional(),
   tokens_used: z.number().int().nonnegative().default(0),
   time_used_seconds: z.number().int().nonnegative().default(0),
+  active_session_started_at: z.string().optional(),
 })
 
 export type GoalState = z.infer<typeof goalSchema>

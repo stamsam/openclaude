@@ -73,9 +73,6 @@ function mapOpenAICompatibilityFailureToAssistantMessage(options: {
   host?: string
 }): AssistantMessage {
   const switchCmd = getIsNonInteractiveSession() ? '--model' : '/model'
-  const compactHint = getIsNonInteractiveSession()
-    ? 'Reduce prompt size or start a new session.'
-    : 'Run /compact or start a new session with /new.'
   const isLocalhost = options.host === undefined || isLocalhostLikeHost(options.host)
 
   switch (options.category) {
@@ -122,8 +119,9 @@ function mapOpenAICompatibilityFailureToAssistantMessage(options: {
 
     case 'context_overflow':
       return createAssistantAPIErrorMessage({
-        content: `The conversation exceeded the provider context limit. ${compactHint}`,
+        content: PROMPT_TOO_LONG_ERROR_MESSAGE,
         error: 'invalid_request',
+        errorDetails: stripOpenAICompatibilityMetadata(options.rawMessage),
       })
 
     case 'tool_call_incompatible':

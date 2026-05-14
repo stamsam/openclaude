@@ -29,6 +29,7 @@ export const KEYBINDING_CONTEXTS = [
   'ModelPicker',
   'Select',
   'Plugin',
+  'AgentView',
 ] as const
 
 /**
@@ -56,6 +57,7 @@ export const KEYBINDING_CONTEXT_DESCRIPTIONS: Record<
   ModelPicker: 'When the model picker is open',
   Select: 'When a select/list component is focused',
   Plugin: 'When the plugin dialog is open',
+  AgentView: 'When the Agent View dashboard is open',
 }
 
 /**
@@ -154,6 +156,7 @@ export const KEYBINDING_ACTIONS = [
   'modelPicker:decreaseEffort',
   'modelPicker:increaseEffort',
   'modelPicker:refresh',
+  'modelPicker:toggleAutoUnload',
   // Select component actions (distinct from confirm: to avoid collisions)
   'select:next',
   'select:previous',
@@ -162,6 +165,8 @@ export const KEYBINDING_ACTIONS = [
   // Plugin dialog actions
   'plugin:toggle',
   'plugin:install',
+  // Agent View dashboard actions
+  'agentView:delete',
   // Permission dialog actions
   'permission:toggleDebug',
   // Settings config panel actions

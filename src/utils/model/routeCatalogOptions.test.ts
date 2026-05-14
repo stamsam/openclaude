@@ -46,4 +46,19 @@ describe('buildRouteCatalogModelOptions', () => {
     expect(options[0]?.description).toBe('Vision · Provider: oMLX')
     expect(options[1]?.description).toBe('Provider: oMLX')
   })
+
+  test('includes catalog notes in model descriptions', () => {
+    const options = buildRouteCatalogModelOptions('Cerebras', [
+      {
+        id: 'cerebras-llama3.1-8b',
+        apiName: 'llama3.1-8b',
+        label: 'Llama 3.1 8B',
+        notes: '8K Cerebras limit; use for short chats only',
+      },
+    ])
+
+    expect(options[0]?.description).toBe(
+      '8K Cerebras limit; use for short chats only · Provider: Cerebras',
+    )
+  })
 })

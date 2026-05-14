@@ -10,6 +10,7 @@ import { getAWSRegion, getDefaultVertexRegion, isEnvTruthy } from './envUtils.js
 import { getDisplayPath } from './file.js';
 import { formatNumber } from './format.js';
 import { getIdeClientName, type IDEExtensionInstallationStatus, isJetBrainsIde, toIDEDisplayName } from './ide.js';
+import { getLocalRuntimeStatus } from './localRuntimeStatus.js';
 import { getClaudeAiUserDefaultModelDescription, modelDisplayString } from './model/model.js';
 import { getAPIProvider, type APIProvider } from './model/providers.js';
 import { resolveProviderRequest } from '../services/api/providerConfig.js';
@@ -22,6 +23,7 @@ import { getEnabledSettingSources, getSettingSourceDisplayNameCapitalized } from
 import { getManagedFileSettingsPresence, getPolicySettingsOrigin, getSettingsForSource } from './settings/settings.js';
 import type { ThemeName } from './theme.js';
 import { redactSecretValueForDisplay, type SecretValueSource } from './providerSecrets.js';
+import { getGlobalConfig } from './config.js';
 export type Property = {
   label?: string;
   value: React.ReactNode | Array<string>;
@@ -197,6 +199,83 @@ export function buildMcpProperties(clients: MCPServerConnection[] = [], theme: T
     label: 'MCP servers',
     value: `${parts.join(', ')} ${color('inactive', theme)('· /mcp')}`
   }];
+}
+
+function formatOnOff(value: boolean | undefined): string {
+  if (value === undefined) return 'default';
+  return value ? 'on' : 'off';
+}
+
+export function buildLocalRuntimeProperties(): Property[] {
+  const status = getLocalRuntimeStatus();
+  const autoUnload = getGlobalConfig().autoUnloadPreviousLocalModel !== false;
+  const properties: Property[] = [{
+    label: 'OpenClaude memory',
+    value: `rss ${status.process.rss} · heap ${status.process.heap} · external ${status.process.external}`
+  }, {
+    label: 'OpenClaude uptime',
+    value: status.process.uptime
+  }, {
+    label: 'Local model unload',
+    value: `${autoUnload ? 'on' : 'off'} · /model u toggles`
+  }];
+  if (!status.omlx) {
+    return properties;
+  }
+
+  const omlx = status.omlx;
+  properties.push({
+    label: 'oMLX runtime',
+    value: `${omlx.active ? 'active' : 'configured'}${omlx.endpoint ? ` · ${omlx.endpoint}` : ''}`
+  });
+  properties.push({
+    label: 'oMLX API key',
+    value: omlx.apiKeyConfigured ? 'configured' : 'missing'
+  });
+  if (omlx.memory) {
+    const memoryParts = [
+      `process ${omlx.memory.maxProcessMemory ?? 'default'}`,
+      `model ${omlx.memory.maxModelMemory ?? 'default'}`,
+      `guard ${formatOnOff(omlx.memory.prefillMemoryGuard)}`,
+      `concurrency ${omlx.memory.maxConcurrentRequests ?? 'default'}`
+    ];
+    properties.push({
+      label: 'oMLX memory',
+      value: memoryParts.join(' · ')
+    });
+  }
+  if (omlx.cache) {
+    const cacheParts = [
+      formatOnOff(omlx.cache.enabled),
+      `ssd ${omlx.cache.ssdCacheUsed ?? 'unknown'} / ${omlx.cache.ssdCacheMaxSize ?? 'default'}`,
+      `hot ${omlx.cache.hotCacheMaxSize ?? 'default'}`,
+      `blocks ${omlx.cache.initialCacheBlocks ?? 'default'}`
+    ];
+    properties.push({
+      label: 'oMLX cache',
+      value: cacheParts.join(' · ')
+    });
+    if (omlx.cache.ssdCacheDir) {
+      properties.push({
+        label: 'oMLX cache dir',
+        value: omlx.cache.ssdCacheDir
+      });
+    }
+  }
+  if (omlx.stats?.totalCachedTokens) {
+    properties.push({
+      label: 'oMLX cached tokens',
+      value: `${omlx.stats.totalCachedTokens}${omlx.stats.updatedAt ? ` · ${omlx.stats.updatedAt}` : ''}`
+    });
+  }
+  if (omlx.stats?.topCachedModels.length) {
+    properties.push({
+      label: 'Top oMLX cache',
+      value: omlx.stats.topCachedModels
+    });
+  }
+
+  return properties;
 }
 export async function buildMemoryDiagnostics(): Promise<Diagnostic[]> {
   const files = await getMemoryFiles();

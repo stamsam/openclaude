@@ -97,6 +97,16 @@ export const DEFAULT_BINDINGS: KeybindingBlock[] = [
     },
   },
   {
+    context: 'AgentView',
+    bindings: {
+      'ctrl+x': 'agentView:delete',
+      // Agent View uses plain ctrl+x for row deletion, so shadow Chat's
+      // ctrl+x chords while this focused dashboard is active.
+      'ctrl+x ctrl+k': null,
+      'ctrl+x ctrl+e': null,
+    },
+  },
+  {
     context: 'Autocomplete',
     bindings: {
       tab: 'autocomplete:accept',
@@ -313,6 +323,7 @@ export const DEFAULT_BINDINGS: KeybindingBlock[] = [
       left: 'modelPicker:decreaseEffort',
       right: 'modelPicker:increaseEffort',
       r: 'modelPicker:refresh',
+      u: 'modelPicker:toggleAutoUnload',
     },
   },
   // Select component navigation (used by /model, /resume, permission prompts, etc.)

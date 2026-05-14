@@ -70,6 +70,7 @@ type Props = {
   setHistoryQuery: (query: string) => void;
   historyFailedMatch: boolean;
   onOpenTasksDialog?: (taskId?: string) => void;
+  onOpenAgentView?: () => void;
 };
 function ProactiveCountdown() {
   const $ = _c(7);
@@ -142,7 +143,8 @@ export function PromptInputFooterLeftSide(t0) {
     historyQuery,
     setHistoryQuery,
     historyFailedMatch,
-    onOpenTasksDialog
+    onOpenTasksDialog,
+    onOpenAgentView
   } = t0;
   if (exitMessage.show) {
     let t1;
@@ -195,22 +197,7 @@ export function PromptInputFooterLeftSide(t0) {
     t3 = $[12];
   }
   const t4 = !suppressHint && !showVim;
-  let t5;
-  if ($[13] !== isLoading || $[14] !== mode || $[15] !== onOpenTasksDialog || $[16] !== t4 || $[17] !== tasksSelected || $[18] !== teammateFooterIndex || $[19] !== teamsSelected || $[20] !== tmuxSelected || $[21] !== toolPermissionContext) {
-    t5 = <ModeIndicator mode={mode} toolPermissionContext={toolPermissionContext} showHint={t4} isLoading={isLoading} tasksSelected={tasksSelected} teamsSelected={teamsSelected} teammateFooterIndex={teammateFooterIndex} tmuxSelected={tmuxSelected} onOpenTasksDialog={onOpenTasksDialog} />;
-    $[13] = isLoading;
-    $[14] = mode;
-    $[15] = onOpenTasksDialog;
-    $[16] = t4;
-    $[17] = tasksSelected;
-    $[18] = teammateFooterIndex;
-    $[19] = teamsSelected;
-    $[20] = tmuxSelected;
-    $[21] = toolPermissionContext;
-    $[22] = t5;
-  } else {
-    t5 = $[22];
-  }
+  const t5 = <ModeIndicator mode={mode} toolPermissionContext={toolPermissionContext} showHint={t4} isLoading={isLoading} tasksSelected={tasksSelected} teamsSelected={teamsSelected} teammateFooterIndex={teammateFooterIndex} tmuxSelected={tmuxSelected} onOpenTasksDialog={onOpenTasksDialog} onOpenAgentView={onOpenAgentView} />;
   let t6;
   if ($[23] !== t2 || $[24] !== t3 || $[25] !== t5) {
     t6 = <Box justifyContent="flex-start" gap={1}>{t2}{t3}{t5}</Box>;
@@ -233,6 +220,7 @@ type ModeIndicatorProps = {
   tmuxSelected: boolean;
   teammateFooterIndex?: number;
   onOpenTasksDialog?: (taskId?: string) => void;
+  onOpenAgentView?: () => void;
 };
 function ModeIndicator({
   mode,
@@ -243,7 +231,8 @@ function ModeIndicator({
   teamsSelected,
   tmuxSelected,
   teammateFooterIndex,
-  onOpenTasksDialog
+  onOpenTasksDialog,
+  onOpenAgentView
 }: ModeIndicatorProps): React.ReactNode {
   const {
     columns
@@ -345,7 +334,7 @@ function ModeIndicator({
   // the local permission mode shown here doesn't reflect the agent's state.
   // Rendered before the tasks pill so a long pill label (e.g. ultraplan URL)
   // doesn't push the mode indicator off-screen.
-  const modePart = currentMode && hasActiveMode && !getIsRemoteMode() ? <Text color={getModeColor(currentMode)} key="mode">
+  const modePart = currentMode && hasActiveMode && !getIsRemoteMode() ? <Text color={getModeColor(currentMode)} key="mode" wrap="truncate-end">
         {permissionModeSymbol(currentMode)}{' '}
         {permissionModeTitle(currentMode).toLowerCase()} on
         {shouldShowModeHint && <Text dimColor>
@@ -406,12 +395,6 @@ function ModeIndicator({
   // reconciler throws on Box-in-Text. Computed here so the empty-checks
   // below still treat "pill present" as non-empty.
   const tasksPart = hasBackgroundTasks && !hasTeammatePills && !shouldHideTasksFooter(tasks, showSpinnerTree) ? <BackgroundTaskStatus tasksSelected={tasksSelected} isViewingTeammate={isViewingTeammate} teammateFooterIndex={teammateFooterIndex} isLeaderIdle={!isLoading} onOpenDialog={onOpenTasksDialog} /> : null;
-  if (parts.length === 0 && !tasksPart && !modePart && showHint) {
-    parts.push(<Text dimColor key="shortcuts-hint">
-        ? for shortcuts
-      </Text>);
-  }
-
   // Only replace the idle voice hint when there's something to say — otherwise
   // fall through instead of showing an empty Byline. "esc to clear" was removed
   // (looked like "esc to interrupt" when idle; esc-clears-selection is standard
@@ -462,13 +445,20 @@ function ModeIndicator({
   // from 0→1 row. Always render 1 row in fullscreen; return a space when
   // empty so Yoga reserves the row without painting anything visible.
   if (parts.length === 0 && !tasksPart && !modePart) {
+    if (showHint) {
+      return <Box height={1} overflow="hidden" onClick={onOpenAgentView}>
+          <Text dimColor>
+            ? for shortcuts · ← for agents
+          </Text>
+        </Box>;
+    }
     return isFullscreenEnvEnabled() ? <Text> </Text> : null;
   }
 
   // flexShrink=0 keeps mode + pill at natural width; the remaining parts
   // truncate at the tail as one string inside the Text wrapper.
   return <Box height={1} overflow="hidden">
-      {modePart && <Box flexShrink={0}>
+      {modePart && <Box flexShrink={1} overflow="hidden">
           {modePart}
           {(tasksPart || parts.length > 0) && <Text dimColor> · </Text>}
         </Box>}

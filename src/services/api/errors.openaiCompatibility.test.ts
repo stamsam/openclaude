@@ -1,7 +1,11 @@
 import { APIError } from '@anthropic-ai/sdk'
 import { expect, test } from 'bun:test'
 
-import { getAssistantMessageFromError } from './errors.js'
+import {
+  PROMPT_TOO_LONG_ERROR_MESSAGE,
+  getAssistantMessageFromError,
+  isPromptTooLongMessage,
+} from './errors.js'
 
 function getFirstText(message: ReturnType<typeof getAssistantMessageFromError>): string {
   const first = message.message.content[0]
@@ -73,4 +77,21 @@ test('maps tool_call_incompatible category markers to model/tool guidance', () =
 
   expect(text).toContain('rejected tool-calling payloads')
   expect(text).toContain('/model')
+})
+
+test('maps OpenAI-compatible context_overflow markers to canonical prompt-too-long', () => {
+  const error = APIError.generate(
+    400,
+    undefined,
+    'OpenAI API error 400: context_length_exceeded [openai_category=context_overflow] Hint: Prompt context exceeded model/server limits.',
+    new Headers(),
+  )
+
+  const message = getAssistantMessageFromError(error, 'local-model')
+  const text = getFirstText(message)
+
+  expect(text).toBe(PROMPT_TOO_LONG_ERROR_MESSAGE)
+  expect(isPromptTooLongMessage(message)).toBe(true)
+  expect(message.errorDetails).toContain('context_length_exceeded')
+  expect(message.errorDetails).not.toContain('[openai_category=context_overflow]')
 })

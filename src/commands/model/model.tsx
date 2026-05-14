@@ -70,6 +70,8 @@ import {
   persistActiveProviderProfileModel,
   setActiveOpenAIModelOptionsCache,
 } from '../../utils/providerProfiles.js'
+import { getGlobalConfig, saveGlobalConfig } from '../../utils/config.js'
+import { unloadPreviousOmlxModelAfterSwitch } from '../../utils/omlxModelLifecycle.js'
 
 type ModelDiscoveryContext =
   | {
@@ -430,6 +432,8 @@ function ModelPickerWrapper({
   )
   const isFastMode = useAppState((s: AppState) => s.fastMode)
   const setAppState = useSetAppState()
+  const [autoUnloadPreviousLocalModel, setAutoUnloadPreviousLocalModel] =
+    React.useState(getGlobalConfig().autoUnloadPreviousLocalModel !== false)
   const [optionsOverride, setOptionsOverride] = React.useState<ModelOption[] | undefined>(
     discoveryContext?.kind === 'descriptor'
       ? discoveryContext.optionsOverride
@@ -457,6 +461,7 @@ function ModelPickerWrapper({
     })
 
     applyDiscoveredRouteModelSelection(discoveryContext, model)
+    const previousModel = mainLoopModel
 
     setAppState(prev => ({
       ...prev,
@@ -501,7 +506,29 @@ function ModelPickerWrapper({
       message += ' · Fast mode OFF'
     }
 
+    if (autoUnloadPreviousLocalModel) {
+      void unloadPreviousOmlxModelAfterSwitch({
+        enabled: true,
+        previousModel,
+        nextModel: model,
+      })
+      if (previousModel && previousModel !== model) {
+        message += ' · unload requested'
+      }
+    }
+
     onDone(message)
+  }
+
+  const handleToggleAutoUnload = () => {
+    setAutoUnloadPreviousLocalModel(current => {
+      const next = !current
+      saveGlobalConfig(config => ({
+        ...config,
+        autoUnloadPreviousLocalModel: next,
+      }))
+      return next
+    })
   }
 
   async function refreshAvailableModels(manual: boolean): Promise<void> {
@@ -608,6 +635,8 @@ function ModelPickerWrapper({
       }
       optionsOverride={optionsOverride}
       discoveryState={discoveryState}
+      autoUnloadPreviousLocalModel={autoUnloadPreviousLocalModel}
+      onToggleAutoUnload={handleToggleAutoUnload}
       onRefresh={
         discoveryContext?.canRefresh
           ? () => {
@@ -627,6 +656,7 @@ function SetModelAndClose({
   onDone: (result?: string, options?: { display?: CommandResultDisplay }) => void
 }) {
   const isFastMode = useAppState((s: AppState) => s.fastMode)
+  const previousModel = useAppState((s: AppState) => s.mainLoopModel)
   const setAppState = useSetAppState()
   const model = args === 'default' ? null : args
 
@@ -688,6 +718,8 @@ function SetModelAndClose({
     }
 
     function setModel(modelValue: string | null): void {
+      const autoUnloadPreviousLocalModel =
+        getGlobalConfig().autoUnloadPreviousLocalModel !== false
       setAppState(prev => ({
         ...prev,
         mainLoopModel: modelValue,
@@ -724,11 +756,22 @@ function SetModelAndClose({
         message += ' · Fast mode OFF'
       }
 
+      if (autoUnloadPreviousLocalModel) {
+        void unloadPreviousOmlxModelAfterSwitch({
+          enabled: true,
+          previousModel,
+          nextModel: modelValue,
+        })
+        if (previousModel && previousModel !== modelValue) {
+          message += ' · unload requested'
+        }
+      }
+
       onDone(message)
     }
 
     void handleModelChange()
-  }, [isFastMode, model, onDone, setAppState])
+  }, [isFastMode, model, onDone, previousModel, setAppState])
 
   return null
 }

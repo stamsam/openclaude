@@ -39,6 +39,25 @@ const MAX_OUTPUT_TOKENS_UPPER_LIMIT = 64_000
 export const CAPPED_DEFAULT_MAX_TOKENS = 8_000
 export const ESCALATED_MAX_TOKENS = 64_000
 
+export type ContextWindowSource =
+  | 'env'
+  | 'explicit-1m'
+  | 'integration'
+  | 'catalog'
+  | 'descriptor'
+  | 'omlx-local'
+  | 'capability'
+  | 'beta'
+  | 'experiment'
+  | 'ant-model'
+  | 'default'
+  | 'unknown'
+
+export type ContextWindowInfo = {
+  contextWindow: number | null
+  source: ContextWindowSource
+}
+
 /**
  * Check if 1M context is disabled via environment variable.
  * Used by C4E admins to disable 1M context for HIPAA compliance.
@@ -65,8 +84,19 @@ export function modelSupports1M(model: string): boolean {
 
 function shouldUseIntegrationRuntimeLimits(
   processEnv: NodeJS.ProcessEnv = process.env,
+  options?: {
+    baseUrl?: string
+    activeProfileProvider?: string
+  },
 ): boolean {
-  const routeId = resolveActiveRouteIdFromEnv(processEnv)
+  const runtimeEnv: NodeJS.ProcessEnv = { ...processEnv }
+  if (options?.baseUrl !== undefined) {
+    runtimeEnv.OPENAI_BASE_URL = options.baseUrl
+    runtimeEnv.CLAUDE_CODE_USE_OPENAI = '1'
+  }
+  const routeId = resolveActiveRouteIdFromEnv(runtimeEnv, {
+    activeProfileProvider: options?.activeProfileProvider,
+  })
   const transportKind = routeId ? getTransportKindForRoute(routeId) : null
 
   return (
@@ -79,40 +109,66 @@ function shouldUseIntegrationRuntimeLimits(
 export function getContextWindowForModel(
   model: string,
   betas?: string[],
+  options?: {
+    processEnv?: NodeJS.ProcessEnv
+    baseUrl?: string
+    activeProfileProvider?: string
+  },
 ): number {
+  const resolved = resolveContextWindowForModel(model, betas, options)
+  if (resolved.contextWindow !== null) {
+    return resolved.contextWindow
+  }
+  return OPENAI_FALLBACK_CONTEXT_WINDOW
+}
+
+export function resolveContextWindowForModel(
+  model: string,
+  betas?: string[],
+  options?: {
+    processEnv?: NodeJS.ProcessEnv
+    baseUrl?: string
+    activeProfileProvider?: string
+  },
+): ContextWindowInfo {
+  const processEnv = options?.processEnv ?? process.env
   // Allow override via environment variable (internal-only)
   // This takes precedence over all other context window resolution, including 1M detection,
   // so users can cap the effective context window for local decisions (auto-compact, etc.)
   // while still using a 1M-capable endpoint.
   if (
-    process.env.USER_TYPE === 'ant' &&
-    process.env.CLAUDE_CODE_MAX_CONTEXT_TOKENS
+    processEnv.USER_TYPE === 'ant' &&
+    processEnv.CLAUDE_CODE_MAX_CONTEXT_TOKENS
   ) {
-    const override = parseInt(process.env.CLAUDE_CODE_MAX_CONTEXT_TOKENS, 10)
+    const override = parseInt(processEnv.CLAUDE_CODE_MAX_CONTEXT_TOKENS, 10)
     if (!isNaN(override) && override > 0) {
-      return override
+      return { contextWindow: override, source: 'env' }
     }
   }
 
   // [1m] suffix — explicit client-side opt-in, respected over all detection
   if (has1mContext(model)) {
-    return 1_000_000
+    return { contextWindow: 1_000_000, source: 'explicit-1m' }
   }
 
   // OpenAI-compatible provider — use known context windows for the model.
   // Unknown models get a conservative 128k default. This was previously 8k,
   // but that caused auto-compact to fire on every turn because the effective
   // context (8k minus output reservation) became negative (issue #635).
-  if (shouldUseIntegrationRuntimeLimits()) {
-    const runtimeLimits = resolveModelRuntimeLimits({ model })
+  if (shouldUseIntegrationRuntimeLimits(processEnv, options)) {
+    const runtimeLimits = resolveModelRuntimeLimits({
+      model,
+      processEnv,
+      baseUrl: options?.baseUrl,
+      activeProfileProvider: options?.activeProfileProvider,
+    })
     if (runtimeLimits.contextWindow !== undefined) {
-      return runtimeLimits.contextWindow
+      return {
+        contextWindow: runtimeLimits.contextWindow,
+        source: runtimeLimits.contextWindowSource ?? 'integration',
+      }
     }
-    console.error(
-      `[context] Warning: model "${model}" not in integration model metadata — using conservative 128k default. ` +
-      'Add it to src/integrations/models for accurate compaction.',
-    )
-    return OPENAI_FALLBACK_CONTEXT_WINDOW
+    return { contextWindow: null, source: 'unknown' }
   }
 
   const cap = getModelCapability(model)
@@ -121,24 +177,24 @@ export function getContextWindowForModel(
       cap.max_input_tokens > MODEL_CONTEXT_WINDOW_DEFAULT &&
       is1mContextDisabled()
     ) {
-      return MODEL_CONTEXT_WINDOW_DEFAULT
+      return { contextWindow: MODEL_CONTEXT_WINDOW_DEFAULT, source: 'default' }
     }
-    return cap.max_input_tokens
+    return { contextWindow: cap.max_input_tokens, source: 'capability' }
   }
 
   if (betas?.includes(CONTEXT_1M_BETA_HEADER) && modelSupports1M(model)) {
-    return 1_000_000
+    return { contextWindow: 1_000_000, source: 'beta' }
   }
   if (getSonnet1mExpTreatmentEnabled(model)) {
-    return 1_000_000
+    return { contextWindow: 1_000_000, source: 'experiment' }
   }
   if (process.env.USER_TYPE === 'ant') {
     const antModel = resolveAntModel(model)
     if (antModel?.contextWindow) {
-      return antModel.contextWindow
+      return { contextWindow: antModel.contextWindow, source: 'ant-model' }
     }
   }
-  return MODEL_CONTEXT_WINDOW_DEFAULT
+  return { contextWindow: MODEL_CONTEXT_WINDOW_DEFAULT, source: 'default' }
 }
 
 export function getSonnet1mExpTreatmentEnabled(model: string): boolean {

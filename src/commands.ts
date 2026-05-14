@@ -1,5 +1,6 @@
 // biome-ignore-all assist/source/organizeImports: internal-only import markers must not be reordered
 import addDir from './commands/add-dir/index.js'
+import background from './commands/background/index.js'
 import autofixPr from './commands/autofix-pr/index.js'
 import backfillSessions from './commands/backfill-sessions/index.js'
 import benchmark from './commands/benchmark/index.js'
@@ -66,6 +67,7 @@ import securityReview from './commands/security-review.js'
 import bughunter from './commands/bughunter/index.js'
 import terminalSetup from './commands/terminalSetup/index.js'
 import telegram from './commands/telegram/index.js'
+import tui from './commands/tui/index.js'
 import usage from './commands/usage/index.js'
 import theme from './commands/theme/index.js'
 import logo from './commands/logo/index.js'
@@ -283,6 +285,7 @@ const COMMANDS = memoize((): Command[] => [
   addDir,
   advisor,
   agents,
+  background,
   autoFix,
   benchmark,
   branch,
@@ -342,6 +345,7 @@ const COMMANDS = memoize((): Command[] => [
   stickers,
   tag,
   telegram,
+  tui,
   theme,
   logo,
   feedback,

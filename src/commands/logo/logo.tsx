@@ -1,11 +1,11 @@
 import * as React from 'react'
 import { LogoPicker } from '../../components/LogoPicker.js'
 import {
-  DEFAULT_LOGO_PALETTE,
-  LOGO_PALETTE_LABELS,
-  isLogoPaletteName,
-  type LogoPaletteName,
-} from '../../components/StartupScreen.palettes.js'
+  DEFAULT_TERMINAL_MASCOT,
+  TERMINAL_MASCOT_LABELS,
+  isTerminalMascot,
+  type TerminalMascot,
+} from '../../utils/terminalMascot.js'
 import type {
   LocalJSXCommandCall,
   LocalJSXCommandOnDone,
@@ -17,23 +17,23 @@ type Props = {
 }
 
 function LogoPickerCommand({ onDone }: Props): React.ReactElement {
-  const initial = React.useMemo<LogoPaletteName>(() => {
-    const current = getGlobalConfig().logoColor
-    return isLogoPaletteName(current) ? current : DEFAULT_LOGO_PALETTE
+  const initial = React.useMemo<TerminalMascot>(() => {
+    const current = getGlobalConfig().logoMascot
+    return isTerminalMascot(current) ? current : DEFAULT_TERMINAL_MASCOT
   }, [])
 
   const handleSelect = React.useCallback(
-    (chosen: LogoPaletteName) => {
-      saveGlobalConfig(c => ({ ...c, logoColor: chosen }))
+    (chosen: TerminalMascot) => {
+      saveGlobalConfig(c => ({ ...c, logoMascot: chosen }))
       onDone(
-        `Startup logo set to ${LOGO_PALETTE_LABELS[chosen]}. Visible on next launch.`,
+        `Startup mascot set to ${TERMINAL_MASCOT_LABELS[chosen]}. Visible on next launch.`,
       )
     },
     [onDone],
   )
 
   const handleCancel = React.useCallback(() => {
-    onDone('Logo picker dismissed', { display: 'system' })
+    onDone('Mascot picker dismissed', { display: 'system' })
   }, [onDone])
 
   return (

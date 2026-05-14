@@ -6,3 +6,7 @@ export const ANSI_DIM = `${ESC}2m`
 export function ansiRgb(r: number, g: number, b: number): string {
   return `${ESC}38;2;${r};${g};${b}m`
 }
+
+export function ansiBgRgb(r: number, g: number, b: number): string {
+  return `${ESC}48;2;${r};${g};${b}m`
+}

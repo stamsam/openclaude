@@ -13,6 +13,7 @@ import { openBrowser, openPath } from '../utils/browser.js';
 import { isFullscreenEnvEnabled } from '../utils/fullscreen.js';
 import { plural } from '../utils/stringUtils.js';
 import { isNullRenderingAttachment } from './messages/nullRenderingAttachments.js';
+import { OpenClaudeHeader } from './OpenClaudeHeader.js';
 import PromptInputFooterSuggestions from './PromptInput/PromptInputFooterSuggestions.js';
 import type { StickyPrompt } from './VirtualMessageList.js';
 
@@ -46,6 +47,9 @@ type Props = {
    *  ScrollBox AND bottom slot. Provides ModalContext so Pane/Dialog inside
    *  skip their own frame. Fullscreen only; inline after overlay otherwise. */
   modal?: ReactNode;
+  /** Full-screen replacement content. Keeps the normal REPL mounted but
+   *  visually hidden so prompt state survives while dashboards own input. */
+  takeover?: ReactNode;
   /** Ref passed via ModalContext so Tabs (or any scroll-owning descendant)
    *  can attach it to their own ScrollBox for tall content. */
   modalScrollRef?: React.RefObject<ScrollBoxHandle | null>;
@@ -268,13 +272,14 @@ export function computeUnseenDivider(messages: readonly Message[], dividerIndex:
  * so nothing can accidentally render outside it.
  */
 export function FullscreenLayout(t0) {
-  const $ = _c(47);
+  const $ = _c(58);
   const {
     scrollable,
     bottom,
     overlay,
     bottomFloat,
     modal,
+    takeover,
     modalScrollRef,
     scrollRef,
     dividerYRef,
@@ -388,83 +393,135 @@ export function FullscreenLayout(t0) {
       t13 = $[23];
     }
     let t14;
-    if ($[24] !== t11 || $[25] !== t12 || $[26] !== t13 || $[27] !== t8) {
-      t14 = <Box flexGrow={1} flexDirection="column" overflow="hidden">{t8}{t11}{t12}{t13}</Box>;
-      $[24] = t11;
-      $[25] = t12;
-      $[26] = t13;
-      $[27] = t8;
-      $[28] = t14;
+    if ($[24] === Symbol.for("react.memo_cache_sentinel")) {
+      t14 = <OpenClaudeHeader />;
+      $[24] = t14;
     } else {
-      t14 = $[28];
+      t14 = $[24];
     }
     let t15;
-    let t16;
-    if ($[29] === Symbol.for("react.memo_cache_sentinel")) {
-      t15 = <SuggestionsOverlay />;
-      t16 = <DialogOverlay />;
-      $[29] = t15;
-      $[30] = t16;
+    if ($[25] !== t11 || $[26] !== t12 || $[27] !== t13 || $[28] !== t14 || $[29] !== t8) {
+      t15 = <Box flexGrow={1} flexDirection="column" overflow="hidden">{t14}{t8}{t11}{t12}{t13}</Box>;
+      $[25] = t11;
+      $[26] = t12;
+      $[27] = t13;
+      $[28] = t14;
+      $[29] = t8;
+      $[30] = t15;
     } else {
-      t15 = $[29];
-      t16 = $[30];
+      t15 = $[30];
     }
+    let t16;
     let t17;
-    if ($[31] !== bottom) {
-      t17 = <Box flexDirection="column" flexShrink={0} width="100%" maxHeight="50%">{t15}{t16}<Box flexDirection="column" width="100%" flexGrow={1} overflowY="hidden">{bottom}</Box></Box>;
-      $[31] = bottom;
+    if ($[31] === Symbol.for("react.memo_cache_sentinel")) {
+      t16 = <DialogOverlay />;
+      t17 = <SuggestionsOverlay />;
+      $[31] = t16;
       $[32] = t17;
     } else {
+      t16 = $[31];
       t17 = $[32];
     }
     let t18;
-    if ($[33] !== columns || $[34] !== modal || $[35] !== modalScrollRef || $[36] !== terminalRows) {
-      t18 = modal != null && <ModalContext value={{
+    if ($[33] !== bottom) {
+      t18 = <Box flexDirection="column" flexShrink={0} width="100%" maxHeight="50%">{t17}{t16}<Box flexDirection="column" width="100%" flexGrow={1} overflowY="hidden">{bottom}</Box></Box>;
+      $[33] = bottom;
+      $[34] = t18;
+    } else {
+      t18 = $[34];
+    }
+    let t19;
+    if ($[35] !== columns || $[36] !== modal || $[37] !== modalScrollRef || $[38] !== terminalRows) {
+      t19 = modal != null && <ModalContext value={{
         rows: terminalRows - MODAL_TRANSCRIPT_PEEK - 1,
         columns: columns - 4,
         scrollRef: modalScrollRef ?? null
       }}><Box position="absolute" bottom={0} left={0} right={0} maxHeight={terminalRows - MODAL_TRANSCRIPT_PEEK} flexDirection="column" overflow="hidden" opaque={true}><Box flexShrink={0}><Text color="permission">{"\u2594".repeat(columns)}</Text></Box><Box flexDirection="column" paddingX={2} flexShrink={0} overflow="hidden">{modal}</Box></Box></ModalContext>;
-      $[33] = columns;
-      $[34] = modal;
-      $[35] = modalScrollRef;
-      $[36] = terminalRows;
-      $[37] = t18;
+      $[35] = columns;
+      $[36] = modal;
+      $[37] = modalScrollRef;
+      $[38] = terminalRows;
+      $[39] = t19;
     } else {
-      t18 = $[37];
+      t19 = $[39];
     }
-    let t19;
-    if ($[38] !== t14 || $[39] !== t17 || $[40] !== t18) {
-      t19 = <PromptOverlayProvider>{t14}{t17}{t18}</PromptOverlayProvider>;
-      $[38] = t14;
-      $[39] = t17;
-      $[40] = t18;
-      $[41] = t19;
+    let t20;
+    if ($[40] !== t15 || $[41] !== t18 || $[42] !== t19 || $[53] !== takeover) {
+      t20 = <PromptOverlayProvider><FullscreenOverlayFrame main={t15} bottom={t18} modal={t19} takeover={takeover} /></PromptOverlayProvider>;
+      $[40] = t15;
+      $[41] = t18;
+      $[42] = t19;
+      $[53] = takeover;
+      $[43] = t20;
     } else {
-      t19 = $[41];
+      t20 = $[43];
     }
-    return t19;
+    return t20;
   }
   let t8;
-  if ($[42] !== bottom || $[43] !== modal || $[44] !== overlay || $[45] !== scrollable) {
-    t8 = <>{scrollable}{bottom}{overlay}{modal}</>;
-    $[42] = bottom;
-    $[43] = modal;
-    $[44] = overlay;
-    $[45] = scrollable;
-    $[46] = t8;
+  let t21;
+  if ($[44] === Symbol.for("react.memo_cache_sentinel")) {
+    t21 = <OpenClaudeHeader />;
+    $[44] = t21;
   } else {
-    t8 = $[46];
+    t21 = $[44];
   }
-  return t8;
+  if ($[45] !== bottom || $[46] !== modal || $[47] !== overlay || $[48] !== scrollable || $[49] !== t21) {
+    t8 = <>{t21}{scrollable}{bottom}{overlay}{modal}</>;
+    $[45] = bottom;
+    $[46] = modal;
+    $[47] = overlay;
+    $[48] = scrollable;
+    $[49] = t21;
+    $[50] = t8;
+  } else {
+    t8 = $[50];
+  }
+  let t22;
+  if ($[51] !== t8 || $[54] !== takeover) {
+    t22 = <PromptOverlayProvider><FullscreenOverlayFrame main={t8} bottom={null} modal={null} takeover={takeover} /></PromptOverlayProvider>;
+    $[51] = t8;
+    $[54] = takeover;
+    $[52] = t22;
+  } else {
+    t22 = $[52];
+  }
+  return t22;
 }
 
-// Slack-style pill. Absolute overlay at bottom={0} of the scrollwrap — floats
-// over the ScrollBox's last content row, only obscuring the centered pill
-// text (the rest of the row shows ScrollBox content). Scroll-smear from
-// DECSTBM shifting the pill's pixels is repaired at the Ink layer
-// (absoluteRectsPrev third-pass in render-node-to-output.ts, #23939). Shows
-// "Jump to bottom" when count is 0 (scrolled away but no new messages yet —
-// the dead zone where users previously thought chat stalled).
+function FullscreenOverlayFrame({
+  main,
+  bottom,
+  modal,
+  takeover
+}: {
+  main: ReactNode;
+  bottom: ReactNode;
+  modal: ReactNode;
+  takeover?: ReactNode;
+}) {
+  const dialog = usePromptOverlayDialog();
+  const { rows } = useTerminalSize();
+  const takeoverHeight = Math.max(1, rows);
+  if (takeover != null) {
+    return <Box flexDirection="column" width="100%" height={takeoverHeight} overflow="hidden">
+        <Box height={0} flexShrink={0} overflow="hidden">{main}{bottom}{modal}</Box>
+        <Box height={takeoverHeight} flexShrink={0} flexDirection="column" overflow="hidden">{takeover}</Box>
+      </Box>;
+  }
+  if (dialog?.mode === 'takeover') {
+    return <Box flexDirection="column" width="100%" height={takeoverHeight} overflow="hidden">
+        <Box height={0} flexShrink={0} overflow="hidden">{main}{bottom}{modal}</Box>
+        <Box height={takeoverHeight} flexShrink={0} flexDirection="column" overflow="hidden">{dialog.node}</Box>
+      </Box>;
+  }
+  return <>{main}{bottom}{modal}</>;
+}
+
+// Slack-style pill. Keep it in normal flow so it reserves a row instead of
+// floating over provider messages, task lists, or the active prompt.
+// Shows "Jump to bottom" when count is 0 (scrolled away but no new messages
+// yet — the dead zone where users previously thought chat stalled).
 function _temp3() {
   if (!isFullscreenEnvEnabled()) {
     return;
@@ -526,7 +583,7 @@ function NewMessagesPill(t0) {
   }
   let t6;
   if ($[7] !== onClick || $[8] !== t5) {
-    t6 = <Box position="absolute" bottom={0} left={0} right={0} justifyContent="center"><Box onClick={onClick} onMouseEnter={t1} onMouseLeave={t2}>{t5}</Box></Box>;
+    t6 = <Box flexShrink={0} height={1} width="100%" justifyContent="center"><Box onClick={onClick} onMouseEnter={t1} onMouseLeave={t2}>{t5}</Box></Box>;
     $[7] = onClick;
     $[8] = t5;
     $[9] = t6;
@@ -620,10 +677,13 @@ function SuggestionsOverlay() {
 // over suggestions if both are ever up (they shouldn't be).
 function DialogOverlay() {
   const $ = _c(2);
-  const node = usePromptOverlayDialog();
-  if (!node) {
+  const dialog = usePromptOverlayDialog();
+  if (!dialog || dialog.mode !== 'float') {
     return null;
   }
+  const {
+    node
+  } = dialog;
   let t0;
   if ($[0] !== node) {
     t0 = <Box position="absolute" bottom="100%" left={0} right={0} opaque={true}>{node}</Box>;

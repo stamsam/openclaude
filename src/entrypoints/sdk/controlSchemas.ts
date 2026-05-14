@@ -143,6 +143,17 @@ export const SDKControlSetModelRequestSchema = lazySchema(() =>
     .describe('Sets the model to use for subsequent conversation turns.'),
 )
 
+export const SDKControlSetProviderRequestSchema = lazySchema(() =>
+  z
+    .object({
+      subtype: z.literal('set_provider'),
+      provider_profile_id: z.string().optional(),
+      provider: z.string().optional(),
+      model: z.string().optional(),
+    })
+    .describe('Sets the provider profile to use for subsequent conversation turns.'),
+)
+
 export const SDKControlSetMaxThinkingTokensRequestSchema = lazySchema(() =>
   z
     .object({
@@ -556,6 +567,7 @@ export const SDKControlRequestInnerSchema = lazySchema(() =>
     SDKControlInitializeRequestSchema(),
     SDKControlSetPermissionModeRequestSchema(),
     SDKControlSetModelRequestSchema(),
+    SDKControlSetProviderRequestSchema(),
     SDKControlSetMaxThinkingTokensRequestSchema(),
     SDKControlMcpStatusRequestSchema(),
     SDKControlGetContextUsageRequestSchema(),

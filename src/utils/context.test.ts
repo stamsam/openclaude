@@ -4,6 +4,7 @@ import { getMaxOutputTokensForModel } from '../services/api/claude.ts'
 import {
   getContextWindowForModel,
   getModelMaxOutputTokens,
+  resolveContextWindowForModel,
 } from './context.ts'
 
 const originalEnv = {
@@ -18,6 +19,7 @@ const originalEnv = {
   OPENAI_MODEL: process.env.OPENAI_MODEL,
   MINIMAX_API_KEY: process.env.MINIMAX_API_KEY,
   XAI_API_KEY: process.env.XAI_API_KEY,
+  OMLX_CONTEXT_WINDOW: process.env.OMLX_CONTEXT_WINDOW,
 }
 
 beforeEach(() => {
@@ -30,6 +32,7 @@ beforeEach(() => {
   delete process.env.OPENAI_MODEL
   delete process.env.MINIMAX_API_KEY
   delete process.env.XAI_API_KEY
+  delete process.env.OMLX_CONTEXT_WINDOW
 })
 
 afterEach(() => {
@@ -80,6 +83,11 @@ afterEach(() => {
     delete process.env.XAI_API_KEY
   } else {
     process.env.XAI_API_KEY = originalEnv.XAI_API_KEY
+  }
+  if (originalEnv.OMLX_CONTEXT_WINDOW === undefined) {
+    delete process.env.OMLX_CONTEXT_WINDOW
+  } else {
+    process.env.OMLX_CONTEXT_WINDOW = originalEnv.OMLX_CONTEXT_WINDOW
   }
 })
 
@@ -298,6 +306,48 @@ test('unknown openai-compatible models use the 128k fallback window (not 8k, see
   delete process.env.OPENAI_MODEL
 
   expect(getContextWindowForModel('some-unknown-3p-model')).toBe(128_000)
+})
+
+test('unknown OpenAI-compatible context resolves as display-unknown but keeps numeric fallback', () => {
+  process.env.CLAUDE_CODE_USE_OPENAI = '1'
+  delete process.env.CLAUDE_CODE_MAX_OUTPUT_TOKENS
+  delete process.env.OPENAI_MODEL
+
+  expect(resolveContextWindowForModel('some-unknown-3p-model')).toEqual({
+    contextWindow: null,
+    source: 'unknown',
+  })
+  expect(getContextWindowForModel('some-unknown-3p-model')).toBe(128_000)
+})
+
+test('oMLX local context window env resolves with local source', () => {
+  process.env.CLAUDE_CODE_USE_OPENAI = '1'
+  process.env.OPENAI_BASE_URL = 'http://127.0.0.1:8000/v1'
+  process.env.OMLX_CONTEXT_WINDOW = '262144'
+  delete process.env.CLAUDE_CODE_MAX_OUTPUT_TOKENS
+  delete process.env.OPENAI_MODEL
+
+  expect(resolveContextWindowForModel('local-omlx-model')).toEqual({
+    contextWindow: 262_144,
+    source: 'omlx-local',
+  })
+  expect(getContextWindowForModel('local-omlx-model')).toBe(262_144)
+})
+
+test('oMLX provider base URL option resolves local context without global env route', () => {
+  process.env.OMLX_CONTEXT_WINDOW = '262144'
+  delete process.env.CLAUDE_CODE_USE_OPENAI
+  delete process.env.OPENAI_BASE_URL
+  delete process.env.OPENAI_MODEL
+
+  expect(
+    resolveContextWindowForModel('local-omlx-model', [], {
+      baseUrl: 'http://127.0.0.1:8000/v1',
+    }),
+  ).toEqual({
+    contextWindow: 262_144,
+    source: 'omlx-local',
+  })
 })
 
 test('OpenAI-compatible custom model limits honor documented env overrides', () => {
