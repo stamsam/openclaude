@@ -21,6 +21,8 @@ const HIGH_CONFIDENCE_CONTEXT_KEYS = [
   'contextLength',
   'context_size',
   'contextSize',
+  'max_context_window',
+  'maxContextWindow',
   'max_context_tokens',
   'maxContextTokens',
   'max_context_length',
@@ -50,26 +52,19 @@ const MODEL_DIR_KEYS = [
   'modelPaths',
 ] as const
 
-export function readOmlxSettingsApiKey(): string | undefined {
-  try {
-    const raw = readFileSync(join(homedir(), '.omlx', 'settings.json'), 'utf8')
-    const parsed = JSON.parse(raw) as {
-      auth?: {
-        api_key?: unknown
-      }
-    }
-    const value = parsed.auth?.api_key
-    return typeof value === 'string' && value.trim() ? value.trim() : undefined
-  } catch {
-    return undefined
-  }
+function readOmlxSettings(homeDir = homedir()): JsonObject | undefined {
+  return readJsonFile(join(homeDir, '.omlx', 'settings.json'))
 }
 
-function readOmlxSettings(homeDir = homedir()): JsonObject | undefined {
+function readOmlxModelSettings(homeDir = homedir()): JsonObject | undefined {
+  return readJsonFile(join(homeDir, '.omlx', 'model_settings.json'))
+}
+
+export function readOmlxSettingsApiKey(): string | undefined {
   try {
-    const raw = readFileSync(join(homeDir, '.omlx', 'settings.json'), 'utf8')
-    const parsed = JSON.parse(raw) as unknown
-    return isRecord(parsed) ? parsed : undefined
+    const parsed = readOmlxSettings()
+    const value = isRecord(parsed?.auth) ? parsed.auth.api_key : undefined
+    return typeof value === 'string' && value.trim() ? value.trim() : undefined
   } catch {
     return undefined
   }
@@ -199,32 +194,29 @@ function findContextWindowInSettingsForModel(
   settings: JsonObject | undefined,
   model?: string,
 ): number | undefined {
-  const direct = findContextWindowInObject(settings)
-  if (direct !== undefined) {
-    return direct
-  }
-
   const candidates = getModelCandidates(model).map(candidate =>
     candidate.toLowerCase(),
   )
-  if (!settings || candidates.length === 0) {
+  if (!settings) {
     return undefined
   }
 
-  for (const containerKey of ['models', 'model_settings', 'profiles']) {
-    const container = settings[containerKey]
-    if (!isRecord(container)) continue
-    for (const [key, value] of Object.entries(container)) {
-      if (candidates.includes(key.trim().toLowerCase())) {
-        const parsed = findContextWindowInObject(value)
-        if (parsed !== undefined) {
-          return parsed
+  if (candidates.length > 0) {
+    for (const containerKey of ['models', 'model_settings', 'profiles']) {
+      const container = settings[containerKey]
+      if (!isRecord(container)) continue
+      for (const [key, value] of Object.entries(container)) {
+        if (candidates.includes(key.trim().toLowerCase())) {
+          const parsed = findContextWindowInObject(value)
+          if (parsed !== undefined) {
+            return parsed
+          }
         }
       }
     }
   }
 
-  return undefined
+  return findContextWindowInObject(settings)
 }
 
 function readModelConfigContextWindow(
@@ -239,20 +231,34 @@ function readModelConfigContextWindow(
 
   for (const modelDir of getOmlxModelDirs(settings, homeDir)) {
     if (!existsSync(modelDir)) continue
-    const entries = new Set<string>(candidates)
+    const candidateDirs = new Set<string>(
+      candidates.map(candidate => join(modelDir, candidate)),
+    )
     try {
       for (const entry of readdirSync(modelDir, { withFileTypes: true })) {
         if (entry.isDirectory() && candidates.includes(entry.name)) {
-          entries.add(entry.name)
+          candidateDirs.add(join(modelDir, entry.name))
+        }
+        if (!entry.isDirectory()) {
+          continue
+        }
+        const parentDir = join(modelDir, entry.name)
+        for (const nested of readdirSync(parentDir, { withFileTypes: true })) {
+          if (nested.isDirectory() && candidates.includes(nested.name)) {
+            candidateDirs.add(join(parentDir, nested.name))
+          }
         }
       }
     } catch {
       // ignore unreadable model directories
     }
 
-    for (const candidate of entries) {
-      const candidateDir = join(modelDir, candidate)
-      for (const configName of ['config.json', 'model_config.json']) {
+    for (const candidateDir of candidateDirs) {
+      for (const configName of [
+        'config.json',
+        'model_config.json',
+        'tokenizer_config.json',
+      ]) {
         const config = readJsonFile(join(candidateDir, configName))
         const highConfidence = findContextWindowInObject(config)
         if (highConfidence !== undefined) {
@@ -287,7 +293,9 @@ export function readOmlxContextWindow(options?: {
 
   const homeDir = options?.homeDir ?? homedir()
   const settings = readOmlxSettings(homeDir)
+  const modelSettings = readOmlxModelSettings(homeDir)
   return (
+    findContextWindowInSettingsForModel(modelSettings, options?.model) ??
     findContextWindowInSettingsForModel(settings, options?.model) ??
     readModelConfigContextWindow(settings, options?.model, homeDir)
   )

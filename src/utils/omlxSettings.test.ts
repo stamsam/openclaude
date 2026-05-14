@@ -41,3 +41,52 @@ test('readOmlxContextWindow reads matching local model config files', async () =
     }),
   ).toBe(98_304)
 })
+
+test('readOmlxContextWindow reads oMLX model_settings max_context_window', async () => {
+  delete process.env.OMLX_CONTEXT_WINDOW
+  const homeDir = await mkdtemp(join(tmpdir(), 'openclaude-omlx-'))
+  await mkdir(join(homeDir, '.omlx'), { recursive: true })
+  await writeFile(
+    join(homeDir, '.omlx', 'model_settings.json'),
+    JSON.stringify({
+      models: {
+        'Qwen3.6-35B-A3B-oQ4-mtp': {
+          max_context_window: 262_144,
+        },
+      },
+    }),
+  )
+
+  expect(
+    readOmlxContextWindow({
+      homeDir,
+      model: 'Qwen3.6-35B-A3B-oQ4-mtp',
+      processEnv: {},
+    }),
+  ).toBe(262_144)
+})
+
+test('readOmlxContextWindow searches nested owner/model directories', async () => {
+  delete process.env.OMLX_CONTEXT_WINDOW
+  const homeDir = await mkdtemp(join(tmpdir(), 'openclaude-omlx-'))
+  const modelDir = join(
+    homeDir,
+    '.omlx',
+    'models',
+    'Jundot',
+    'Qwen3.6-35B-A3B-oQ4-mtp',
+  )
+  await mkdir(modelDir, { recursive: true })
+  await writeFile(
+    join(modelDir, 'config.json'),
+    JSON.stringify({ max_position_embeddings: 262_144 }),
+  )
+
+  expect(
+    readOmlxContextWindow({
+      homeDir,
+      model: 'Qwen3.6-35B-A3B-oQ4-mtp',
+      processEnv: {},
+    }),
+  ).toBe(262_144)
+})
