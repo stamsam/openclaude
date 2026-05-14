@@ -304,7 +304,7 @@ export function AgentViewDashboard({
   const completedCount = jobs.filter(job => job.status === 'completed').length
   const fullscreenCounts = `${needsInputCount} awaiting input · ${workingCount} working · ${completedCount} completed`
 
-  const frameHeight = fullscreen ? Math.max(12, terminalRows - 2) : undefined
+  const frameHeight = fullscreen ? Math.max(12, terminalRows) : undefined
 
   const modelLine = [provider, model].filter(Boolean).join(' · ') || undefined
 

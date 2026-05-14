@@ -1,5 +1,6 @@
 import React from 'react'
 import { Box, Text, useInput, useInterval } from '../ink.js'
+import instances from '../ink/instances.js'
 import { useTerminalSize } from '../hooks/useTerminalSize.js'
 import { OpenClaudeHeader } from '../components/OpenClaudeHeader.js'
 import {
@@ -29,6 +30,8 @@ type CommandPicker = {
   options: PickerOption[]
 }
 
+export type ConversationTurn = { role: string; text: string }
+
 function textFromContent(content: unknown): string {
   if (typeof content === 'string') return content
   if (!Array.isArray(content)) return ''
@@ -43,8 +46,8 @@ function textFromContent(content: unknown): string {
     .join('\n')
 }
 
-export function conversationFromLog(raw: string): Array<{ role: string; text: string }> {
-  const turns: Array<{ role: string; text: string }> = []
+export function conversationFromLog(raw: string): ConversationTurn[] {
+  const turns: ConversationTurn[] = []
   for (const line of raw.split('\n')) {
     const trimmed = line.trim()
     if (!trimmed || trimmed.startsWith('[context]') || trimmed.startsWith('[agent-view]')) {
@@ -84,6 +87,16 @@ export function conversationFromLog(raw: string): Array<{ role: string; text: st
     }
   }
   return turns.slice(-8)
+}
+
+export function mergeConversationTurns(
+  logTurns: ConversationTurn[],
+  optimisticTurns: ConversationTurn[],
+): ConversationTurn[] {
+  const pending = optimisticTurns.filter(turn =>
+    !logTurns.some(logTurn => logTurn.role === turn.role && logTurn.text === turn.text),
+  )
+  return [...logTurns, ...pending].slice(-10)
 }
 
 function uniqueOptions(options: PickerOption[]): PickerOption[] {
@@ -149,7 +162,8 @@ export function AgentAttachPanel({
 }): React.ReactNode {
   const { rows } = useTerminalSize()
   const [line, setLine] = React.useState('')
-  const [output, setOutput] = React.useState('')
+  const [logTurns, setLogTurns] = React.useState<ConversationTurn[]>([])
+  const [optimisticTurns, setOptimisticTurns] = React.useState<ConversationTurn[]>([])
   const [status, setStatus] = React.useState('')
   const [picker, setPicker] = React.useState<CommandPicker | null>(null)
   const [localNotices, setLocalNotices] = React.useState<string[]>([])
@@ -170,16 +184,20 @@ export function AgentAttachPanel({
           : 'missing',
       )
       const turns = conversationFromLog(tail)
-      setOutput(
-        turns.length > 0
-          ? turns.map(turn => `${turn.role}: ${turn.text}`).join('\n\n')
-          : 'No conversation output yet.',
+      setLogTurns(turns)
+      setOptimisticTurns(current =>
+        current.filter(turn => !turns.some(logTurn => logTurn.role === turn.role && logTurn.text === turn.text)),
       )
     })
   }, [id])
 
   React.useEffect(refresh, [refresh])
   useInterval(refresh, 1000)
+
+  React.useLayoutEffect(() => {
+    if (!fullscreen) return
+    instances.get(process.stdout)?.forceRedraw()
+  }, [fullscreen, id])
 
   const switchModel = React.useCallback((nextModel: string) => {
     void appendJobModelSwitch(id, nextModel)
@@ -311,9 +329,19 @@ export function AgentAttachPanel({
         switchProvider(option)
         return
       }
+      setOptimisticTurns(current => [...current.slice(-5), { role: 'You', text: message }])
+      if (fullscreen) {
+        instances.get(process.stdout)?.forceRedraw()
+      }
       void appendJobInput(id, message)
         .then(() => updateJob(id, { status: 'working', input_needed: false }))
         .then(() => refresh())
+        .catch(error => {
+          setOptimisticTurns(current =>
+            current.filter(turn => !(turn.role === 'You' && turn.text === message)),
+          )
+          appendSystemOutput(`failed to send: ${(error as Error).message}`)
+        })
       return
     }
     if (key.backspace || key.delete) {
@@ -325,7 +353,11 @@ export function AgentAttachPanel({
     }
   })
 
-  const frameHeight = fullscreen ? Math.max(12, rows - 2) : undefined
+  const frameHeight = fullscreen ? Math.max(12, rows) : undefined
+  const outputTurns = mergeConversationTurns(logTurns, optimisticTurns)
+  const output = outputTurns.length > 0
+    ? outputTurns.map(turn => `${turn.role}: ${turn.text}`).join('\n\n')
+    : 'No conversation output yet.'
 
   return (
     <Box flexDirection="column" paddingX={fullscreen ? 3 : 2} paddingTop={1} width="100%" height={frameHeight}>
