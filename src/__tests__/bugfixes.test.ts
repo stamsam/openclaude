@@ -358,14 +358,29 @@ describe('Context overflow 500 fix', () => {
 // Fix 9: Goal token accounting in the main query loop
 // ---------------------------------------------------------------------------
 describe('Goal token accounting fix', () => {
-  test('query.ts accounts final model usage into active goals', async () => {
+  test('query.ts accounts live and final model usage into active goals', async () => {
     const content = await file('query.ts').text()
 
     expect(content).toContain('accountGoalTokens')
     expect(content).toContain('getTokenCountFromUsage')
+    expect(content).toContain('GOAL_TOKEN_LIVE_UPDATE_STEP')
+    expect(content).toContain("message.event.type === 'message_delta'")
+    expect(content).toContain('await accountGoalUsageSnapshot(false)')
     expect(content).toContain('const finalUsage = assistantMessages.at(-1)?.message.usage')
     expect(content).toMatch(/if\s*\(!toolUseContext\.agentId\)/)
-    expect(content).toMatch(/await accountGoalTokens\(goalTokens\)/)
+    expect(content).toMatch(/await accountGoalTokens\(delta\)/)
+  })
+
+  test('prompt footer can open Agent View while a turn is running', async () => {
+    const promptInput = await file('components/PromptInput/PromptInput.tsx').text()
+    const footer = await file('components/PromptInput/PromptInputFooter.tsx').text()
+    const footerLeft = await file('components/PromptInput/PromptInputFooterLeftSide.tsx').text()
+
+    expect(promptInput).toContain('key.leftArrow && !input && cursorOffset === 0')
+    expect(promptInput).not.toContain('key.leftArrow && !input && cursorOffset === 0 && !isLoading')
+    expect(promptInput).toContain('onOpenAgentView={onOpenAgentView}')
+    expect(footer).toContain('onOpenAgentView?: () => void')
+    expect(footerLeft).toContain('onClick={onOpenAgentView}')
   })
 })
 

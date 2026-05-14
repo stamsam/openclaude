@@ -25,6 +25,8 @@ import {
 } from 'src/services/analytics/index.js'
 import { ImageSizeError } from './utils/imageValidation.js'
 import { ImageResizeError } from './utils/imageResizer.js'
+import { updateUsage } from './services/api/claude.js'
+import { EMPTY_USAGE, type NonNullableUsage } from './services/api/logging.js'
 import { findToolByName, type ToolUseContext } from './Tool.js'
 import { asSystemPrompt, type SystemPrompt } from './utils/systemPromptType.js'
 import type {
@@ -126,6 +128,8 @@ const taskSummaryModule = feature('BG_SESSIONS')
   ? (require('./utils/taskSummary.js') as typeof import('./utils/taskSummary.js'))
   : null
 /* eslint-enable @typescript-eslint/no-require-imports */
+
+const GOAL_TOKEN_LIVE_UPDATE_STEP = 50
 
 function* yieldMissingToolResultBlocks(
   assistantMessages: AssistantMessage[],
@@ -634,6 +638,17 @@ async function* queryLoop(
     // loop-exit signal. If false after streaming, we're done (modulo stop-hook retry).
     const toolUseBlocks: ToolUseBlock[] = []
     let needsFollowUp = false
+    let currentGoalUsage: NonNullableUsage = { ...EMPTY_USAGE }
+    let accountedGoalTokensForMessage = 0
+    const accountGoalUsageSnapshot = async (force = false): Promise<void> => {
+      if (toolUseContext.agentId) return
+      const goalTokens = getTokenCountFromUsage(currentGoalUsage)
+      const delta = goalTokens - accountedGoalTokensForMessage
+      if (delta <= 0) return
+      if (!force && delta < GOAL_TOKEN_LIVE_UPDATE_STEP) return
+      accountedGoalTokensForMessage = goalTokens
+      await accountGoalTokens(delta)
+    }
 
     queryCheckpoint('query_setup_start')
     const useStreamingToolExecution = config.gates.streamingToolExecution
@@ -832,6 +847,8 @@ async function* queryLoop(
               toolResults.length = 0
               toolUseBlocks.length = 0
               needsFollowUp = false
+              currentGoalUsage = { ...EMPTY_USAGE }
+              accountedGoalTokensForMessage = 0
 
               // Discard pending results from the failed streaming attempt and create
               // a fresh executor. This prevents orphan tool_results (with old tool_use_ids)
@@ -843,6 +860,24 @@ async function* queryLoop(
                   canUseTool,
                   toolUseContext,
                 )
+              }
+            }
+            if (message.type === 'stream_event') {
+              if (message.event.type === 'message_start') {
+                currentGoalUsage = updateUsage(
+                  { ...EMPTY_USAGE },
+                  message.event.message.usage,
+                )
+                accountedGoalTokensForMessage = 0
+                await accountGoalUsageSnapshot(true)
+              } else if (message.event.type === 'message_delta') {
+                currentGoalUsage = updateUsage(
+                  currentGoalUsage,
+                  message.event.usage,
+                )
+                await accountGoalUsageSnapshot(false)
+              } else if (message.event.type === 'message_stop') {
+                await accountGoalUsageSnapshot(true)
               }
             }
             // Backfill tool_use inputs on a cloned message before yield so
@@ -974,11 +1009,9 @@ async function* queryLoop(
 
           if (!toolUseContext.agentId) {
             const finalUsage = assistantMessages.at(-1)?.message.usage
-            const goalTokens = finalUsage
-              ? getTokenCountFromUsage(finalUsage)
-              : 0
-            if (goalTokens > 0) {
-              await accountGoalTokens(goalTokens)
+            if (finalUsage) {
+              currentGoalUsage = finalUsage
+              await accountGoalUsageSnapshot(true)
             }
           }
 
