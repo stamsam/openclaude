@@ -177,6 +177,8 @@ export async function runBackgroundJob(id: string): Promise<void> {
     env: {
       ...process.env,
       OPENCLAUDE_BG_CHILD: '1',
+      OPENCLAUDE_AGENTVIEW_CHILD_ID: id,
+      OPENCLAUDE_DISABLE_GOALS: '1',
     },
     stdio: ['pipe', 'pipe', 'pipe'],
   })

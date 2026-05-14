@@ -43,7 +43,7 @@ function textFromContent(content: unknown): string {
     .join('\n')
 }
 
-function conversationFromLog(raw: string): Array<{ role: string; text: string }> {
+export function conversationFromLog(raw: string): Array<{ role: string; text: string }> {
   const turns: Array<{ role: string; text: string }> = []
   for (const line of raw.split('\n')) {
     const trimmed = line.trim()
@@ -55,6 +55,7 @@ function conversationFromLog(raw: string): Array<{ role: string; text: string }>
       const event = JSON.parse(trimmed) as {
         type?: string
         result?: string
+        isReplay?: boolean
         message?: {
           role?: string
           content?: unknown
@@ -65,6 +66,9 @@ function conversationFromLog(raw: string): Array<{ role: string; text: string }>
       }
       if (event.type === 'user') {
         const text = textFromContent(event.message?.content)
+        if (text.includes('<local-command-stdout>') || text.includes('<local-command-stderr>')) {
+          continue
+        }
         if (text) turns.push({ role: 'You', text })
       } else if (event.type === 'assistant') {
         const text = textFromContent(event.message?.content)
@@ -209,7 +213,9 @@ export function AgentAttachPanel({
       })
   }, [appendSystemOutput, id, refresh])
 
-  useInput((chunk, key) => {
+  useInput((chunk, key, event) => {
+    event.stopImmediatePropagation()
+
     if (picker) {
       if (key.escape || key.leftArrow) {
         setPicker(null)

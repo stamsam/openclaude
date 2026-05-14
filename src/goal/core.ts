@@ -53,7 +53,10 @@ export function getGoalElapsedSeconds(goal: GoalState): number {
 }
 
 export function isGoalFeatureEnabled(): boolean {
-  return process.env.OPENCLAUDE_DISABLE_GOALS !== '1'
+  return (
+    process.env.OPENCLAUDE_DISABLE_GOALS !== '1' &&
+    process.env.OPENCLAUDE_BG_CHILD !== '1'
+  )
 }
 
 export function parseGoalCompletionSignal(text: string): string | null {

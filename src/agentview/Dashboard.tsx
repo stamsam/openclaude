@@ -219,7 +219,9 @@ export function AgentViewDashboard({
     { context: 'AgentView', isActive: Boolean(selected) },
   )
 
-  useInput((chunk, key) => {
+  useInput((chunk, key, event) => {
+    event.stopImmediatePropagation()
+
     if (key.escape) {
       if (input) {
         setInput('')

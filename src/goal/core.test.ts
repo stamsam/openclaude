@@ -417,6 +417,17 @@ describe('goal system', () => {
     }
   })
 
+  test('agent dashboard child processes do not touch the main goal', () => {
+    const prev = process.env.OPENCLAUDE_BG_CHILD
+    process.env.OPENCLAUDE_BG_CHILD = '1'
+    try {
+      expect(isGoalFeatureEnabled()).toBe(false)
+    } finally {
+      if (prev === undefined) delete process.env.OPENCLAUDE_BG_CHILD
+      else process.env.OPENCLAUDE_BG_CHILD = prev
+    }
+  })
+
   test('disabled goals prevent loadGoal', async () => {
     await setGoal('Should be hidden')
     const prev = process.env.OPENCLAUDE_DISABLE_GOALS
