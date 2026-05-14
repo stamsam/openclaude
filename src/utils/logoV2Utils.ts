@@ -1,4 +1,8 @@
 import { getDirectConnectServerUrl, getSessionId } from '../bootstrap/state.js'
+import {
+  getRouteLabel,
+  resolveActiveRouteIdFromEnv,
+} from '../integrations/routeMetadata.js'
 import { stringWidth } from '../ink/stringWidth.js'
 import type { LogOption } from '../types/logs.js'
 import { getSubscriptionName, isClaudeAISubscriber } from './auth.js'
@@ -14,6 +18,7 @@ import {
   parseChangelog,
   sliceReleaseNotesForDisplay,
 } from './releaseNotes.js'
+import { getLocalOpenAICompatibleProviderLabel } from './providerDiscovery.js'
 import { gt } from './semver.js'
 import { loadMessageLogs } from './sessionStorage.js'
 import { getInitialSettings } from './settings/settings.js'
@@ -229,6 +234,27 @@ export function getRecentActivitySync(): LogOption[] {
   return cachedActivity
 }
 
+export function getProviderDisplayLabelForLogo(
+  processEnv: NodeJS.ProcessEnv = process.env,
+): string | undefined {
+  const routeId = resolveActiveRouteIdFromEnv(processEnv)
+  if (!routeId || routeId === 'anthropic') {
+    return undefined
+  }
+
+  const routeLabel = getRouteLabel(routeId)
+  if (routeLabel) {
+    return routeLabel
+  }
+
+  const baseUrl =
+    processEnv.OPENAI_BASE_URL ??
+    processEnv.OPENAI_API_BASE ??
+    processEnv.ANTHROPIC_BASE_URL
+
+  return getLocalOpenAICompatibleProviderLabel(baseUrl)
+}
+
 /**
  * Formats release notes for display, with smart truncation
  */
@@ -259,7 +285,7 @@ export function getLogoDisplayData(): {
     : displayPath
   const billingType = isClaudeAISubscriber()
     ? getSubscriptionName()
-    : 'API Usage Billing'
+    : getProviderDisplayLabelForLogo() ?? 'API Usage Billing'
   const agentName = getInitialSettings().agent
 
   return {
