@@ -66,6 +66,7 @@ function stepTeammateSelection(
  */
 export function useBackgroundTaskNavigation(options?: {
   onOpenBackgroundTasks?: () => void
+  isActive?: boolean
 }): { handleKeyDown: (e: KeyboardEvent) => void } {
   const tasks = useAppState(s => s.tasks)
   const viewSelectionMode = useAppState(s => s.viewSelectionMode)
@@ -81,6 +82,7 @@ export function useBackgroundTaskNavigation(options?: {
   const hasNonTeammateBackgroundTasks = Object.values(tasks).some(
     t => isBackgroundTask(t) && t.type !== 'in_process_teammate',
   )
+  const isActive = options?.isActive ?? true
 
   // Track previous teammate count to detect when teammates are removed
   const prevTeammateCountRef = useRef<number>(teammateCount)
@@ -145,6 +147,8 @@ export function useBackgroundTaskNavigation(options?: {
   }
 
   const handleKeyDown = (e: KeyboardEvent): void => {
+    if (!isActive) return
+
     // Escape in viewing mode:
     // - If teammate is running: abort current work only (stops current turn, teammate stays alive)
     // - If teammate is not running (completed/killed/failed): exit the view back to leader
@@ -245,7 +249,7 @@ export function useBackgroundTaskNavigation(options?: {
   // TODO(onKeyDown-migration): remove once REPL passes handleKeyDown.
   useInput((_input, _key, event) => {
     handleKeyDown(new KeyboardEvent(event.keypress))
-  })
+  }, { isActive })
 
   return { handleKeyDown }
 }
