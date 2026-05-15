@@ -299,7 +299,7 @@ describe('discoverModelsForRoute', () => {
       stale: true,
       models: [{ id: 'llama3.1:8b', apiName: 'llama3.1:8b' }],
     })
-    expect(second?.error?.message).toContain('Discovery failed')
+    expect(second?.error?.message).toContain('Ollama is not reachable')
   })
 
   test('hybrid routes keep curated descriptor entries ahead of discovered duplicates', async () => {

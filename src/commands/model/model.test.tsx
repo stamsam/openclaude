@@ -1,4 +1,5 @@
 import { afterEach, expect, mock, test } from 'bun:test'
+import type { ReactElement } from 'react'
 
 import { getAdditionalModelOptionsCacheScope } from '../../services/api/providerConfig.js'
 
@@ -148,6 +149,78 @@ test('opens the model picker without awaiting descriptor-backed route refresh', 
   ])
 
   expect(result).not.toBe('timeout')
+})
+
+test('/model keeps cached Ollama models quiet until manual refresh', async () => {
+  process.env.CLAUDE_CODE_USE_OPENAI = '1'
+  process.env.OPENAI_BASE_URL = 'http://localhost:11434/v1'
+  process.env.OPENAI_MODEL = 'deepseek-v4-flash:cloud'
+  delete process.env.CLAUDE_CODE_USE_GEMINI
+  delete process.env.CLAUDE_CODE_USE_GITHUB
+  delete process.env.CLAUDE_CODE_USE_MISTRAL
+  delete process.env.CLAUDE_CODE_USE_BEDROCK
+  delete process.env.CLAUDE_CODE_USE_VERTEX
+  delete process.env.CLAUDE_CODE_USE_FOUNDRY
+  delete process.env.OPENAI_API_BASE
+
+  mock.module('../../integrations/discoveryCache.js', () => ({
+    clearDiscoveryCache: mock(async () => {}),
+    getCachedModels: mock(async () => ({
+      models: [
+        {
+          id: 'deepseek-v4-flash:cloud',
+          apiName: 'deepseek-v4-flash:cloud',
+        },
+      ],
+      updatedAt: Date.now() - 172_800_000,
+      error: {
+        message: 'Ollama is not reachable',
+        recordedAt: Date.now(),
+      },
+    })),
+    isCacheStale: mock(async () => true),
+    parseDurationString: (value: number | string) =>
+      typeof value === 'number' ? value : 86_400_000,
+  }))
+
+  const discoverModelsForRoute = mock(async () => {
+    throw new Error('unexpected automatic Ollama discovery')
+  })
+
+  mock.module('../../integrations/discoveryService.js', () => ({
+    getDiscoveryCacheKey: (
+      routeId: string,
+      options?: { apiKey?: string; baseUrl?: string; headers?: Record<string, string> },
+    ) => `${routeId}|${options?.baseUrl ?? ''}|${options?.apiKey ?? ''}|${JSON.stringify(options?.headers ?? {})}`,
+    discoverModelsForRoute,
+  }))
+
+  mock.module('../../utils/providerProfiles.js', () => ({
+    getActiveOpenAIModelOptionsCache: () => [],
+    getActiveProviderProfile: () => null,
+    setActiveOpenAIModelOptionsCache: () => {},
+  }))
+
+  const { call } = await importFreshModelModule('ollama-cached-quiet')
+  const result = await call(() => {}, {} as never, '')
+  const element = result as ReactElement<{
+    discoveryContext: {
+      autoRefresh: boolean
+      discoveryState?: { message: string; tone: string }
+      optionsOverride: Array<{ value: string }>
+      routeId: string
+    }
+  }>
+
+  expect(element.props.discoveryContext.routeId).toBe('ollama')
+  expect(element.props.discoveryContext.autoRefresh).toBe(false)
+  expect(element.props.discoveryContext.discoveryState).toBeUndefined()
+  expect(element.props.discoveryContext.optionsOverride).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({ value: 'deepseek-v4-flash:cloud' }),
+    ]),
+  )
+  expect(discoverModelsForRoute).not.toHaveBeenCalled()
 })
 
 test('shouldAutoRefreshRouteCatalog respects discovery refresh modes', async () => {

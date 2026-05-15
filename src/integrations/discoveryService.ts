@@ -212,6 +212,15 @@ function mergeCatalogEntries(
   return merged
 }
 
+function getDiscoveryFailureMessage(routeId: string): string {
+  if (routeId === 'ollama') {
+    return 'Ollama is not reachable. Start Ollama or check OLLAMA_BASE_URL, then refresh models.'
+  }
+
+  const label = getRouteDescriptor(routeId)?.label ?? routeId
+  return `Discovery failed for ${label}`
+}
+
 async function runDiscovery(
   routeId: string,
   options?: {
@@ -328,7 +337,7 @@ export async function discoverModelsForRoute(
   try {
     const discovered = await runDiscovery(routeId, options)
     if (discovered === null) {
-      throw new Error(`Discovery failed for route ${routeId}`)
+      throw new Error(getDiscoveryFailureMessage(routeId))
     }
 
     await setCachedModels(cacheKey, { models: discovered })

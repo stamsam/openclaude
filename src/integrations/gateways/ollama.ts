@@ -32,7 +32,7 @@ export default defineGateway({
     source: 'dynamic',
     discovery: { kind: 'ollama' },
     discoveryCacheTtl: '1d',
-    discoveryRefreshMode: 'background-if-stale',
+    discoveryRefreshMode: 'manual',
     allowManualRefresh: true,
   },
   usage: { supported: false },

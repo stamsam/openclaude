@@ -291,7 +291,11 @@ async function loadDescriptorDiscoveryContext(
 
   let discoveryState: ModelPickerDiscoveryState | undefined
 
-  if (cached?.error && mergedEntries.length > 0) {
+  if (
+    cached?.error &&
+    mergedEntries.length > 0 &&
+    catalog.discoveryRefreshMode !== 'manual'
+  ) {
     discoveryState = {
       message: `Showing cached ${routeLabel} models. Last refresh failed: ${cached.error.message}`,
       tone: 'warning',
