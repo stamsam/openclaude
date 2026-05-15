@@ -310,8 +310,10 @@ function ModeIndicator({
   const hasActiveMode = !isDefaultMode(currentMode);
   const viewedTask = viewingAgentTaskId ? tasks[viewingAgentTaskId] : undefined;
   const isViewingTeammate = viewSelectionMode === 'viewing-agent' && viewedTask?.type === 'in_process_teammate';
+  const isViewingLocalAgent = viewSelectionMode === 'viewing-agent' && viewedTask?.type === 'local_agent';
   const isViewingCompletedTeammate = isViewingTeammate && viewedTask != null && viewedTask.status !== 'running';
-  const hasBackgroundTasks = runningTaskCount > 0 || isViewingTeammate;
+  const shouldShowAgentReturnHint = isViewingLocalAgent || isViewingCompletedTeammate;
+  const hasBackgroundTasks = runningTaskCount > 0 || isViewingTeammate || isViewingLocalAgent;
 
   // Count primary items (permission mode or coordinator mode, background tasks, and teams)
   const primaryItemCount = (isCoordinator || hasActiveMode ? 1 : 0) + (hasBackgroundTasks ? 1 : 0) + (hasTeams ? 1 : 0);
@@ -362,9 +364,9 @@ function ModeIndicator({
 
   // Get hint parts separately for potential second-line rendering
   const hintParts = showHint ? getSpinnerHintParts(isLoading, escShortcut, todosShortcut, killAgentsShortcut, hasTaskItems, expandedView, hasAnyInProcessTeammates, hasRunningAgentTasks, isKillAgentsConfirmShowing) : [];
-  if (isViewingCompletedTeammate) {
+  if (shouldShowAgentReturnHint) {
     parts.push(<Text dimColor key="esc-return">
-        <KeyboardShortcutHint shortcut={escShortcut} action="return to team lead" />
+        <KeyboardShortcutHint shortcut={escShortcut} action={isViewingLocalAgent ? "return to main" : "return to team lead"} />
       </Text>);
   } else if ((feature('PROACTIVE') || feature('KAIROS')) && hasNextTick) {
     parts.push(<ProactiveCountdown key="proactive" />);
@@ -374,9 +376,9 @@ function ModeIndicator({
 
   // When we have teammate pills, always render them on their own line above other parts
   if (hasTeammatePills) {
-    // Don't append spinner hints when viewing a completed teammate —
-    // the "esc to return to team lead" hint already replaces "esc to interrupt"
-    const otherParts = [...(modePart ? [modePart] : []), ...parts, ...(isViewingCompletedTeammate ? [] : hintParts)];
+    // Don't append spinner hints when the agent return hint is already shown —
+    // the return hint already replaces "esc to interrupt"
+    const otherParts = [...(modePart ? [modePart] : []), ...parts, ...(shouldShowAgentReturnHint ? [] : hintParts)];
     return <Box flexDirection="column">
         <Box>
           <BackgroundTaskStatus tasksSelected={tasksSelected} isViewingTeammate={isViewingTeammate} teammateFooterIndex={teammateFooterIndex} isLeaderIdle={!isLoading} onOpenDialog={onOpenTasksDialog} />

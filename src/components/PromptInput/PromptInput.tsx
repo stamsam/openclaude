@@ -1835,16 +1835,22 @@ function PromptInput({
             // Enter switches to the selected agent's view
             if (teammateFooterIndex === 0) {
               exitTeammateView(setAppState);
+              selectFooterItem(null);
             } else {
               const teammate = inProcessTeammates[teammateFooterIndex - 1];
-              if (teammate) enterTeammateView(teammate.id, setAppState);
+              if (teammate) {
+                enterTeammateView(teammate.id, setAppState);
+                selectFooterItem(null);
+              }
             }
           } else if (coordinatorTaskIndex === 0 && coordinatorTaskCount > 0) {
             exitTeammateView(setAppState);
+            selectFooterItem(null);
           } else {
             const selectedTaskId = getVisibleAgentTasks(tasks)[coordinatorTaskIndex - 1]?.id;
             if (selectedTaskId) {
               enterTeammateView(selectedTaskId, setAppState);
+              selectFooterItem(null);
             } else {
               setShowBashesDialog(true);
               selectFooterItem(null);
@@ -1875,6 +1881,9 @@ function PromptInput({
       }
     },
     'footer:clearSelection': () => {
+      if (viewSelectionMode === 'viewing-agent') {
+        exitTeammateView(setAppState);
+      }
       selectFooterItem(null);
     },
     'footer:close': () => {
