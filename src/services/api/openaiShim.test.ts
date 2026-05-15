@@ -3270,6 +3270,100 @@ test('non-streaming: strips <think> tag block from assistant content', async () 
   ])
 })
 
+test('Gitlawb OpenGateway: non-streaming calls are collected from SSE', async () => {
+  let capturedBody: Record<string, unknown> | undefined
+  globalThis.fetch = (async (_input, init) => {
+    capturedBody = JSON.parse(String(init?.body)) as Record<string, unknown>
+    return makeSseResponse(
+      makeStreamChunks([
+        {
+          id: 'chatcmpl-opengateway',
+          object: 'chat.completion.chunk',
+          model: 'mimo-v2.5-pro',
+          choices: [
+            {
+              index: 0,
+              delta: {
+                role: 'assistant',
+                content: '',
+                reasoning_content: null,
+              },
+              finish_reason: null,
+            },
+          ],
+          usage: null,
+        },
+        {
+          id: 'chatcmpl-opengateway',
+          object: 'chat.completion.chunk',
+          model: 'mimo-v2.5-pro',
+          choices: [
+            {
+              index: 0,
+              delta: { content: null, reasoning_content: 'thinking' },
+              finish_reason: null,
+            },
+          ],
+          usage: null,
+        },
+        {
+          id: 'chatcmpl-opengateway',
+          object: 'chat.completion.chunk',
+          model: 'mimo-v2.5-pro',
+          choices: [
+            {
+              index: 0,
+              delta: { content: 'final answer', reasoning_content: null },
+              finish_reason: null,
+            },
+          ],
+          usage: null,
+        },
+        {
+          id: 'chatcmpl-opengateway',
+          object: 'chat.completion.chunk',
+          model: 'mimo-v2.5-pro',
+          choices: [
+            {
+              index: 0,
+              delta: {},
+              finish_reason: 'stop',
+            },
+          ],
+          usage: {
+            prompt_tokens: 12,
+            completion_tokens: 3,
+            total_tokens: 15,
+          },
+        },
+      ]),
+    )
+  }) as unknown as FetchType
+
+  process.env.OPENAI_BASE_URL =
+    'https://opengateway.gitlawb.com/v1/xiaomi-mimo'
+  const client = createOpenAIShimClient({}) as OpenAIShimClient
+
+  const result = (await client.beta.messages.create({
+    model: 'mimo-v2.5-pro',
+    system: 'test system',
+    messages: [{ role: 'user', content: 'hello' }],
+    max_tokens: 64,
+    stream: false,
+  })) as {
+    content: Array<Record<string, unknown>>
+    usage: Record<string, unknown>
+  }
+
+  expect(capturedBody?.stream).toBe(true)
+  expect(result.content).toEqual([
+    { type: 'thinking', thinking: 'thinking' },
+    { type: 'text', text: 'final answer' },
+  ])
+  expect(result.usage.input_tokens).toBe(12)
+  expect(result.usage.output_tokens).toBe(3)
+})
+
 test('streaming: thinking block closed before tool call', async () => {
   globalThis.fetch = (async (_input, _init) => {
     const chunks = makeStreamChunks([

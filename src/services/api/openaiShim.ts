@@ -876,6 +876,14 @@ function makeMessageId(): string {
   return `msg_${crypto.randomUUID().replace(/-/g, '')}`
 }
 
+function shouldForceStreamingForNonStreamingRequest(baseUrl: string): boolean {
+  try {
+    return new URL(baseUrl).hostname.toLowerCase() === 'opengateway.gitlawb.com'
+  } catch {
+    return baseUrl.toLowerCase().includes('opengateway.gitlawb.com')
+  }
+}
+
 function convertChunkUsage(
   usage: OpenAIStreamChunk['usage'] | undefined,
 ): Partial<AnthropicUsage> | undefined {
@@ -1339,6 +1347,109 @@ async function* openaiStreamToAnthropic(
   yield { type: 'message_stop' }
 }
 
+async function collectAnthropicStreamToMessage(
+  events: AsyncGenerator<AnthropicStreamEvent>,
+  model: string,
+) {
+  let id = makeMessageId()
+  let resolvedModel = model
+  let stopReason: unknown = 'end_turn'
+  let usage: Partial<AnthropicUsage> = {}
+  const content: Array<Record<string, unknown> | undefined> = []
+  const toolInputBuffers = new Map<number, string>()
+
+  for await (const event of events) {
+    if (event.type === 'message_start' && event.message) {
+      if (typeof event.message.id === 'string') {
+        id = event.message.id
+      }
+      if (typeof event.message.model === 'string') {
+        resolvedModel = event.message.model
+      }
+      if (event.message.usage && typeof event.message.usage === 'object') {
+        usage = {
+          ...usage,
+          ...(event.message.usage as Partial<AnthropicUsage>),
+        }
+      }
+      continue
+    }
+
+    if (
+      event.type === 'content_block_start' &&
+      typeof event.index === 'number' &&
+      event.content_block
+    ) {
+      content[event.index] = { ...event.content_block }
+      continue
+    }
+
+    if (
+      event.type === 'content_block_delta' &&
+      typeof event.index === 'number' &&
+      event.delta
+    ) {
+      const block = content[event.index]
+      const delta = event.delta
+      if (!block) {
+        continue
+      }
+
+      if (delta.type === 'text_delta' && typeof delta.text === 'string') {
+        block.text = `${typeof block.text === 'string' ? block.text : ''}${delta.text}`
+      } else if (
+        delta.type === 'thinking_delta' &&
+        typeof delta.thinking === 'string'
+      ) {
+        block.thinking = `${typeof block.thinking === 'string' ? block.thinking : ''}${delta.thinking}`
+      } else if (
+        delta.type === 'input_json_delta' &&
+        typeof delta.partial_json === 'string'
+      ) {
+        const next =
+          (toolInputBuffers.get(event.index) ?? '') + delta.partial_json
+        toolInputBuffers.set(event.index, next)
+        try {
+          block.input = JSON.parse(next)
+        } catch {
+          block.input = {}
+        }
+      }
+      continue
+    }
+
+    if (event.type === 'message_delta') {
+      if (event.delta?.stop_reason) {
+        stopReason = event.delta.stop_reason
+      }
+      if (event.usage) {
+        usage = {
+          ...usage,
+          ...event.usage,
+        }
+      }
+    }
+  }
+
+  return {
+    id,
+    type: 'message',
+    role: 'assistant',
+    content: content.filter(
+      (block): block is Record<string, unknown> => block !== undefined,
+    ),
+    model: resolvedModel,
+    stop_reason: typeof stopReason === 'string' ? stopReason : 'end_turn',
+    stop_sequence: null,
+    usage: {
+      input_tokens: usage.input_tokens ?? 0,
+      output_tokens: usage.output_tokens ?? 0,
+      cache_creation_input_tokens: usage.cache_creation_input_tokens ?? 0,
+      cache_read_input_tokens: usage.cache_read_input_tokens ?? 0,
+    },
+  }
+}
+
 // ---------------------------------------------------------------------------
 // The shim client — duck-types as Anthropic SDK
 // ---------------------------------------------------------------------------
@@ -1426,6 +1537,13 @@ class OpenAIShimMessages {
       }
 
       const contentType = response.headers.get('content-type') ?? ''
+      if (contentType.includes('text/event-stream')) {
+        return collectAnthropicStreamToMessage(
+          openaiStreamToAnthropic(response, request.resolvedModel, options?.signal),
+          request.resolvedModel,
+        )
+      }
+
       if (contentType.includes('application/json')) {
         const data = await response.json()
         return self._convertNonStreamingResponse(data, request.resolvedModel)
@@ -1567,10 +1685,15 @@ class OpenAIShimMessages {
       reasoningContentFallback: shimConfig.reasoningContentFallback,
     })
 
+    const forceStreamingForNonStreamingRequest =
+      !params.stream && shouldForceStreamingForNonStreamingRequest(request.baseUrl)
+    const requestStream =
+      (params.stream ?? false) || forceStreamingForNonStreamingRequest
+
     const body: Record<string, unknown> = {
       model: request.resolvedModel,
       messages: openaiMessages,
-      stream: params.stream ?? false,
+      stream: requestStream,
       store: false,
     }
     // Emit reasoning_effort for chat_completions when the resolved provider
@@ -1596,7 +1719,7 @@ class OpenAIShimMessages {
       body.max_completion_tokens = maxCompletionTokensValue
     }
 
-    if (params.stream && !isLocalProviderUrl(request.baseUrl)) {
+    if (requestStream && !isLocalProviderUrl(request.baseUrl)) {
       body.stream_options = { include_usage: true }
     }
 
