@@ -40,9 +40,13 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Smoke check
+        env:
+          HOME: ${{ runner.temp }}/openclaude-smoke-home
         run: bun run smoke
 
       - name: Full unit test suite
+        env:
+          HOME: ${{ runner.temp }}/openclaude-unit-home
         run: bun test --max-concurrency=1
 
       - name: Install Python test dependencies
