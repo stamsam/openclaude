@@ -47,7 +47,30 @@ jobs:
       - name: Full unit test suite
         env:
           HOME: ${{ runner.temp }}/openclaude-unit-home
-        run: bun test --max-concurrency=1
+        run: >
+          bun test --max-concurrency=1
+          --path-ignore-patterns 'src/commands/tui/tui.test.ts'
+          --path-ignore-patterns 'src/utils/providerProfile.test.ts'
+          --path-ignore-patterns 'src/utils/providerProfiles.test.ts'
+          --path-ignore-patterns 'tests/sdk/sdk-context-isolation.test.ts'
+          --path-ignore-patterns 'src/utils/knowledgeGraph.stress.test.ts'
+
+      - name: Stateful unit tests
+        env:
+          BASE_TEST_HOME: ${{ runner.temp }}/openclaude-stateful-tests
+        run: |
+          set -euo pipefail
+          for test_file in \
+            src/commands/tui/tui.test.ts \
+            src/utils/providerProfile.test.ts \
+            src/utils/providerProfiles.test.ts \
+            tests/sdk/sdk-context-isolation.test.ts \
+            src/utils/knowledgeGraph.stress.test.ts
+          do
+            test_home="$(mktemp -d "${BASE_TEST_HOME}.XXXXXX")"
+            HOME="${test_home}" bun test --max-concurrency=1 "${test_file}"
+            rm -rf "${test_home}"
+          done
 
       - name: Install Python test dependencies
         run: python -m pip install -r python/requirements.txt
