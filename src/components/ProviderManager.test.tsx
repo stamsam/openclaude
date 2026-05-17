@@ -110,8 +110,10 @@ const PRESET_ORDER = [
   'Alibaba Coding Plan',
   'Azure OpenAI',
   'Bankr',
-  'DeepSeek',
+  'Cerebras',
   'Codex OAuth',
+  'xAI Grok OAuth',
+  'DeepSeek',
   'Google Gemini',
   'Groq',
   'Hicap',
@@ -263,6 +265,9 @@ function mockProviderManagerDependencies(
     }>
     codexSyncRead?: () => unknown
     codexAsyncRead?: () => Promise<unknown>
+    xaiSyncRead?: () => unknown
+    xaiAsyncRead?: () => Promise<unknown>
+    clearXaiOAuthCredentials?: () => { success: boolean; warning?: string }
     updateProviderProfile?: (...args: any[]) => unknown
     setActiveProviderProfile?: (...args: any[]) => unknown
     useCodexOAuthFlow?: (options: {
@@ -272,6 +277,21 @@ function mockProviderManagerDependencies(
         accountId?: string
         idToken?: string
         apiKey?: string
+      }, persistCredentials: (options?: { profileId?: string }) => void) =>
+        void | Promise<void>
+    }) => {
+      state: 'starting' | 'waiting' | 'error'
+      authUrl?: string
+      browserOpened?: boolean | null
+      message?: string
+    }
+    useXaiOAuthFlow?: (options: {
+      onAuthenticated: (tokens: {
+        accessToken: string
+        refreshToken?: string
+        idToken?: string
+        scope?: string
+        expiresAt?: number
       }, persistCredentials: (options?: { profileId?: string }) => void) =>
         void | Promise<void>
     }) => {
@@ -334,6 +354,16 @@ function mockProviderManagerDependencies(
       options?.codexAsyncRead ?? (async () => undefined),
   }))
 
+  mock.module('../utils/xaiOAuthCredentials.js', () => ({
+    clearXaiOAuthCredentials:
+      options?.clearXaiOAuthCredentials ?? (() => ({ success: true })),
+    readXaiOAuthCredentials:
+      options?.xaiSyncRead ?? (() => undefined),
+    readXaiOAuthCredentialsAsync:
+      options?.xaiAsyncRead ?? (async () => undefined),
+    saveXaiOAuthCredentials: () => ({ success: true }),
+  }))
+
   mock.module('../utils/providerProfile.js', () => ({
     applySavedProfileToCurrentSession:
       options?.applySavedProfileToCurrentSession ?? (async () => null),
@@ -376,6 +406,16 @@ function mockProviderManagerDependencies(
       (() => ({
         state: 'waiting' as const,
         authUrl: 'https://chatgpt.com/codex',
+        browserOpened: true,
+      })),
+  }))
+
+  mock.module('./useXaiOAuthFlow.js', () => ({
+    useXaiOAuthFlow:
+      options?.useXaiOAuthFlow ??
+      (() => ({
+        state: 'waiting' as const,
+        authUrl: 'https://x.ai/oauth',
         browserOpened: true,
       })),
   }))

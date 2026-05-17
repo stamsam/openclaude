@@ -15,6 +15,7 @@ import {
   type RecommendationGoal,
 } from './providerRecommendation.js'
 import { readGeminiAccessToken } from './geminiCredentials.js'
+import { readXaiOAuthCredentials } from './xaiOAuthCredentials.js'
 import {
   getOllamaChatBaseUrl,
   getOmlxChatBaseUrl,
@@ -792,10 +793,17 @@ function buildXaiProfileEnv(options: {
   processEnv?: NodeJS.ProcessEnv
 }): ProfileEnv {
   const processEnv = options.processEnv ?? process.env
-  const key = sanitizeApiKey(options.apiKey ?? processEnv.XAI_API_KEY)
+  const storedOAuth = readXaiOAuthCredentials()
+  const key = sanitizeApiKey(
+    options.apiKey ??
+      processEnv.XAI_API_KEY ??
+      processEnv.XAI_OAUTH_ACCESS_TOKEN ??
+      storedOAuth?.accessToken,
+  )
   const secretSource: SecretValueSource = {
     OPENAI_API_KEY: key,
     XAI_API_KEY: key,
+    XAI_OAUTH_ACCESS_TOKEN: key,
   }
   const defaultBaseUrl = getRouteDefaultBaseUrl('xai') ?? 'https://api.x.ai/v1'
   const defaultModel = getRouteDefaultModel('xai') ?? 'grok-4.3'
@@ -816,7 +824,15 @@ function buildXaiProfileEnv(options: {
 
   if (key) {
     env.OPENAI_API_KEY = key
-    env.XAI_API_KEY = key
+    if (
+      storedOAuth?.accessToken === key ||
+      processEnv.XAI_OAUTH_ACCESS_TOKEN === key
+    ) {
+      env.XAI_OAUTH_ACCESS_TOKEN = key
+      env.OPENAI_API_FORMAT = 'responses'
+    } else {
+      env.XAI_API_KEY = key
+    }
   }
 
   return env

@@ -1,6 +1,10 @@
 import figures from 'figures'
 import * as React from 'react'
 import { DEFAULT_CODEX_BASE_URL } from '../services/api/providerConfig.js'
+import {
+  XAI_OAUTH_BASE_URL,
+  XAI_OAUTH_DEFAULT_MODEL,
+} from '../services/api/xaiOAuthShared.js'
 import { Box, Text } from '../ink.js'
 import { useKeybinding } from '../keybindings/useKeybinding.js'
 import { useSetAppState } from '../state/AppState.js'
@@ -9,6 +13,10 @@ import {
   clearCodexCredentials,
   readCodexCredentialsAsync,
 } from '../utils/codexCredentials.js'
+import {
+  clearXaiOAuthCredentials,
+  readXaiOAuthCredentialsAsync,
+} from '../utils/xaiOAuthCredentials.js'
 import { isBareMode, isEnvTruthy } from '../utils/envUtils.js'
 import {
   parseProfileCustomHeadersInput,
@@ -74,6 +82,7 @@ import {
 import { Pane } from './design-system/Pane.js'
 import TextInput from './TextInput.js'
 import { useCodexOAuthFlow } from './useCodexOAuthFlow.js'
+import { useXaiOAuthFlow } from './useXaiOAuthFlow.js'
 
 export type ProviderManagerResult = {
   action: 'saved' | 'cancelled' | 'activated'
@@ -94,6 +103,7 @@ type Screen =
   | 'select-ollama-model'
   | 'select-atomic-chat-model'
   | 'codex-oauth'
+  | 'xai-oauth'
   | 'form'
   | 'select-active'
   | 'select-edit'
@@ -199,6 +209,7 @@ const GITHUB_PROVIDER_DEFAULT_MODEL = 'github:copilot'
 const GITHUB_PROVIDER_DEFAULT_BASE_URL = 'https://models.github.ai/inference'
 const CODEX_OAUTH_PROVIDER_NAME = 'Codex OAuth'
 const CODEX_OAUTH_PROVIDER_MODEL = 'codexplan'
+const XAI_OAUTH_PROVIDER_NAME = 'xAI Grok OAuth'
 
 type GithubCredentialSource = 'stored' | 'env' | 'none'
 
@@ -482,6 +493,90 @@ function CodexOAuthSetup({
   )
 }
 
+function XaiOAuthSetup({
+  onBack,
+  onConfigured,
+}: {
+  onBack: () => void
+  onConfigured: (tokens: {
+    accessToken: string
+    refreshToken?: string
+    idToken?: string
+    expiresAt?: number
+    scope?: string
+  }, persistCredentials: (options?: { profileId?: string }) => void) => void | Promise<void>
+}): React.ReactNode {
+  const handleAuthenticated = React.useCallback(async (tokens: {
+    accessToken: string
+    refreshToken?: string
+    idToken?: string
+    expiresAt?: number
+    scope?: string
+  }, persistCredentials: (options?: { profileId?: string }) => void) => {
+    await onConfigured(tokens, persistCredentials)
+  }, [onConfigured])
+  useKeybinding('confirm:no', onBack)
+
+  const status = useXaiOAuthFlow({
+    onAuthenticated: handleAuthenticated,
+  })
+
+  if (status.state === 'error') {
+    return (
+      <Box flexDirection="column" gap={1}>
+        <Text color="error" bold>
+          xAI OAuth failed
+        </Text>
+        <Text>{status.message}</Text>
+        <Text dimColor>Press Enter or Esc to go back.</Text>
+        <Select
+          options={[
+            {
+              value: 'back',
+              label: 'Back',
+              description: 'Return to provider presets',
+            },
+          ]}
+          onChange={onBack}
+          onCancel={onBack}
+          visibleOptionCount={1}
+        />
+      </Box>
+    )
+  }
+
+  return (
+    <Box flexDirection="column" gap={1}>
+      <Text color="remember" bold>
+        xAI Grok OAuth
+      </Text>
+      <Text>
+        Sign in with your xAI account in the browser. OpenClaude will store
+        the resulting SuperGrok OAuth credentials securely and switch this
+        session to Grok when setup completes.
+      </Text>
+      {status.state === 'starting' ? (
+        <Text dimColor>Starting local callback and preparing your browser...</Text>
+      ) : status.browserOpened === false ? (
+        <>
+          <Text color="warning">
+            Browser did not open automatically. Visit this URL to continue:
+          </Text>
+          <Text>{status.authUrl}</Text>
+        </>
+      ) : status.browserOpened === true ? (
+        <>
+          <Text>Browser opened for xAI login.</Text>
+          <Text dimColor>Complete sign-in there, then return here.</Text>
+        </>
+      ) : (
+        <Text dimColor>Opening browser...</Text>
+      )}
+      <Text dimColor>Press Esc to cancel.</Text>
+    </Box>
+  )
+}
+
 export function ProviderManager({ mode, onDone }: Props): React.ReactNode {
   const setAppState = useSetAppState()
   const initialGithubCredentialSource = getGithubCredentialSourceFromEnv()
@@ -505,6 +600,7 @@ export function ProviderManager({ mode, onDone }: Props): React.ReactNode {
     React.useState(() => initialHasGithubCredential || initialIsGithubActive)
   const githubRefreshEpochRef = React.useRef(0)
   const codexRefreshEpochRef = React.useRef(0)
+  const xaiRefreshEpochRef = React.useRef(0)
   const [screen, setScreen] = React.useState<Screen>(
     mode === 'first-run' ? 'select-preset' : 'menu',
   )
@@ -523,6 +619,10 @@ export function ProviderManager({ mode, onDone }: Props): React.ReactNode {
   const [hasStoredCodexOAuthCredentials, setHasStoredCodexOAuthCredentials] =
     React.useState(false)
   const [storedCodexOAuthProfileId, setStoredCodexOAuthProfileId] =
+    React.useState<string | undefined>()
+  const [hasStoredXaiOAuthCredentials, setHasStoredXaiOAuthCredentials] =
+    React.useState(false)
+  const [storedXaiOAuthProfileId, setStoredXaiOAuthProfileId] =
     React.useState<string | undefined>()
   const [ollamaSelection, setOllamaSelection] = React.useState<OllamaSelectionState>({
     state: 'idle',
@@ -624,13 +724,27 @@ export function ProviderManager({ mode, onDone }: Props): React.ReactNode {
             },
           ]
         : []),
+      ...(hasStoredXaiOAuthCredentials
+        ? [
+            {
+              value: 'logout-xai-oauth',
+              label: 'Log out xAI OAuth',
+              description: 'Clear securely stored xAI Grok OAuth credentials',
+            },
+          ]
+        : []),
       {
         value: 'done',
         label: 'Done',
         description: 'Return to chat',
       },
     ],
-    [hasSelectableProviders, hasProfiles, hasStoredCodexOAuthCredentials],
+    [
+      hasSelectableProviders,
+      hasProfiles,
+      hasStoredCodexOAuthCredentials,
+      hasStoredXaiOAuthCredentials,
+    ],
   )
 
   const refreshGithubProviderState = React.useCallback((): void => {
@@ -689,15 +803,40 @@ export function ProviderManager({ mode, onDone }: Props): React.ReactNode {
     })()
   }, [])
 
+  const refreshXaiOAuthCredentialState = React.useCallback((): void => {
+    if (isBareMode()) {
+      xaiRefreshEpochRef.current += 1
+      setHasStoredXaiOAuthCredentials(false)
+      setStoredXaiOAuthProfileId(undefined)
+      return
+    }
+
+    const refreshEpoch = ++xaiRefreshEpochRef.current
+    void (async () => {
+      const credentials = await readXaiOAuthCredentialsAsync()
+      if (refreshEpoch !== xaiRefreshEpochRef.current) {
+        return
+      }
+      setHasStoredXaiOAuthCredentials(Boolean(credentials?.accessToken))
+      setStoredXaiOAuthProfileId(credentials?.profileId)
+    })()
+  }, [])
+
   React.useEffect(() => {
     refreshGithubProviderState()
     refreshCodexOAuthCredentialState()
+    refreshXaiOAuthCredentialState()
 
     return () => {
       githubRefreshEpochRef.current += 1
       codexRefreshEpochRef.current += 1
+      xaiRefreshEpochRef.current += 1
     }
-  }, [refreshCodexOAuthCredentialState, refreshGithubProviderState])
+  }, [
+    refreshCodexOAuthCredentialState,
+    refreshGithubProviderState,
+    refreshXaiOAuthCredentialState,
+  ])
 
   React.useEffect(() => {
     if (screen !== 'select-ollama-model') {
@@ -814,6 +953,7 @@ export function ProviderManager({ mode, onDone }: Props): React.ReactNode {
       setActiveProfileId(getActiveProviderProfile()?.id)
       refreshGithubProviderState()
       refreshCodexOAuthCredentialState()
+      refreshXaiOAuthCredentialState()
       isRefreshingRef.current = false
     })
   }
@@ -872,6 +1012,27 @@ export function ProviderManager({ mode, onDone }: Props): React.ReactNode {
 
     return applySavedProfileToCurrentSession({
       profileFile: createProfileFile('codex', storedEnv),
+    })
+  }
+
+  async function activateXaiOAuthSession(tokens?: {
+    accessToken?: string
+  }): Promise<string | null> {
+    const accessToken =
+      tokens?.accessToken ?? (await readXaiOAuthCredentialsAsync())?.accessToken
+    if (!accessToken) {
+      return 'stored xAI OAuth credentials could not be loaded'
+    }
+
+    return applySavedProfileToCurrentSession({
+      profileFile: createProfileFile('xai-oauth', {
+        CLAUDE_CODE_USE_OPENAI: '1',
+        OPENAI_BASE_URL: XAI_OAUTH_BASE_URL,
+        OPENAI_MODEL: XAI_OAUTH_DEFAULT_MODEL,
+        OPENAI_API_KEY: accessToken,
+        XAI_OAUTH_ACCESS_TOKEN: accessToken,
+        OPENAI_API_FORMAT: 'responses',
+      }),
     })
   }
 
@@ -943,8 +1104,12 @@ export function ProviderManager({ mode, onDone }: Props): React.ReactNode {
         active,
         storedCodexOAuthProfileId,
       )
+      const isActiveXaiOAuth =
+        Boolean(storedXaiOAuthProfileId && active.id === storedXaiOAuthProfileId)
       const activationWarning = isActiveCodexOAuth
         ? await activateCodexOAuthSession()
+        : isActiveXaiOAuth
+          ? await activateXaiOAuthSession()
         : null
 
       refreshProfiles()
@@ -959,6 +1124,10 @@ export function ProviderManager({ mode, onDone }: Props): React.ReactNode {
                 : null,
             ].filter((warning): warning is string => Boolean(warning)),
           })
+        : isActiveXaiOAuth
+          ? activationWarning
+            ? `Active provider: ${active.name}. Warning: ${activationWarning}.`
+            : `Active provider: ${active.name}. OpenClaude switched to Grok for this session.`
         : settingsOverrideError
           ? `Active provider: ${active.name}. Warning: could not clear startup provider override (${settingsOverrideError}).`
           : `Active provider: ${active.name}`
@@ -1467,6 +1636,12 @@ export function ProviderManager({ mode, onDone }: Props): React.ReactNode {
         description:
           'Sign in with ChatGPT in your browser and store Codex credentials securely',
       })
+      options.splice(7, 0, {
+        value: 'xai-oauth',
+        label: 'xAI Grok OAuth',
+        description:
+          'Sign in with xAI SuperGrok in your browser and store credentials securely',
+      })
     }
 
     if (mode === 'first-run') {
@@ -1494,6 +1669,10 @@ export function ProviderManager({ mode, onDone }: Props): React.ReactNode {
             }
             if (value === 'codex-oauth') {
               setScreen('codex-oauth')
+              return
+            }
+            if (value === 'xai-oauth') {
+              setScreen('xai-oauth')
               return
             }
             startCreateFromPreset(value as ProviderPreset)
@@ -1694,6 +1873,46 @@ export function ProviderManager({ mode, onDone }: Props): React.ReactNode {
                 )
                 break
               }
+              case 'logout-xai-oauth': {
+                const cleared = clearXaiOAuthCredentials()
+                if (!cleared.success) {
+                  setErrorMessage(
+                    cleared.warning ??
+                      'Could not clear xAI OAuth credentials.',
+                  )
+                  break
+                }
+
+                setHasStoredXaiOAuthCredentials(false)
+                setStoredXaiOAuthProfileId(undefined)
+                const xaiProfile = storedXaiOAuthProfileId
+                  ? getProviderProfiles().find(
+                      profile => profile.id === storedXaiOAuthProfileId,
+                    )
+                  : undefined
+                let settingsOverrideError: string | null = null
+                if (xaiProfile) {
+                  const result = deleteProviderProfile(xaiProfile.id)
+                  if (!result.removed) {
+                    setErrorMessage(
+                      'xAI OAuth credentials were cleared, but the xAI OAuth profile could not be removed.',
+                    )
+                    refreshProfiles()
+                    break
+                  }
+                  settingsOverrideError = result.activeProfileId
+                    ? clearStartupProviderOverrideFromUserSettings()
+                    : null
+                }
+
+                refreshProfiles()
+                setStatusMessage(
+                  settingsOverrideError
+                    ? `xAI OAuth logged out. Warning: could not clear startup provider override (${settingsOverrideError}).`
+                    : 'xAI OAuth logged out.',
+                )
+                break
+              }
               default:
                 closeWithCancelled('Provider manager closed')
                 break
@@ -1855,6 +2074,81 @@ export function ProviderManager({ mode, onDone }: Props): React.ReactNode {
             setStatusMessage(message)
             setErrorMessage(undefined)
             returnToMenu()
+          }}
+        />
+      )
+      break
+    case 'xai-oauth':
+      content = (
+        <XaiOAuthSetup
+          onBack={() => setScreen('select-preset')}
+          onConfigured={async (tokens, persistCredentials) => {
+            const payload: ProviderProfileInput = {
+              provider: 'xai',
+              name: XAI_OAUTH_PROVIDER_NAME,
+              baseUrl: XAI_OAUTH_BASE_URL,
+              model: XAI_OAUTH_DEFAULT_MODEL,
+              apiKey: '',
+            }
+
+            const existing = storedXaiOAuthProfileId
+              ? getProviderProfiles().find(
+                  profile => profile.id === storedXaiOAuthProfileId,
+                )
+              : undefined
+            const saved = existing
+              ? updateProviderProfile(existing.id, payload)
+              : addProviderProfile(payload, { makeActive: false })
+
+            if (!saved) {
+              setErrorMessage(
+                'xAI OAuth login finished, but the provider profile could not be saved.',
+              )
+              returnToMenu()
+              return
+            }
+
+            const active =
+              existing && activeProfileId !== saved.id
+                ? setActiveProviderProfile(saved.id)
+                : saved
+            if (!active) {
+              setErrorMessage(
+                'xAI OAuth login finished, but the provider could not be set as the startup provider.',
+              )
+              returnToMenu()
+              return
+            }
+
+            persistCredentials({ profileId: saved.id })
+            const settingsOverrideError =
+              clearStartupProviderOverrideFromUserSettings()
+            const activationWarning = await activateXaiOAuthSession(tokens)
+            setHasStoredXaiOAuthCredentials(true)
+            setStoredXaiOAuthProfileId(saved.id)
+            refreshProfiles()
+            const warnings = [
+              activationWarning,
+              settingsOverrideError
+                ? `could not clear startup provider override (${settingsOverrideError})`
+                : null,
+            ].filter((warning): warning is string => Boolean(warning))
+            const message = warnings.length
+              ? `xAI OAuth configured. OpenClaude switched to Grok for this session with warnings: ${warnings.join('; ')}.`
+              : 'xAI OAuth configured. OpenClaude switched to Grok for this session.'
+
+            if (mode === 'first-run') {
+              onDone({
+                action: 'saved',
+                activeProfileId: active.id,
+                message,
+              })
+              return
+            }
+
+            setStatusMessage(message)
+            setMenuFocusValue('done')
+            setScreen('menu')
           }}
         />
       )

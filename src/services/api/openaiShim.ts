@@ -30,6 +30,7 @@ import {
   readCodexCredentialsAsync,
   refreshCodexAccessTokenIfNeeded,
 } from '../../utils/codexCredentials.js'
+import { resolveXaiOAuthAccessToken } from '../../utils/xaiOAuthCredentials.js'
 import { logForDebugging } from '../../utils/debug.js'
 import { isBareMode, isEnvTruthy } from '../../utils/envUtils.js'
 import { resolveGeminiCredential } from '../../utils/geminiAuth.js'
@@ -152,6 +153,15 @@ function hasCerebrasApiHost(baseUrl: string | undefined): boolean {
   try {
     const host = new URL(baseUrl).hostname.toLowerCase()
     return host === 'api.cerebras.ai' || host.endsWith('.cerebras.ai')
+  } catch {
+    return false
+  }
+}
+
+function hasXaiApiHost(baseUrl: string | undefined): boolean {
+  if (!baseUrl) return false
+  try {
+    return new URL(baseUrl).hostname.toLowerCase() === 'api.x.ai'
   } catch {
     return false
   }
@@ -1872,15 +1882,31 @@ class OpenAIShimMessages {
     }
 
     const isGemini = isGeminiMode()
-    const routeCredential = resolveRouteCredentialValue({
-      routeId: runtimeShimContext.routeId,
-      baseUrl: request.baseUrl,
-      processEnv: process.env,
-    })
+    const suppressImplicitAuth =
+      runtimeShimContext.descriptor?.setup.authMode === 'none' &&
+      !this.providerOverride?.apiKey
+    const routeCredential = suppressImplicitAuth
+      ? undefined
+      : resolveRouteCredentialValue({
+          routeId: runtimeShimContext.routeId,
+          baseUrl: request.baseUrl,
+          processEnv: process.env,
+        })
+    const xaiOAuthToken =
+      !routeCredential && hasXaiApiHost(request.baseUrl)
+        ? await resolveXaiOAuthAccessToken().catch(error => {
+            logForDebugging(
+              `[xai-oauth] access token refresh failed before request: ${error instanceof Error ? error.message : String(error)}`,
+              { level: 'warn' },
+            )
+            return undefined
+          })
+        : undefined
     const apiKey =
       this.providerOverride?.apiKey ??
       routeCredential ??
-      process.env.OPENAI_API_KEY ??
+      xaiOAuthToken ??
+      (suppressImplicitAuth ? '' : process.env.OPENAI_API_KEY) ??
       ''
     const configuredAuthHeaderValue = process.env.OPENAI_AUTH_HEADER_VALUE?.trim()
     const customAuthHeader = process.env.OPENAI_AUTH_HEADER?.trim()

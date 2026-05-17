@@ -15,11 +15,19 @@ import {
   resolveCodexApiCredentials,
   resolveProviderRequest,
 } from '../../services/api/providerConfig.js'
+import {
+  XAI_OAUTH_BASE_URL,
+  XAI_OAUTH_DEFAULT_MODEL,
+} from '../../services/api/xaiOAuthShared.js'
 import { buildTool, type ToolDef } from '../../Tool.js'
 import { lazySchema } from '../../utils/lazySchema.js'
 import { logError } from '../../utils/log.js'
 import { createUserMessage } from '../../utils/messages.js'
 import { getMainLoopModel, getSmallFastModel } from '../../utils/model/model.js'
+import {
+  readXaiOAuthCredentials,
+  resolveXaiOAuthAccessToken,
+} from '../../utils/xaiOAuthCredentials.js'
 import { jsonParse, jsonStringify } from '../../utils/slowOperations.js'
 import { asSystemPrompt } from '../../utils/systemPromptType.js'
 import { getWebSearchPrompt, WEB_SEARCH_TOOL_NAME } from './prompt.js'
@@ -295,7 +303,7 @@ function makeOutputFromCodexWebSearchResponse(
   const output = Array.isArray(response.output) ? response.output : []
 
   for (const item of output) {
-    if (item?.type === 'web_search_call') {
+    if (item?.type === 'web_search_call' || item?.type === 'x_search_call') {
       const failure = extractCodexWebSearchFailure(item)
       if (failure) {
         results.push(failure)
@@ -349,6 +357,110 @@ function makeOutputFromCodexWebSearchResponse(
     results,
     durationSeconds,
   }
+}
+
+function isXaiProvider(): boolean {
+  return getAPIProvider() === 'xai'
+}
+
+function hasXaiSearchCredentials(): boolean {
+  return Boolean(process.env.XAI_API_KEY?.trim() || readXaiOAuthCredentials())
+}
+
+function getXaiSearchTools(): Array<Record<string, unknown>> {
+  const configured = process.env.XAI_SEARCH_TOOLS?.trim().toLowerCase()
+  const values = configured
+    ? new Set(configured.split(',').map(part => part.trim()).filter(Boolean))
+    : new Set(['web', 'x'])
+  const tools: Array<Record<string, unknown>> = []
+  if (values.has('web') || values.has('web_search')) {
+    tools.push({ type: 'web_search' })
+  }
+  if (values.has('x') || values.has('x_search')) {
+    tools.push({ type: 'x_search' })
+  }
+  return tools.length > 0 ? tools : [{ type: 'web_search' }]
+}
+
+async function resolveXaiSearchToken(): Promise<string> {
+  const apiKey = process.env.XAI_API_KEY?.trim()
+  if (apiKey) return apiKey
+  const token = await resolveXaiOAuthAccessToken()
+  if (token) return token
+  throw new Error(
+    'xAI web search requires xAI OAuth credentials or XAI_API_KEY. Choose xAI Grok OAuth in /provider or set XAI_API_KEY.',
+  )
+}
+
+async function runXaiWebSearch(
+  input: Input,
+  signal: AbortSignal,
+): Promise<Output> {
+  const startTime = performance.now()
+  const token = await resolveXaiSearchToken()
+  const model = getMainLoopModel() || XAI_OAUTH_DEFAULT_MODEL
+  const tools = getXaiSearchTools()
+
+  const body: Record<string, unknown> = {
+    model,
+    input: buildCodexWebSearchInput(input),
+    instructions: [
+      'You are the OpenClaude web search tool.',
+      'Use the supplied xAI search tools for current information.',
+      'Return concise factual results with source URLs.',
+    ].join(' '),
+    tools,
+    tool_choice: 'required',
+    include: ['web_search_call.action.sources'],
+    store: false,
+    stream: true,
+  }
+
+  const response = await fetchWithProxyRetry(`${XAI_OAUTH_BASE_URL}/responses`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+      originator: 'openclaude',
+    },
+    body: JSON.stringify(body),
+    signal,
+  })
+
+  if (!response.ok) {
+    const errorBody = await response.text().catch(() => 'unknown error')
+    if (response.status === 401 && !process.env.XAI_API_KEY?.trim()) {
+      const retryToken = await resolveXaiOAuthAccessToken({ forceRefresh: true })
+      if (retryToken && retryToken !== token) {
+        const retry = await fetchWithProxyRetry(`${XAI_OAUTH_BASE_URL}/responses`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${retryToken}`,
+            originator: 'openclaude',
+          },
+          body: JSON.stringify(body),
+          signal,
+        })
+        if (retry.ok) {
+          const payload = await collectCodexCompletedResponse(retry)
+          return makeOutputFromCodexWebSearchResponse(
+            payload,
+            input.query,
+            (performance.now() - startTime) / 1000,
+          )
+        }
+      }
+    }
+    throw new Error(`xAI web search error ${response.status}: ${errorBody}`)
+  }
+
+  const payload = await collectCodexCompletedResponse(response)
+  return makeOutputFromCodexWebSearchResponse(
+    payload,
+    input.query,
+    (performance.now() - startTime) / 1000,
+  )
 }
 
 export const __test = {
@@ -525,6 +637,7 @@ function shouldUseAdapterProvider(): boolean {
   if (mode !== 'auto') return true // explicit adapter mode (tavily, ddg, custom, etc.)
 
   // Auto mode: native/first-party/Codex take precedence over adapter
+  if (isXaiProvider() && hasXaiSearchCredentials()) return false
   if (isCodexResponsesWebSearchEnabled()) return false
   const provider = getAPIProvider()
   if (provider === 'firstParty' || provider === 'vertex' || provider === 'foundry') {
@@ -542,6 +655,7 @@ function shouldUseAdapterProvider(): boolean {
  * path silently produces "Did 0 searches".
  */
 function hasNativeSearchFallback(): boolean {
+  if (isXaiProvider() && hasXaiSearchCredentials()) return true
   if (isCodexResponsesWebSearchEnabled()) return true
   const provider = getAPIProvider()
   return provider === 'firstParty' || provider === 'vertex' || provider === 'foundry'
@@ -577,6 +691,7 @@ export const WebSearchTool = buildTool({
 
     // Auto/native mode: check all paths
     if (getAvailableProviders().length > 0) return true
+    if (isXaiProvider() && hasXaiSearchCredentials()) return true
     if (isCodexResponsesWebSearchEnabled()) return true
 
     const provider = getAPIProvider()
@@ -635,7 +750,11 @@ export const WebSearchTool = buildTool({
   },
   async prompt() {
     // Strip "US only" when using non-native backends
-    if (shouldUseAdapterProvider() || isCodexResponsesWebSearchEnabled()) {
+    if (
+      shouldUseAdapterProvider() ||
+      isCodexResponsesWebSearchEnabled() ||
+      (isXaiProvider() && hasXaiSearchCredentials())
+    ) {
       return getWebSearchPrompt().replace(
         /\n\s*-\s*Web search is only available in the US/,
         '',
@@ -737,6 +856,13 @@ export const WebSearchTool = buildTool({
     if (isCodexResponsesWebSearchEnabled()) {
       return {
         data: await runCodexWebSearch(input, context.abortController.signal),
+      }
+    }
+
+    // --- xAI Responses path (API key or SuperGrok OAuth) ---
+    if (isXaiProvider() && hasXaiSearchCredentials()) {
+      return {
+        data: await runXaiWebSearch(input, context.abortController.signal),
       }
     }
 
