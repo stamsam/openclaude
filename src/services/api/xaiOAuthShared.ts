@@ -1,7 +1,8 @@
 import { decodeJwtPayload } from './codexOAuthShared.js'
 
 export const XAI_OAUTH_ISSUER = 'https://auth.x.ai'
-export const XAI_OAUTH_TOKEN_URL = `${XAI_OAUTH_ISSUER}/oauth/token`
+export const XAI_OAUTH_AUTHORIZE_URL = `${XAI_OAUTH_ISSUER}/oauth2/authorize`
+export const XAI_OAUTH_TOKEN_URL = `${XAI_OAUTH_ISSUER}/oauth2/token`
 export const XAI_OAUTH_CLIENT_ID = 'b1a00492-073a-47ea-816f-4c329264a828'
 export const XAI_OAUTH_SCOPE =
   'openid profile email offline_access grok-cli:access api:access'

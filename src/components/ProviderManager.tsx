@@ -5,7 +5,7 @@ import {
   XAI_OAUTH_BASE_URL,
   XAI_OAUTH_DEFAULT_MODEL,
 } from '../services/api/xaiOAuthShared.js'
-import { Box, Text } from '../ink.js'
+import { Box, Text, useInput } from '../ink.js'
 import { useKeybinding } from '../keybindings/useKeybinding.js'
 import { useSetAppState } from '../state/AppState.js'
 import type { ProviderProfile } from '../utils/config.js'
@@ -516,6 +516,11 @@ function XaiOAuthSetup({
     await onConfigured(tokens, persistCredentials)
   }, [onConfigured])
   useKeybinding('confirm:no', onBack)
+  useInput((_input, key) => {
+    if (key.escape) {
+      onBack()
+    }
+  })
 
   const status = useXaiOAuthFlow({
     onAuthenticated: handleAuthenticated,

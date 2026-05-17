@@ -9,8 +9,8 @@ import {
   buildXaiOAuthRedirectUri,
   coerceXaiExpiresAtMs,
   getXaiOAuthCallbackPort,
+  XAI_OAUTH_AUTHORIZE_URL,
   XAI_OAUTH_CLIENT_ID,
-  XAI_OAUTH_ISSUER,
   XAI_OAUTH_REDIRECT_PATH,
   XAI_OAUTH_SCOPE,
   XAI_OAUTH_TOKEN_URL,
@@ -42,7 +42,7 @@ function buildXaiAuthorizeUrl(options: {
   codeChallenge: string
   state: string
 }): string {
-  const authUrl = new URL(`${XAI_OAUTH_ISSUER}/oauth/authorize`)
+  const authUrl = new URL(XAI_OAUTH_AUTHORIZE_URL)
   authUrl.searchParams.append('response_type', 'code')
   authUrl.searchParams.append('client_id', XAI_OAUTH_CLIENT_ID)
   authUrl.searchParams.append('redirect_uri', buildXaiOAuthRedirectUri(options.port))
