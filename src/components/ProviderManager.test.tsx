@@ -596,6 +596,26 @@ test('ProviderManager avoids first-frame false negative while stored-token looku
   expect(asyncRead).toHaveBeenCalled()
 })
 
+test('ProviderManager exposes xAI OAuth from the main provider menu', async () => {
+  delete process.env.CLAUDE_CODE_SIMPLE
+  delete process.env.CLAUDE_CODE_USE_GITHUB
+  delete process.env.GITHUB_TOKEN
+  delete process.env.GH_TOKEN
+
+  mockProviderManagerDependencies(() => undefined, async () => undefined)
+
+  const nonce = `${Date.now()}-${Math.random()}`
+  const { ProviderManager } = await import(`./ProviderManager.js?ts=${nonce}`)
+  const output = await renderProviderManagerFrame(ProviderManager, {
+    waitForOutput: frame =>
+      frame.includes('Provider manager') &&
+      frame.includes('Set up xAI Grok OAuth'),
+  })
+
+  expect(output).toContain('Set up xAI Grok OAuth')
+  expect(output).toContain('Sign in with xAI')
+})
+
 test('ProviderManager shows API mode picker for custom OpenAI-compatible providers', async () => {
   mockProviderManagerDependencies(() => undefined, async () => undefined)
 
@@ -1834,4 +1854,5 @@ test('ProviderManager hides Codex OAuth setup in bare mode', async () => {
 
   expect(output).toContain('Set up provider')
   expect(output).not.toContain('Codex OAuth')
+  expect(output).not.toContain('xAI Grok OAuth')
 })

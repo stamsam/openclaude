@@ -715,6 +715,15 @@ export function ProviderManager({ mode, onDone }: Props): React.ReactNode {
         description: 'Remove a provider profile',
         disabled: !hasSelectableProviders,
       },
+      ...(!isBareMode() && !hasStoredXaiOAuthCredentials
+        ? [
+            {
+              value: 'setup-xai-oauth',
+              label: 'Set up xAI Grok OAuth',
+              description: 'Sign in with xAI and use Grok/search without an API key',
+            },
+          ]
+        : []),
       ...(hasStoredCodexOAuthCredentials
         ? [
             {
@@ -1816,6 +1825,9 @@ export function ProviderManager({ mode, onDone }: Props): React.ReactNode {
             switch (value) {
               case 'add':
                 setScreen('select-preset')
+                break
+              case 'setup-xai-oauth':
+                setScreen('xai-oauth')
                 break
               case 'activate':
                 if (hasSelectableProviders) {
