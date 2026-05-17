@@ -11,6 +11,7 @@ import {
   getXaiOAuthCallbackPort,
   XAI_OAUTH_AUTHORIZE_URL,
   XAI_OAUTH_CLIENT_ID,
+  XAI_OAUTH_REDIRECT_HOST,
   XAI_OAUTH_REDIRECT_PATH,
   XAI_OAUTH_SCOPE,
   XAI_OAUTH_TOKEN_URL,
@@ -33,8 +34,43 @@ export type XaiOAuthTokens = {
   scope?: string
 }
 
+type XaiAuthorizationCode = {
+  authorizationCode: string
+  state: string
+}
+
 function asTrimmedString(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim() ? value.trim() : undefined
+}
+
+export function parseXaiOAuthCallbackInput(value: string): XaiAuthorizationCode {
+  const trimmed = value.trim()
+  if (!trimmed) {
+    throw new Error('Paste the full xAI callback URL from your browser.')
+  }
+
+  try {
+    const url = new URL(trimmed)
+    const authorizationCode = asTrimmedString(url.searchParams.get('code'))
+    const state = asTrimmedString(url.searchParams.get('state'))
+    if (authorizationCode && state) {
+      return { authorizationCode, state }
+    }
+  } catch {
+    // Fall through to the compact code#state format.
+  }
+
+  const [authorizationCode, state] = trimmed.split('#')
+  if (authorizationCode?.trim() && state?.trim()) {
+    return {
+      authorizationCode: authorizationCode.trim(),
+      state: state.trim(),
+    }
+  }
+
+  throw new Error(
+    'Invalid xAI callback. Paste the full 127.0.0.1 callback URL, or code#state.',
+  )
 }
 
 function buildXaiAuthorizeUrl(options: {
@@ -125,6 +161,10 @@ async function exchangeAuthorizationCode(options: {
 export class XaiOAuthService {
   private authCodeListener: AuthCodeListener | null = null
   private tokenExchangeAbortController: AbortController | null = null
+  private manualAuthorizationResolver:
+    | ((authorizationCode: string) => void)
+    | null = null
+  private expectedState: string | null = null
 
   private buildCancellationError(): Error {
     return new Error('xAI OAuth flow was cancelled.')
@@ -134,17 +174,22 @@ export class XaiOAuthService {
     authURLHandler: (authUrl: string) => Promise<void>,
   ): Promise<XaiOAuthTokens> {
     const codeVerifier = generateCodeVerifier()
-    const authCodeListener = new AuthCodeListener(XAI_OAUTH_REDIRECT_PATH)
+    const authCodeListener = new AuthCodeListener(
+      XAI_OAUTH_REDIRECT_PATH,
+      XAI_OAUTH_REDIRECT_HOST,
+    )
     this.authCodeListener = authCodeListener
 
     try {
       const port = await authCodeListener.start(getXaiOAuthCallbackPort())
       const state = generateState()
+      this.expectedState = state
       const codeChallenge = await generateCodeChallenge(codeVerifier)
       const authUrl = buildXaiAuthorizeUrl({ port, codeChallenge, state })
 
       try {
-        const authorizationCode = await authCodeListener.waitForAuthorization(
+        const authorizationCode = await this.waitForAuthorizationCode(
+          authCodeListener,
           state,
           async () => {
             await authURLHandler(authUrl)
@@ -209,6 +254,8 @@ export class XaiOAuthService {
         throw resolvedError
       }
     } finally {
+      this.manualAuthorizationResolver = null
+      this.expectedState = null
       if (this.authCodeListener === authCodeListener) {
         authCodeListener.close()
         this.authCodeListener = null
@@ -216,9 +263,45 @@ export class XaiOAuthService {
     }
   }
 
+  private waitForAuthorizationCode(
+    authCodeListener: AuthCodeListener,
+    state: string,
+    onReady: () => Promise<void>,
+  ): Promise<string> {
+    return new Promise((resolve, reject) => {
+      this.manualAuthorizationResolver = resolve
+      authCodeListener
+        .waitForAuthorization(state, onReady)
+        .then(authorizationCode => {
+          this.manualAuthorizationResolver = null
+          resolve(authorizationCode)
+        })
+        .catch(error => {
+          this.manualAuthorizationResolver = null
+          reject(error)
+        })
+    })
+  }
+
+  handleManualCallbackInput(value: string): void {
+    const { authorizationCode, state } = parseXaiOAuthCallbackInput(value)
+    if (state !== this.expectedState) {
+      throw new Error('Invalid xAI callback state. Restart the OAuth flow and try again.')
+    }
+    if (!this.manualAuthorizationResolver) {
+      throw new Error('No xAI OAuth flow is waiting for a callback.')
+    }
+
+    this.manualAuthorizationResolver(authorizationCode)
+    this.manualAuthorizationResolver = null
+    this.authCodeListener?.close()
+  }
+
   cleanup(): void {
     this.tokenExchangeAbortController?.abort()
     this.tokenExchangeAbortController = null
+    this.manualAuthorizationResolver = null
+    this.expectedState = null
     this.authCodeListener?.close()
     this.authCodeListener = null
   }

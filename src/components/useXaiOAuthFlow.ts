@@ -10,13 +10,21 @@ import { saveXaiOAuthCredentials } from '../utils/xaiOAuthCredentials.js'
 
 export type XaiOAuthFlowStatus =
   | { state: 'starting' }
-  | { state: 'waiting'; authUrl: string; browserOpened: boolean | null }
+  | {
+      state: 'waiting'
+      authUrl: string
+      browserOpened: boolean | null
+      submitCallbackUrl: (value: string) => void
+    }
   | { state: 'error'; message: string }
 
 type PersistXaiOAuthCredentials = (options?: { profileId?: string }) => void
 
 type XaiOAuthFlowDependencies = {
-  createOAuthService?: () => Pick<XaiOAuthService, 'startOAuthFlow' | 'cleanup'>
+  createOAuthService?: () => Pick<
+    XaiOAuthService,
+    'startOAuthFlow' | 'cleanup' | 'handleManualCallbackInput'
+  >
   openBrowser?: typeof openBrowser
   saveXaiOAuthCredentials?: typeof saveXaiOAuthCredentials
   isBareMode?: typeof isBareMode
@@ -24,7 +32,7 @@ type XaiOAuthFlowDependencies = {
 
 function createDefaultOAuthService(): Pick<
   XaiOAuthService,
-  'startOAuthFlow' | 'cleanup'
+  'startOAuthFlow' | 'cleanup' | 'handleManualCallbackInput'
 > {
   return new XaiOAuthService()
 }
@@ -59,13 +67,35 @@ export function useXaiOAuthFlow(options: {
 
     let cancelled = false
     const oauthService = createOAuthService()
+    const submitCallbackUrl = (value: string): void => {
+      try {
+        oauthService.handleManualCallbackInput(value)
+      } catch (error) {
+        if (cancelled) return
+        setStatus({
+          state: 'error',
+          message: error instanceof Error ? error.message : String(error),
+        })
+      }
+    }
+
     void oauthService
       .startOAuthFlow(async authUrl => {
         if (cancelled) return
-        setStatus({ state: 'waiting', authUrl, browserOpened: null })
+        setStatus({
+          state: 'waiting',
+          authUrl,
+          browserOpened: null,
+          submitCallbackUrl,
+        })
         const browserOpened = await openBrowserFn(authUrl)
         if (cancelled) return
-        setStatus({ state: 'waiting', authUrl, browserOpened })
+        setStatus({
+          state: 'waiting',
+          authUrl,
+          browserOpened,
+          submitCallbackUrl,
+        })
       })
       .then(async tokens => {
         if (cancelled) return

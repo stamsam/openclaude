@@ -23,10 +23,15 @@ export class AuthCodeListener {
   private expectedState: string | null = null // State parameter for CSRF protection
   private pendingResponse: ServerResponse | null = null // Response object for final redirect
   private callbackPath: string // Configurable callback path
+  private listenHost: string
 
-  constructor(callbackPath: string = '/callback') {
+  constructor(
+    callbackPath: string = '/callback',
+    listenHost: string = 'localhost',
+  ) {
     this.localServer = createServer()
     this.callbackPath = callbackPath
+    this.listenHost = listenHost
   }
 
   /**
@@ -43,7 +48,7 @@ export class AuthCodeListener {
       })
 
       // Listen on specified port or 0 to let the OS assign an available port
-      this.localServer.listen(port ?? 0, 'localhost', () => {
+      this.localServer.listen(port ?? 0, this.listenHost, () => {
         const address = this.localServer.address() as AddressInfo
         this.port = address.port
         resolve(this.port)

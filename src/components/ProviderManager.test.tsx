@@ -283,6 +283,7 @@ function mockProviderManagerDependencies(
       state: 'starting' | 'waiting' | 'error'
       authUrl?: string
       browserOpened?: boolean | null
+      submitCallbackUrl?: (value: string) => void
       message?: string
     }
     useXaiOAuthFlow?: (options: {
@@ -298,6 +299,7 @@ function mockProviderManagerDependencies(
       state: 'starting' | 'waiting' | 'error'
       authUrl?: string
       browserOpened?: boolean | null
+      submitCallbackUrl?: (value: string) => void
       message?: string
     }
   },
@@ -417,6 +419,7 @@ function mockProviderManagerDependencies(
         state: 'waiting' as const,
         authUrl: 'https://x.ai/oauth',
         browserOpened: true,
+        submitCallbackUrl: () => {},
       })),
   }))
 }
@@ -614,6 +617,55 @@ test('ProviderManager exposes xAI OAuth from the main provider menu', async () =
 
   expect(output).toContain('Set up xAI Grok OAuth')
   expect(output).toContain('Sign in with xAI')
+})
+
+test('ProviderManager shows manual xAI callback fallback while OAuth is waiting', async () => {
+  delete process.env.CLAUDE_CODE_SIMPLE
+  delete process.env.CLAUDE_CODE_USE_GITHUB
+  delete process.env.GITHUB_TOKEN
+  delete process.env.GH_TOKEN
+
+  const submitCallbackUrl = mock(() => {})
+  mockProviderManagerDependencies(
+    () => undefined,
+    async () => undefined,
+    {
+      useXaiOAuthFlow: () => ({
+        state: 'waiting',
+        authUrl: 'https://auth.x.ai/oauth2/authorize',
+        browserOpened: true,
+        submitCallbackUrl,
+      }),
+    },
+  )
+
+  const nonce = `${Date.now()}-${Math.random()}`
+  const { ProviderManager } = await import(`./ProviderManager.js?ts=${nonce}`)
+  const mounted = await mountProviderManager(ProviderManager, {
+    mode: 'first-run',
+  })
+
+  await waitForFrameOutput(
+    mounted.getOutput,
+    frame => frame.includes('Set up provider') && frame.includes('xAI Grok OAuth'),
+  )
+
+  await navigateToPreset(mounted.stdin, 'xAI Grok OAuth')
+  mounted.stdin.write('\r')
+
+  const output = await waitForFrameOutput(
+    mounted.getOutput,
+    frame =>
+      frame.includes('xAI Grok OAuth') &&
+      frame.includes('paste the full') &&
+      frame.includes('callback URL'),
+  )
+
+  expect(output).toContain('Browser opened for xAI login.')
+  expect(output).toContain('127.0.0.1 connection error')
+  expect(output).toContain('URL >')
+
+  await mounted.dispose()
 })
 
 test('ProviderManager shows API mode picker for custom OpenAI-compatible providers', async () => {

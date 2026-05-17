@@ -525,6 +525,8 @@ function XaiOAuthSetup({
   const status = useXaiOAuthFlow({
     onAuthenticated: handleAuthenticated,
   })
+  const [callbackUrlInput, setCallbackUrlInput] = React.useState('')
+  const [callbackUrlCursorOffset, setCallbackUrlCursorOffset] = React.useState(0)
 
   if (status.state === 'error') {
     return (
@@ -577,6 +579,29 @@ function XaiOAuthSetup({
       ) : (
         <Text dimColor>Opening browser...</Text>
       )}
+      {status.state === 'waiting' ? (
+        <Box flexDirection="column" gap={1}>
+          <Text dimColor>
+            If Safari shows a 127.0.0.1 connection error, paste the full
+            callback URL here.
+          </Text>
+          <Box>
+            <Text dimColor>URL &gt; </Text>
+            <TextInput
+              value={callbackUrlInput}
+              onChange={setCallbackUrlInput}
+              onSubmit={value => {
+                status.submitCallbackUrl(value)
+                setCallbackUrlInput('')
+                setCallbackUrlCursorOffset(0)
+              }}
+              cursorOffset={callbackUrlCursorOffset}
+              onChangeCursorOffset={setCallbackUrlCursorOffset}
+              columns={120}
+            />
+          </Box>
+        </Box>
+      ) : null}
       <Text dimColor>Press Esc to cancel.</Text>
     </Box>
   )
