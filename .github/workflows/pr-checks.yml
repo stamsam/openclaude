@@ -49,6 +49,7 @@ jobs:
           HOME: ${{ runner.temp }}/openclaude-unit-home
         run: >
           bun test --max-concurrency=1
+          --path-ignore-patterns 'src/components/PromptInput/PromptInputFooter.test.tsx'
           --path-ignore-patterns 'src/commands/tui/tui.test.ts'
           --path-ignore-patterns 'src/utils/providerProfile.test.ts'
           --path-ignore-patterns 'src/utils/providerProfiles.test.ts'
@@ -61,6 +62,7 @@ jobs:
         run: |
           set -euo pipefail
           for test_file in \
+            src/components/PromptInput/PromptInputFooter.test.tsx \
             src/commands/tui/tui.test.ts \
             src/utils/providerProfile.test.ts \
             src/utils/providerProfiles.test.ts \
