@@ -34,5 +34,11 @@ export default [
   qwenModel('qwen3-coder-plus', 'Qwen 3 Coder Plus', 1_000_000, 65_536),
   qwenModel('qwen3-coder-next', 'Qwen 3 Coder Next', 262_144, 65_536),
   qwenModel('qwen3-max', 'Qwen 3 Max', 262_144, 32_768),
+  qwenModel(
+    'qwen-3-235b-a22b-instruct-2507',
+    'Qwen 3 235B A22B Instruct',
+    131_072,
+    8_192,
+  ),
   qwenModel('Qwen/Qwen3.5-9B', 'Qwen 3.5 9B', 128_000, 32_768),
 ]

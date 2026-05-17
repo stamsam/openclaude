@@ -89,6 +89,7 @@ const aliasModels: readonly AliasModel[] = [
   ['deepseek-ai/deepseek-r1', 'DeepSeek R1', 128_000, 32_768],
   ['deepseek-ai/deepseek-v3', 'DeepSeek V3', 128_000, 32_768],
   ['deepseek-ai/deepseek-v3.2', 'DeepSeek V3.2', 128_000, 32_768],
+  ['gpt-oss-120b', 'GPT-OSS 120B', 131_072, 8_192],
   ['qwen/qwen3-32b', 'Qwen 3 32B', 128_000, 32_768],
   ['qwen/qwen3-8b', 'Qwen 3 8B', 128_000],
   ['qwen/qwen2.5-7b-instruct', 'Qwen 2.5 7B Instruct', 32_768, 8_192],
