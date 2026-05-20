@@ -1892,20 +1892,23 @@ class OpenAIShimMessages {
           baseUrl: request.baseUrl,
           processEnv: process.env,
         })
-    const xaiOAuthToken =
-      !routeCredential && hasXaiApiHost(request.baseUrl)
-        ? await resolveXaiOAuthAccessToken().catch(error => {
-            logForDebugging(
-              `[xai-oauth] access token refresh failed before request: ${error instanceof Error ? error.message : String(error)}`,
-              { level: 'warn' },
-            )
-            return undefined
-          })
-        : undefined
+    const configuredXaiOAuthToken = hasXaiApiHost(request.baseUrl)
+      ? process.env.XAI_OAUTH_ACCESS_TOKEN?.trim()
+      : undefined
+    let xaiOAuthToken = configuredXaiOAuthToken
+    if (!xaiOAuthToken && !routeCredential && hasXaiApiHost(request.baseUrl)) {
+      xaiOAuthToken = await resolveXaiOAuthAccessToken().catch(error => {
+        logForDebugging(
+          `[xai-oauth] access token refresh failed before request: ${error instanceof Error ? error.message : String(error)}`,
+          { level: 'warn' },
+        )
+        return undefined
+      })
+    }
     const apiKey =
       this.providerOverride?.apiKey ??
-      routeCredential ??
       xaiOAuthToken ??
+      routeCredential ??
       (suppressImplicitAuth ? '' : process.env.OPENAI_API_KEY) ??
       ''
     const configuredAuthHeaderValue = process.env.OPENAI_AUTH_HEADER_VALUE?.trim()

@@ -1091,6 +1091,38 @@ test('applySavedProfileToCurrentSession replaces empty active OpenAI key for Cod
   assert.equal(Object.hasOwn(processEnv, 'CODEX_API_KEY'), false)
 })
 
+test('applySavedProfileToCurrentSession accepts active xAI OAuth credentials', async () => {
+  const { applySavedProfileToCurrentSession } = await importFreshProviderProfileModule()
+  const processEnv: NodeJS.ProcessEnv = {
+    CLAUDE_CODE_PROVIDER_PROFILE_ENV_APPLIED: '1',
+    CLAUDE_CODE_PROVIDER_PROFILE_ENV_APPLIED_ID: 'provider_xai_oauth',
+    CLAUDE_CODE_USE_OPENAI: '1',
+    OPENAI_BASE_URL: 'https://api.x.ai/v1',
+    OPENAI_MODEL: 'grok-4.3',
+    OPENAI_API_KEY: '',
+  }
+
+  const error = await applySavedProfileToCurrentSession({
+    profileFile: profile('xai-oauth', {
+      OPENAI_BASE_URL: 'https://api.x.ai/v1',
+      OPENAI_MODEL: 'grok-4.3',
+      OPENAI_API_KEY: 'xai-oauth-token',
+      XAI_OAUTH_ACCESS_TOKEN: 'xai-oauth-token',
+      OPENAI_API_FORMAT: 'responses',
+    }),
+    processEnv,
+  })
+
+  assert.equal(error, null)
+  assert.equal(processEnv.CLAUDE_CODE_USE_OPENAI, '1')
+  assert.equal(processEnv.OPENAI_BASE_URL, 'https://api.x.ai/v1')
+  assert.equal(processEnv.OPENAI_MODEL, 'grok-4.3')
+  assert.equal(processEnv.OPENAI_API_KEY, 'xai-oauth-token')
+  assert.equal(processEnv.XAI_OAUTH_ACCESS_TOKEN, 'xai-oauth-token')
+  assert.equal(processEnv.OPENAI_API_FORMAT, 'responses')
+  assert.equal(Object.hasOwn(processEnv, 'XAI_API_KEY'), false)
+})
+
 test('buildStartupEnvFromProfile preserves plural-profile env when the legacy file is stale', async () => {
   // Regression: a user saves a provider via /provider (plural system).
   // addProviderProfile does NOT sync the legacy .openclaude-profile.json,

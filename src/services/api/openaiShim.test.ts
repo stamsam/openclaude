@@ -33,6 +33,8 @@ const originalEnv = {
   BANKR_MODEL: process.env.BANKR_MODEL,
   OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
   DEEPSEEK_API_KEY: process.env.DEEPSEEK_API_KEY,
+  XAI_API_KEY: process.env.XAI_API_KEY,
+  XAI_OAUTH_ACCESS_TOKEN: process.env.XAI_OAUTH_ACCESS_TOKEN,
 }
 
 const originalFetch = globalThis.fetch
@@ -113,6 +115,8 @@ beforeEach(() => {
   delete process.env.BANKR_MODEL
   delete process.env.OPENROUTER_API_KEY
   delete process.env.DEEPSEEK_API_KEY
+  delete process.env.XAI_API_KEY
+  delete process.env.XAI_OAUTH_ACCESS_TOKEN
 })
 
 afterEach(() => {
@@ -144,6 +148,8 @@ afterEach(() => {
   restoreEnv('BANKR_MODEL', originalEnv.BANKR_MODEL)
   restoreEnv('OPENROUTER_API_KEY', originalEnv.OPENROUTER_API_KEY)
   restoreEnv('DEEPSEEK_API_KEY', originalEnv.DEEPSEEK_API_KEY)
+  restoreEnv('XAI_API_KEY', originalEnv.XAI_API_KEY)
+  restoreEnv('XAI_OAUTH_ACCESS_TOKEN', originalEnv.XAI_OAUTH_ACCESS_TOKEN)
   globalThis.fetch = originalFetch
 })
 
@@ -1007,6 +1013,58 @@ test('uses route-specific credential env vars for descriptor-backed openai-compa
   })
 
   expect(capturedHeaders?.get('authorization')).toBe('Bearer or-route-key')
+})
+
+test('uses xAI OAuth token for xAI OpenAI-compatible requests without XAI_API_KEY', async () => {
+  let capturedHeaders: Headers | undefined
+
+  process.env.CLAUDE_CODE_USE_OPENAI = '1'
+  process.env.OPENAI_BASE_URL = 'https://api.x.ai/v1'
+  process.env.OPENAI_MODEL = 'grok-4.3'
+  process.env.XAI_OAUTH_ACCESS_TOKEN = 'xai-oauth-token'
+  delete process.env.XAI_API_KEY
+  delete process.env.OPENAI_API_KEY
+
+  globalThis.fetch = (async (_input, init) => {
+    capturedHeaders = new Headers(init?.headers)
+
+    return new Response(
+      JSON.stringify({
+        id: 'chatcmpl-1',
+        model: 'grok-4.3',
+        choices: [
+          {
+            message: {
+              role: 'assistant',
+              content: 'ok',
+            },
+            finish_reason: 'stop',
+          },
+        ],
+        usage: {
+          prompt_tokens: 5,
+          completion_tokens: 1,
+          total_tokens: 6,
+        },
+      }),
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      },
+    )
+  }) as FetchType
+
+  const client = createOpenAIShimClient({}) as OpenAIShimClient
+
+  await client.beta.messages.create({
+    model: 'grok-4.3',
+    messages: [{ role: 'user', content: 'hello' }],
+    max_tokens: 64,
+    stream: false,
+  })
+
+  expect(capturedHeaders?.get('authorization')).toBe('Bearer xai-oauth-token')
 })
 
 test('preserves Gemini tool call extra_content in follow-up requests', async () => {

@@ -15,6 +15,7 @@ import { CLI_EXTERNALS, SDK_EXTERNALS } from './externals.js'
 
 const pkg = JSON.parse(readFileSync('./package.json', 'utf-8'))
 const version = pkg.version
+const displayVersion = pkg.openclaudeDisplayVersion ?? version
 
 // Feature flags for the open build.
 // Most Anthropic-internal features stay off; open-build features can be
@@ -138,7 +139,7 @@ result = await Bun.build({
     // first-party minimum-version guards, but expose the real package
     // version separately in Open Claude branding.
     'MACRO.VERSION': JSON.stringify('99.0.0'),
-    'MACRO.DISPLAY_VERSION': JSON.stringify(version),
+    'MACRO.DISPLAY_VERSION': JSON.stringify(displayVersion),
     'MACRO.BUILD_TIME': JSON.stringify(new Date().toISOString()),
     'MACRO.ISSUES_EXPLAINER':
       JSON.stringify('report the issue at https://github.com/stamsam/openclaude-private/issues'),
@@ -476,7 +477,7 @@ sdkResult = await Bun.build({
   naming: 'sdk.mjs',
   define: {
     'MACRO.VERSION': JSON.stringify(version),
-    'MACRO.DISPLAY_VERSION': JSON.stringify(version),
+    'MACRO.DISPLAY_VERSION': JSON.stringify(displayVersion),
     'MACRO.BUILD_TIME': JSON.stringify(new Date().toISOString()),
     'MACRO.ISSUES_EXPLAINER':
       JSON.stringify('report the issue at https://github.com/stamsam/openclaude-private/issues'),

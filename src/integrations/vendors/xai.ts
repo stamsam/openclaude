@@ -9,8 +9,8 @@ export default defineVendor({
   requiredEnvVars: ['XAI_API_KEY'],
   setup: {
     requiresAuth: true,
-    authMode: 'api-key',
-    credentialEnvVars: ['XAI_API_KEY'],
+    authMode: 'token',
+    credentialEnvVars: ['XAI_API_KEY', 'XAI_OAUTH_ACCESS_TOKEN'],
   },
   transportConfig: {
     kind: 'openai-compatible',
@@ -27,9 +27,9 @@ export default defineVendor({
       matchDefaultBaseUrl: true,
       matchBaseUrlHosts: ['api.x.ai'],
     },
-    credentialEnvVars: ['XAI_API_KEY'],
+    credentialEnvVars: ['XAI_API_KEY', 'XAI_OAUTH_ACCESS_TOKEN'],
     missingCredentialMessage:
-      'XAI_API_KEY is required for the xAI provider.',
+      'XAI_API_KEY or xAI OAuth is required for the xAI provider.',
   },
   catalog: {
     source: 'static',

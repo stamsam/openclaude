@@ -11,6 +11,8 @@ const ENV_KEYS = [
   'OPENAI_API_KEY',
   'OPENAI_BASE_URL',
   'OPENAI_MODEL',
+  'XAI_API_KEY',
+  'XAI_OAUTH_ACCESS_TOKEN',
   'CODEX_API_KEY',
   'CHATGPT_ACCOUNT_ID',
   'CODEX_ACCOUNT_ID',
@@ -143,6 +145,17 @@ test('minimax validation accepts MINIMAX_API_KEY without OPENAI_API_KEY', async 
   process.env.CLAUDE_CODE_USE_OPENAI = '1'
   process.env.OPENAI_BASE_URL = 'https://api.minimax.io/v1'
   process.env.MINIMAX_API_KEY = 'minimax-live-key'
+  delete process.env.OPENAI_API_KEY
+
+  await expect(getProviderValidationError(process.env)).resolves.toBeNull()
+})
+
+test('xai validation accepts OAuth token without XAI_API_KEY', async () => {
+  process.env.CLAUDE_CODE_USE_OPENAI = '1'
+  process.env.OPENAI_BASE_URL = 'https://api.x.ai/v1'
+  process.env.OPENAI_MODEL = 'grok-4.3'
+  process.env.XAI_OAUTH_ACCESS_TOKEN = 'xai-oauth-token'
+  delete process.env.XAI_API_KEY
   delete process.env.OPENAI_API_KEY
 
   await expect(getProviderValidationError(process.env)).resolves.toBeNull()

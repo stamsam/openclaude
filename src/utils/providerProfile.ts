@@ -100,6 +100,7 @@ const PROFILE_ENV_KEYS = [
   'BNKR_API_KEY',
   'BANKR_MODEL',
   'XAI_API_KEY',
+  'XAI_OAUTH_ACCESS_TOKEN',
 ] as const
 
 export type CompatibilityProfileMode =
@@ -125,6 +126,7 @@ const SECRET_ENV_KEYS = [
   'MISTRAL_API_KEY',
   'BNKR_API_KEY',
   'XAI_API_KEY',
+  'XAI_OAUTH_ACCESS_TOKEN',
 ] as const
 
 export type ProviderProfile =
@@ -144,6 +146,7 @@ export type ProviderProfile =
   | 'bedrock'
   | 'vertex'
   | 'xai'
+  | 'xai-oauth'
 
 export type ProfileEnv = {
   ANTHROPIC_BASE_URL?: string
@@ -186,6 +189,7 @@ export type ProfileEnv = {
   BNKR_API_KEY?: string
   BANKR_MODEL?: string
   XAI_API_KEY?: string
+  XAI_OAUTH_ACCESS_TOKEN?: string
 }
 
 export type ProfileFile = {
@@ -208,7 +212,8 @@ type SecretValueSource = Partial<
     | 'MINIMAX_API_KEY'
     | 'MISTRAL_API_KEY'
     | 'BNKR_API_KEY'
-    | 'XAI_API_KEY',
+    | 'XAI_API_KEY'
+    | 'XAI_OAUTH_ACCESS_TOKEN',
     string | undefined
   >
 >
@@ -1160,7 +1165,11 @@ export async function buildLaunchEnv(options: {
           options.profile === 'codex' &&
           provider === 'openai' &&
           persistedEnv.CODEX_CREDENTIAL_SOURCE === 'oauth'
-        if (!isCodexOAuthProfile) {
+        const isXaiOAuthProfile =
+          options.profile === 'xai-oauth' &&
+          provider === 'openai' &&
+          Boolean(persistedEnv.XAI_OAUTH_ACCESS_TOKEN)
+        if (!isCodexOAuthProfile && !isXaiOAuthProfile) {
           options.profile = provider
         }
         break
@@ -1350,6 +1359,38 @@ export async function buildLaunchEnv(options: {
     const customHeaders = shellCustomHeaders || persistedCustomHeaders
     if (customHeaders) {
       env.ANTHROPIC_CUSTOM_HEADERS = customHeaders
+    }
+
+    return buildCompatibilityProcessEnv({
+      processEnv,
+      compatibilityMode: 'openai',
+      profileEnv: env,
+    })
+  }
+
+  if (options.profile === 'xai-oauth') {
+    const xaiOAuthToken =
+      sanitizeApiKey(processEnv.XAI_OAUTH_ACCESS_TOKEN) ||
+      sanitizeApiKey(persistedEnv.XAI_OAUTH_ACCESS_TOKEN) ||
+      sanitizeApiKey(processEnv.OPENAI_API_KEY) ||
+      sanitizeApiKey(persistedEnv.OPENAI_API_KEY)
+    const secretSource: SecretValueSource = {
+      OPENAI_API_KEY: xaiOAuthToken,
+      XAI_OAUTH_ACCESS_TOKEN: xaiOAuthToken,
+    }
+    const env: ProfileEnv = {
+      OPENAI_BASE_URL:
+        sanitizeProviderConfigValue(persistedOpenAIBaseUrl, secretSource) ||
+        getRouteDefaultBaseUrl('xai') ||
+        'https://api.x.ai/v1',
+      OPENAI_MODEL:
+        persistedOpenAIModel || getRouteDefaultModel('xai') || 'grok-4.3',
+      OPENAI_API_FORMAT: 'responses',
+    }
+
+    if (xaiOAuthToken) {
+      env.OPENAI_API_KEY = xaiOAuthToken
+      env.XAI_OAUTH_ACCESS_TOKEN = xaiOAuthToken
     }
 
     return buildCompatibilityProcessEnv({
@@ -1725,6 +1766,32 @@ export async function applySavedProfileToCurrentSession(options: {
       ? { ...explicitEnv, CODEX_API_KEY: 'codex-oauth-token-for-validation' }
       : explicitEnv
     const validationError = await getProviderValidationError(validationEnv)
+
+    if (profileManagedEnv) {
+      delete processEnv.CLAUDE_CODE_PROVIDER_PROFILE_ENV_APPLIED
+      delete processEnv.CLAUDE_CODE_PROVIDER_PROFILE_ENV_APPLIED_ID
+      applyProfileEnvToProcessEnv(processEnv, explicitEnv)
+      return validationError
+    }
+
+    return (
+      validationError ??
+      'current session already has an explicit provider selection'
+    )
+  }
+
+  if (options.profileFile.profile === 'xai-oauth' && hasExplicitSelection) {
+    const explicitEnv = await buildLaunchEnv({
+      profile: options.profileFile.profile,
+      persisted: options.profileFile,
+      goal: normalizeRecommendationGoal(processEnv.OPENCLAUDE_PROFILE_GOAL),
+      processEnv: { ...processEnv },
+      getOllamaChatBaseUrl,
+      readGeminiAccessToken,
+    })
+    delete explicitEnv.CLAUDE_CODE_PROVIDER_PROFILE_ENV_APPLIED
+    delete explicitEnv.CLAUDE_CODE_PROVIDER_PROFILE_ENV_APPLIED_ID
+    const validationError = await getProviderValidationError(explicitEnv)
 
     if (profileManagedEnv) {
       delete processEnv.CLAUDE_CODE_PROVIDER_PROFILE_ENV_APPLIED
