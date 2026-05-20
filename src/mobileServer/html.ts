@@ -57,6 +57,7 @@ export function renderMobileServerHtml({
       --ink: #061006;
       --touch: 40px;
       --app-height: 100dvh;
+      --terminal-bottom-pad: 58px;
     }
     * { box-sizing: border-box; }
     html, body {
@@ -178,7 +179,8 @@ export function renderMobileServerHtml({
       overflow-y: auto;
       overflow-x: hidden;
       -webkit-overflow-scrolling: touch;
-      padding: 14px max(12px, env(safe-area-inset-right)) 18px max(12px, env(safe-area-inset-left));
+      padding: 14px max(12px, env(safe-area-inset-right)) max(var(--terminal-bottom-pad), env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+      scroll-padding-bottom: max(var(--terminal-bottom-pad), env(safe-area-inset-bottom));
       background:
         repeating-linear-gradient(180deg, rgba(255,255,255,.018) 0, rgba(255,255,255,.018) 1px, transparent 1px, transparent 28px),
         var(--bg);
@@ -192,7 +194,7 @@ export function renderMobileServerHtml({
       color: var(--text);
       white-space: pre-wrap;
       overflow-wrap: anywhere;
-      word-break: break-all;
+      word-break: break-word;
       tab-size: 2;
       font-size: 13.25px;
       line-height: 1.52;
@@ -467,7 +469,8 @@ export function renderMobileServerHtml({
       padding-bottom: max(8px, env(safe-area-inset-bottom));
     }
     body.typing #terminal {
-      padding-bottom: 10px;
+      padding-bottom: max(48px, env(safe-area-inset-bottom));
+      scroll-padding-bottom: max(64px, env(safe-area-inset-bottom));
     }
     @media (max-width: 390px) {
       html, body { font-size: 12.25px; }
@@ -617,31 +620,54 @@ export function renderMobileServerHtml({
     }
     function wrapTerminalLine(line) {
       const limit = 42;
-      const words = String(line || '').split(/\\s+/).filter(Boolean);
+      const text = String(line || '');
+      const bullet = text.match(/^(\\s*[-*]\\s+)(.+)$/);
+      const prefix = bullet ? bullet[1] : '';
+      const continuationPrefix = bullet ? ' '.repeat(prefix.length) : '';
+      const words = (bullet ? bullet[2] : text).split(/\\s+/).filter(Boolean);
       if (!words.length) return [''];
       const lines = [];
-      let current = '';
+      let current = prefix;
+      const availableLimit = Math.max(18, limit - prefix.length);
       for (const word of words) {
-        if (word.length > limit) {
-          if (current) {
+        const chunks = splitLongToken(word, availableLimit);
+        for (const chunk of chunks) {
+          const lineLimit = current.trim().length === 0 ? availableLimit : limit;
+          if (chunk.length > lineLimit) {
+            if (current.trim()) {
+              lines.push(current);
+              current = continuationPrefix;
+            }
+            lines.push(continuationPrefix + chunk);
+            continue;
+          }
+          const separator = current.trim().length > 0 && !current.endsWith(' ') ? ' ' : '';
+          const next = current + separator + chunk;
+          if (next.length > lineLimit && current.trim()) {
             lines.push(current);
-            current = '';
+            current = continuationPrefix + chunk;
+          } else {
+            current = next;
           }
-          for (let index = 0; index < word.length; index += limit) {
-            lines.push(word.slice(index, index + limit));
-          }
-          continue;
-        }
-        const next = current ? current + ' ' + word : word;
-        if (next.length > limit) {
-          lines.push(current);
-          current = word;
-        } else {
-          current = next;
         }
       }
-      if (current) lines.push(current);
+      if (current.trim()) lines.push(current);
       return lines;
+    }
+    function splitLongToken(token, limit) {
+      const chunks = [];
+      let remaining = String(token || '');
+      while (remaining.length > limit) {
+        const window = remaining.slice(0, limit + 1);
+        const cuts = ['/', '-', '_', '.', ':'].map(separator => window.lastIndexOf(separator));
+        let cut = Math.max(...cuts);
+        if (cut < Math.floor(limit * 0.55)) cut = limit;
+        else cut += 1;
+        chunks.push(remaining.slice(0, cut));
+        remaining = remaining.slice(cut);
+      }
+      if (remaining) chunks.push(remaining);
+      return chunks;
     }
     function turnText(turn) {
       if (turn.role === 'user') return prefixBlock('› ', turn.text);
@@ -1265,31 +1291,55 @@ function compactWorkspace(value: string): string {
 
 function wrapTerminalLine(value: string): string[] {
   const limit = 42
-  const words = String(value || '').split(/\s+/).filter(Boolean)
+  const text = String(value || '')
+  const bullet = text.match(/^(\s*[-*]\s+)(.+)$/)
+  const prefix = bullet ? bullet[1] : ''
+  const continuationPrefix = bullet ? ' '.repeat(prefix.length) : ''
+  const words = (bullet ? bullet[2] : text).split(/\s+/).filter(Boolean)
   if (words.length === 0) return ['']
   const lines: string[] = []
-  let current = ''
+  let current = prefix
+  const availableLimit = Math.max(18, limit - prefix.length)
   for (const word of words) {
-    if (word.length > limit) {
-      if (current) {
+    const chunks = splitLongToken(word, availableLimit)
+    for (const chunk of chunks) {
+      const lineLimit = current.trim().length === 0 ? availableLimit : limit
+      if (chunk.length > lineLimit) {
+        if (current.trim()) {
+          lines.push(current)
+          current = continuationPrefix
+        }
+        lines.push(`${continuationPrefix}${chunk}`)
+        continue
+      }
+      const separator = current.trim().length > 0 && !current.endsWith(' ') ? ' ' : ''
+      const next = `${current}${separator}${chunk}`
+      if (next.length > lineLimit && current.trim()) {
         lines.push(current)
-        current = ''
+        current = `${continuationPrefix}${chunk}`
+      } else {
+        current = next
       }
-      for (let index = 0; index < word.length; index += limit) {
-        lines.push(word.slice(index, index + limit))
-      }
-      continue
-    }
-    const next = current ? `${current} ${word}` : word
-    if (next.length > limit) {
-      lines.push(current)
-      current = word
-    } else {
-      current = next
     }
   }
-  if (current) lines.push(current)
+  if (current.trim()) lines.push(current)
   return lines
+}
+
+function splitLongToken(token: string, limit: number): string[] {
+  const chunks: string[] = []
+  let remaining = String(token || '')
+  while (remaining.length > limit) {
+    const window = remaining.slice(0, limit + 1)
+    const cuts = ['/', '-', '_', '.', ':'].map(separator => window.lastIndexOf(separator))
+    let cut = Math.max(...cuts)
+    if (cut < Math.floor(limit * 0.55)) cut = limit
+    else cut += 1
+    chunks.push(remaining.slice(0, cut))
+    remaining = remaining.slice(cut)
+  }
+  if (remaining) chunks.push(remaining)
+  return chunks
 }
 
 function escapeHtml(value: string): string {

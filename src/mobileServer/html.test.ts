@@ -38,11 +38,43 @@ describe('mobile server html', () => {
     expect(html).toContain('font-size: 16px')
     expect(html).toContain('body.typing .rail')
     expect(html).toContain('body.typing #terminal')
+    expect(html).toContain('--terminal-bottom-pad')
+    expect(html).toContain('scroll-padding-bottom')
+    expect(html).toContain('padding-bottom: max(48px, env(safe-area-inset-bottom))')
     expect(html).toContain('function syncViewportHeight()')
     expect(html).toContain('window.visualViewport')
     expect(html).toContain('function wrapTerminalLine')
+    expect(html).toContain('function splitLongToken')
     expect(html).toContain('termSystem')
     expect(html).toContain('termAssistant')
+  })
+
+  test('wraps final-summary bullets and screenshot paths for narrow phones', () => {
+    const html = renderMobileServerHtml({
+      tokenState: 'provided',
+      initialSnapshot: {
+        state: 'idle',
+        workspace: '/tmp/project',
+        model: 'test-model',
+        provider: 'local',
+        messages: [
+          {
+            id: 'm1',
+            role: 'assistant',
+            text: [
+              'Fresh phone screenshots:',
+              '- /tmp/openclaude-mobile-readability-screenshots/after-long-final-bottom.png',
+              '- bun test src/commands/server/server.test.ts src/mobileServer/html.test.ts src/mobileServer/server.test.ts',
+            ].join('\n'),
+          },
+        ],
+      },
+    })
+
+    expect(html).toContain('- /tmp/openclaude-mobile-readability-')
+    expect(html).toContain('  screenshots/after-long-final-bottom.png')
+    expect(html).toContain('- bun test src/commands/server/server.test.ts')
+    expect(html).not.toContain('\n  -\n')
   })
 
   test('suggests slash commands without opening terminal-only commands', () => {

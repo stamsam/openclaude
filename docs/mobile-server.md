@@ -118,7 +118,11 @@ The terminal surface keeps app/model/workspace metadata in the header and
 status rail, so the transcript starts on session content instead of repeated
 chrome. Transcript lines wrap for narrow phone widths, and live snapshots render
 subtle role tinting for system, user, and assistant lines while preserving the
-plain terminal text first paint.
+plain terminal text first paint. Long final-response bullets, screenshot paths,
+and validation commands wrap at path separators where possible instead of
+leaving dense one-character bullet lines. The transcript also keeps extra bottom
+padding in typing mode so the final visible lines sit above the mobile composer
+and browser accessory area.
 
 On iOS, the prompt uses a 16px input size to prevent Safari focus zoom. The page
 also tracks `visualViewport` changes so the terminal shell resizes with the
