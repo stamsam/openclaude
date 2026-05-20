@@ -40,17 +40,20 @@ export function renderMobileServerHtml({
   <style${nonceAttr}>
     :root {
       color-scheme: dark;
-      --bg: #050506;
-      --dock: rgba(5, 5, 6, .96);
-      --line: rgba(255,255,255,.095);
-      --line-strong: rgba(255,255,255,.16);
-      --text: #f1edf7;
-      --muted: #9a93a4;
-      --dim: #625c69;
+      --bg: #060607;
+      --panel: #0b0b0d;
+      --panel-strong: #111114;
+      --dock: rgba(8, 8, 10, .98);
+      --line: rgba(255,255,255,.08);
+      --line-strong: rgba(255,255,255,.15);
+      --text: #f4f1f8;
+      --muted: #a09aa8;
+      --dim: #686170;
       --green: #7ee787;
       --red: #ff6875;
       --amber: #e4cb6e;
       --violet: #b59cff;
+      --cyan: #75d7ff;
       --ink: #061006;
       --touch: 40px;
     }
@@ -61,41 +64,66 @@ export function renderMobileServerHtml({
       overflow: hidden;
       background: var(--bg);
       color: var(--text);
-      font: 12.5px/1.42 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font: 12.75px/1.42 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
       letter-spacing: 0;
       -webkit-text-size-adjust: 100%;
     }
     body {
       min-height: 100dvh;
       padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+      background:
+        linear-gradient(180deg, rgba(255,255,255,.035), transparent 52px),
+        var(--bg);
     }
     #terminalShell {
       height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+      min-width: 0;
+      max-width: 100vw;
+      overflow: hidden;
       display: grid;
       grid-template-rows: auto 1fr auto;
       background: var(--bg);
     }
     .topbar {
-      min-height: 48px;
+      min-width: 0;
+      max-width: 100vw;
+      min-height: 53px;
       display: grid;
       grid-template-columns: 1fr auto;
       align-items: center;
       gap: 10px;
-      padding: 7px max(11px, env(safe-area-inset-right)) 6px max(11px, env(safe-area-inset-left));
+      padding: 8px max(12px, env(safe-area-inset-right)) 7px max(12px, env(safe-area-inset-left));
       border-bottom: 1px solid var(--line);
-      background: rgba(5,5,6,.96);
+      background: rgba(8,8,10,.98);
     }
     .topTitle {
       min-width: 0;
       display: grid;
-      gap: 1px;
+      gap: 2px;
+    }
+    .brandRow {
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+    .brandMark {
+      width: 18px;
+      height: 18px;
+      display: inline-grid;
+      place-items: center;
+      border: 1px solid rgba(126,231,135,.4);
+      border-radius: 5px;
+      color: var(--green);
+      background: rgba(126,231,135,.075);
+      font-weight: 900;
     }
     #projectName {
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
       color: var(--text);
-      font-size: 12px;
+      font-size: 12.5px;
       font-weight: 820;
     }
     #modelName {
@@ -103,7 +131,7 @@ export function renderMobileServerHtml({
       text-overflow: ellipsis;
       white-space: nowrap;
       color: var(--dim);
-      font-size: 10.5px;
+      font-size: 10.25px;
     }
     .sessionPill {
       display: inline-flex;
@@ -112,7 +140,8 @@ export function renderMobileServerHtml({
       height: 25px;
       padding: 0 8px;
       border: 1px solid var(--line-strong);
-      border-radius: 999px;
+      border-radius: 7px;
+      background: var(--panel);
       color: var(--muted);
       font-size: 10px;
       white-space: nowrap;
@@ -126,39 +155,56 @@ export function renderMobileServerHtml({
     #topDot.ready { background: var(--green); }
     #topDot.error { background: var(--red); }
     #terminal {
+      min-width: 0;
+      max-width: 100vw;
       min-height: 0;
-      overflow: auto;
+      overflow-y: auto;
+      overflow-x: hidden;
       -webkit-overflow-scrolling: touch;
-      padding: 12px max(11px, env(safe-area-inset-right)) 16px max(11px, env(safe-area-inset-left));
+      padding: 14px max(12px, env(safe-area-inset-right)) 18px max(12px, env(safe-area-inset-left));
+      background:
+        repeating-linear-gradient(180deg, rgba(255,255,255,.018) 0, rgba(255,255,255,.018) 1px, transparent 1px, transparent 28px),
+        var(--bg);
     }
     #terminalText {
       margin: 0;
+      min-width: 0;
+      width: 100%;
+      max-width: 100%;
       min-height: 100%;
       color: var(--text);
       white-space: pre-wrap;
       overflow-wrap: anywhere;
+      word-break: break-all;
       tab-size: 2;
+      font-size: 13.25px;
+      line-height: 1.52;
     }
     .dim { color: var(--dim); }
     .dock {
+      min-width: 0;
+      max-width: 100vw;
       background: var(--dock);
       border-top: 1px solid var(--line);
       backdrop-filter: blur(18px) saturate(130%);
-      padding-bottom: max(5px, env(safe-area-inset-bottom));
+      padding: 7px 0 max(6px, env(safe-area-inset-bottom));
     }
     .promptRow {
       display: grid;
       grid-template-columns: auto 1fr auto;
-      align-items: end;
+      align-items: center;
       gap: 8px;
-      min-height: 41px;
-      padding: 4px max(9px, env(safe-area-inset-right)) 3px max(9px, env(safe-area-inset-left));
-      border-bottom: 1px solid var(--line);
+      min-height: 44px;
+      margin: 0 max(8px, env(safe-area-inset-right)) 6px max(8px, env(safe-area-inset-left));
+      padding: 4px 5px 4px 9px;
+      border: 1px solid var(--line-strong);
+      border-radius: 7px;
+      background: var(--panel-strong);
     }
     .promptPrefix {
       color: var(--violet);
       font-weight: 850;
-      padding-bottom: 8px;
+      align-self: center;
     }
     textarea {
       width: 100%;
@@ -169,7 +215,7 @@ export function renderMobileServerHtml({
       outline: 0;
       background: transparent;
       color: var(--text);
-      padding: 9px 0 6px;
+      padding: 8px 0 6px;
       font: inherit;
       line-height: 1.42;
     }
@@ -177,7 +223,7 @@ export function renderMobileServerHtml({
     .send {
       width: var(--touch);
       min-width: var(--touch);
-      height: 36px;
+      height: 34px;
       border: 1px solid rgba(126,231,135,.5);
       border-radius: 5px;
       background: var(--green);
@@ -187,15 +233,14 @@ export function renderMobileServerHtml({
       font-weight: 900;
     }
     .terminalStatus {
-      min-height: 22px;
+      min-height: 20px;
       display: grid;
       grid-template-columns: auto auto 1fr;
       align-items: center;
       gap: 7px;
-      padding: 0 max(9px, env(safe-area-inset-right)) 0 max(9px, env(safe-area-inset-left));
+      padding: 0 max(11px, env(safe-area-inset-right)) 5px max(11px, env(safe-area-inset-left));
       color: var(--muted);
       font-size: 10.5px;
-      border-bottom: 1px solid rgba(255,255,255,.055);
     }
     #statusDot {
       width: 6px;
@@ -215,31 +260,36 @@ export function renderMobileServerHtml({
     }
     .rail {
       display: grid;
-      gap: 5px;
-      padding: 5px max(8px, env(safe-area-inset-right)) 4px max(8px, env(safe-area-inset-left));
+      gap: 4px;
+      padding: 0 max(8px, env(safe-area-inset-right)) 0 max(8px, env(safe-area-inset-left));
     }
     .row {
       display: flex;
       gap: 4px;
       overflow-x: auto;
       scrollbar-width: none;
-      min-height: 27px;
+      min-height: 32px;
+    }
+    .actionRow {
+      justify-content: flex-start;
+      min-height: 28px;
     }
     .row::-webkit-scrollbar { display: none; }
     button {
       flex: 0 0 auto;
-      height: 34px;
-      min-width: 36px;
-      border: 1px solid var(--line-strong);
+      height: 32px;
+      min-width: 34px;
+      border: 1px solid rgba(255,255,255,.12);
       border-radius: 5px;
-      background: rgba(255,255,255,.04);
+      background: rgba(255,255,255,.045);
       color: var(--text);
       padding: 0 7px;
       font: inherit;
-      font-size: 10.5px;
+      font-size: 10px;
       font-weight: 720;
       touch-action: manipulation;
       -webkit-tap-highlight-color: transparent;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.045);
     }
     button:active { transform: translateY(1px); }
     button:disabled {
@@ -247,7 +297,7 @@ export function renderMobileServerHtml({
       transform: none;
     }
     .mod {
-      min-width: 58px;
+      min-width: 55px;
       color: var(--muted);
       background: rgba(255,255,255,.035);
     }
@@ -259,25 +309,31 @@ export function renderMobileServerHtml({
       color: var(--ink);
       background: var(--green);
       border-color: var(--green);
+      box-shadow: none;
     }
     .active .sym { color: var(--ink); }
-    .command { color: var(--muted); }
+    .command {
+      height: 28px;
+      color: var(--cyan);
+      background: rgba(117,215,255,.055);
+    }
     .danger {
       color: #ffc0c7;
       border-color: rgba(255,104,117,.32);
       background: rgba(255,104,117,.1);
     }
     .iconKey {
-      width: 34px;
-      min-width: 34px;
+      width: 33px;
+      min-width: 33px;
       padding: 0;
       color: var(--muted);
       font-size: 13px;
     }
     @media (max-width: 390px) {
-      html, body { font-size: 12px; }
-      .mod { min-width: 53px; }
-      button { min-width: 34px; padding: 0 6px; }
+      html, body { font-size: 12.25px; }
+      #terminalText { font-size: 13px; }
+      .mod { min-width: 51px; }
+      button { min-width: 33px; padding: 0 6px; }
       #terminal { padding-top: 10px; }
     }
   </style>
@@ -286,13 +342,13 @@ export function renderMobileServerHtml({
   <main id="terminalShell">
     <section class="topbar" aria-label="Session">
       <div class="topTitle">
-        <div id="projectName">${escapeHtml(initialProjectName)}</div>
+        <div class="brandRow"><span class="brandMark">›</span><div id="projectName">${escapeHtml(initialProjectName)}</div></div>
         <div id="modelName">${escapeHtml(initialModelName)}</div>
       </div>
       <div class="sessionPill"><span id="topDot" class="${initialDotClass}"></span><span id="sessionState">${escapeHtml(initialState)}</span></div>
     </section>
     <section id="terminal" aria-label="Terminal">
-      <pre id="terminalText">${escapeHtml(initialTerminalText)}</pre>
+      <div id="terminalText">${escapeHtml(initialTerminalText)}</div>
     </section>
     <section class="dock" aria-label="Mobile terminal controls">
       <div class="promptRow">
@@ -302,14 +358,16 @@ export function renderMobileServerHtml({
       </div>
       <div class="terminalStatus" aria-live="polite"><span id="statusDot"></span><span id="state">link</span><span id="meta">connecting...</span></div>
       <div class="rail">
+        <div class="row actionRow" aria-label="Actions">
+          <button id="retry" class="command">retry</button>
+          <button id="stop" class="danger">stop</button>
+          <button id="clear" class="command">clear</button>
+        </div>
         <div class="row" aria-label="Modifier keys">
           <button class="mod" data-mod="shift"><span class="sym">⇧</span>shift</button>
           <button class="mod" data-mod="cmd"><span class="sym">⌘</span>cmd</button>
           <button class="mod" data-mod="alt"><span class="sym">⌥</span>alt</button>
           <button class="mod" data-mod="ctrl"><span class="sym">⌃</span>ctrl</button>
-          <button id="retry" class="command">retry</button>
-          <button id="stop" class="danger">stop</button>
-          <button id="clear" class="command">clear</button>
         </div>
         <div class="row" aria-label="Control keys">
           <button data-key="esc">esc</button>
@@ -396,8 +454,36 @@ export function renderMobileServerHtml({
     function prefixBlock(prefix, text) {
       const cleaned = cleanText(text);
       if (!cleaned) return '';
-      const lines = cleaned.split('\\n');
-      return [prefix + lines[0], ...lines.slice(1).map(line => '  ' + line)].join('\\n');
+      const wrapped = cleaned.split('\\n').flatMap(line => wrapTerminalLine(line));
+      return [prefix + wrapped[0], ...wrapped.slice(1).map(line => '  ' + line)].join('\\n');
+    }
+    function wrapTerminalLine(line) {
+      const limit = 42;
+      const words = String(line || '').split(/\\s+/).filter(Boolean);
+      if (!words.length) return [''];
+      const lines = [];
+      let current = '';
+      for (const word of words) {
+        if (word.length > limit) {
+          if (current) {
+            lines.push(current);
+            current = '';
+          }
+          for (let index = 0; index < word.length; index += limit) {
+            lines.push(word.slice(index, index + limit));
+          }
+          continue;
+        }
+        const next = current ? current + ' ' + word : word;
+        if (next.length > limit) {
+          lines.push(current);
+          current = word;
+        } else {
+          current = next;
+        }
+      }
+      if (current) lines.push(current);
+      return lines;
     }
     function turnText(turn) {
       if (turn.role === 'user') return prefixBlock('› ', turn.text);
@@ -408,7 +494,7 @@ export function renderMobileServerHtml({
       const lines = ['OpenClaude mobile'];
       const modelLine = [snapshot.model, snapshot.provider].filter(Boolean).join(' · ');
       if (modelLine) lines.push(modelLine);
-      if (snapshot.workspace) lines.push(snapshot.workspace);
+      if (snapshot.workspace) lines.push('cwd ' + compactWorkspace(snapshot.workspace));
       return lines;
     }
     function setTerminalText(lines) {
@@ -671,7 +757,7 @@ export function renderMobileServerHtml({
       const meta = [
         snapshot.model || null,
         snapshot.provider || null,
-        snapshot.workspace || null,
+        snapshot.workspace ? compactWorkspace(snapshot.workspace) : null,
       ].filter(Boolean).join(' · ');
       modelNameEl.textContent = [snapshot.model || null, snapshot.provider || null].filter(Boolean).join(' · ') || 'live terminal session';
       metaEl.textContent = meta || 'connected';
@@ -686,6 +772,10 @@ export function renderMobileServerHtml({
       const text = String(value || '').replace(/\\/+$|\\\\+$/g, '');
       const parts = text.split(/[\\\\/]/).filter(Boolean);
       return parts[parts.length - 1] || text;
+    }
+    function compactWorkspace(value) {
+      const name = basename(value);
+      return name ? '~/' + name : '~';
     }
     function startFallbackPolling() {
       if (fallbackPollInterval) return;
@@ -762,7 +852,7 @@ function buildInitialTerminalText(snapshot: MobileServerSnapshot | null): string
   const lines = ['OpenClaude mobile']
   const modelLine = [snapshot.model, snapshot.provider].filter(Boolean).join(' · ')
   if (modelLine) lines.push(modelLine)
-  if (snapshot.workspace) lines.push(snapshot.workspace)
+  if (snapshot.workspace) lines.push(`cwd ${compactWorkspace(snapshot.workspace)}`)
   lines.push('')
 
   const turns = snapshot.messages ?? []
@@ -774,11 +864,15 @@ function buildInitialTerminalText(snapshot: MobileServerSnapshot | null): string
       const prefix = turn.role === 'user' ? '› ' : turn.role === 'system' ? '! ' : '  '
       const text = turn.text.trim()
       if (!text) continue
-      lines.push(`${prefix}${text}`)
+      const wrapped = wrapTerminalLine(text)
+      lines.push(`${prefix}${wrapped[0]}`)
+      for (const line of wrapped.slice(1)) lines.push(`  ${line}`)
       lines.push('')
     }
     if (turns.length === 0 && snapshot.lastResponse) {
-      lines.push(`  ${snapshot.lastResponse.trim()}`)
+      const wrapped = wrapTerminalLine(snapshot.lastResponse.trim())
+      lines.push(`  ${wrapped[0]}`)
+      for (const line of wrapped.slice(1)) lines.push(`  ${line}`)
     }
   }
 
@@ -792,6 +886,40 @@ function basename(value: string): string {
   const text = String(value || '').replace(/[\\/]+$/g, '')
   const parts = text.split(/[\\/]/).filter(Boolean)
   return parts[parts.length - 1] || text
+}
+
+function compactWorkspace(value: string): string {
+  const name = basename(value)
+  return name ? `~/${name}` : '~'
+}
+
+function wrapTerminalLine(value: string): string[] {
+  const limit = 42
+  const words = String(value || '').split(/\s+/).filter(Boolean)
+  if (words.length === 0) return ['']
+  const lines: string[] = []
+  let current = ''
+  for (const word of words) {
+    if (word.length > limit) {
+      if (current) {
+        lines.push(current)
+        current = ''
+      }
+      for (let index = 0; index < word.length; index += limit) {
+        lines.push(word.slice(index, index + limit))
+      }
+      continue
+    }
+    const next = current ? `${current} ${word}` : word
+    if (next.length > limit) {
+      lines.push(current)
+      current = word
+    } else {
+      current = next
+    }
+  }
+  if (current) lines.push(current)
+  return lines
 }
 
 function escapeHtml(value: string): string {

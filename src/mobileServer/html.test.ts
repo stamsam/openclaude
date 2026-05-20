@@ -34,6 +34,7 @@ describe('mobile server html', () => {
     expect(html).toContain("if (key === 'left')")
     expect(html).toContain("if (key === 'up')")
     expect(html).toContain('function resizePrompt()')
+    expect(html).toContain('function wrapTerminalLine')
   })
 
   test('keeps token auth available for mobile webviews that strip auth headers', () => {
@@ -100,6 +101,7 @@ describe('mobile server html', () => {
     })
 
     expect(html).toContain('project')
+    expect(html).toContain('cwd ~/project')
     expect(html).toContain('model&lt;/script&gt;')
     expect(html).toContain('ready &lt;now&gt;')
     expect(html).toContain('window.__SAM_INITIAL_SNAPSHOT__')

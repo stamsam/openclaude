@@ -114,6 +114,10 @@ newline. Ctrl+C/Ctrl+D stop mobile-owned runs. Esc dismisses local overlays.
 Other slash commands are blocked from mobile until they have native server
 endpoints, so the phone UI cannot accidentally open local TUI overlays.
 
+The terminal surface uses compact `~/project` workspace labels and wraps
+transcript lines for narrow phone widths so long agent output does not require
+sideways scrolling.
+
 ## Safety
 
 Do not expose the server publicly. Use the printed `Phone URL` for phone access
