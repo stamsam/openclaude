@@ -31,7 +31,7 @@ export function renderMobileServerHtml({
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
   <meta name="theme-color" content="#050506">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="OpenClaude">
@@ -56,11 +56,13 @@ export function renderMobileServerHtml({
       --cyan: #75d7ff;
       --ink: #061006;
       --touch: 40px;
+      --app-height: 100dvh;
     }
     * { box-sizing: border-box; }
     html, body {
       margin: 0;
       height: 100%;
+      width: 100%;
       overflow: hidden;
       background: var(--bg);
       color: var(--text);
@@ -69,14 +71,17 @@ export function renderMobileServerHtml({
       -webkit-text-size-adjust: 100%;
     }
     body {
-      min-height: 100dvh;
+      height: var(--app-height);
+      width: 100vw;
+      max-width: 100vw;
       padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+      overscroll-behavior: none;
       background:
         linear-gradient(180deg, rgba(255,255,255,.035), transparent 52px),
         var(--bg);
     }
     #terminalShell {
-      height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+      height: calc(var(--app-height) - env(safe-area-inset-top) - env(safe-area-inset-bottom));
       min-width: 0;
       max-width: 100vw;
       overflow: hidden;
@@ -220,7 +225,8 @@ export function renderMobileServerHtml({
     }
     .promptRow {
       min-width: 0;
-      max-width: calc(100vw - 16px);
+      width: auto;
+      max-width: none;
       display: grid;
       grid-template-columns: auto 1fr auto;
       align-items: center;
@@ -248,13 +254,14 @@ export function renderMobileServerHtml({
       color: var(--text);
       padding: 8px 0 6px;
       font: inherit;
+      font-size: 16px;
       line-height: 1.42;
     }
     textarea::placeholder { color: var(--dim); }
     .send {
       width: var(--touch);
       min-width: var(--touch);
-      height: 34px;
+      height: 38px;
       border: 1px solid rgba(126,231,135,.5);
       border-radius: 5px;
       background: var(--green);
@@ -307,17 +314,17 @@ export function renderMobileServerHtml({
       gap: 4px;
       overflow-x: auto;
       scrollbar-width: none;
-      min-height: 32px;
+      min-height: 36px;
     }
     .actionRow {
       justify-content: flex-start;
-      min-height: 28px;
+      min-height: 32px;
     }
     .row::-webkit-scrollbar { display: none; }
     button {
       flex: 0 0 auto;
-      height: 32px;
-      min-width: 34px;
+      height: 36px;
+      min-width: 36px;
       border: 1px solid rgba(255,255,255,.12);
       border-radius: 5px;
       background: rgba(255,255,255,.045);
@@ -352,7 +359,7 @@ export function renderMobileServerHtml({
     }
     .active .sym { color: var(--ink); }
     .command {
-      height: 28px;
+      height: 32px;
       color: var(--cyan);
       background: rgba(117,215,255,.055);
     }
@@ -362,17 +369,24 @@ export function renderMobileServerHtml({
       background: rgba(255,104,117,.1);
     }
     .iconKey {
-      width: 33px;
-      min-width: 33px;
+      width: 36px;
+      min-width: 36px;
       padding: 0;
       color: var(--muted);
       font-size: 13px;
     }
+    body.typing .rail {
+      display: none;
+    }
+    body.typing .dock {
+      padding-bottom: max(9px, env(safe-area-inset-bottom));
+    }
     @media (max-width: 390px) {
       html, body { font-size: 12.25px; }
       #terminalText { font-size: 13px; }
+      textarea { font-size: 16px; }
       .mod { min-width: 51px; }
-      button { min-width: 33px; padding: 0 6px; }
+      button { min-width: 35px; padding: 0 6px; }
       #terminal { padding-top: 10px; }
     }
   </style>
@@ -638,6 +652,24 @@ export function renderMobileServerHtml({
       promptEl.style.height = '0px';
       promptEl.style.height = Math.min(promptEl.scrollHeight, 112) + 'px';
     }
+    function syncViewportHeight() {
+      const viewport = window.visualViewport;
+      const height = Math.floor(viewport ? viewport.height : window.innerHeight);
+      if (height > 0) {
+        document.documentElement.style.setProperty('--app-height', height + 'px');
+      }
+      if (window.scrollX || window.scrollY) window.scrollTo(0, 0);
+      if (document.activeElement === promptEl) {
+        requestAnimationFrame(() => {
+          terminalEl.scrollTop = terminalEl.scrollHeight;
+          promptEl.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+        });
+      }
+    }
+    function setTypingMode(active) {
+      document.body.classList.toggle('typing', active);
+      syncViewportHeight();
+    }
     function updateControls(snapshot = latestSnapshot) {
       const busy = snapshot && (snapshot.state === 'busy' || snapshot.activeRunId);
       const canSubmit = typeof snapshot?.canSubmit === 'boolean' ? snapshot.canSubmit : !busy;
@@ -769,7 +801,17 @@ export function renderMobileServerHtml({
     });
     promptEl.addEventListener('input', resizePrompt);
     promptEl.addEventListener('input', () => updateControls());
+    promptEl.addEventListener('focus', () => setTypingMode(true));
+    promptEl.addEventListener('blur', () => {
+      setTimeout(() => setTypingMode(document.activeElement === promptEl), 80);
+    });
+    window.addEventListener('resize', syncViewportHeight);
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', syncViewportHeight);
+      window.visualViewport.addEventListener('scroll', syncViewportHeight);
+    }
     resizePrompt();
+    syncViewportHeight();
     updateControls();
     async function poll() {
       if (!token && initialTokenState !== 'cookie') {

@@ -120,6 +120,11 @@ chrome. Transcript lines wrap for narrow phone widths, and live snapshots render
 subtle role tinting for system, user, and assistant lines while preserving the
 plain terminal text first paint.
 
+On iOS, the prompt uses a 16px input size to prevent Safari focus zoom. The page
+also tracks `visualViewport` changes so the terminal shell resizes with the
+keyboard, hides the extra key rail while typing, and keeps the prompt row inside
+the viewport safe-area margins.
+
 ## Safety
 
 Do not expose the server publicly. Use the printed `Phone URL` for phone access
