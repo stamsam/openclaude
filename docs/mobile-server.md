@@ -128,11 +128,16 @@ the viewport safe-area margins.
 While typing, the dock collapses into a tighter composer/status stack so the
 transcript and prompt move with the visible screen instead of leaving awkward
 dead space. Starting a prompt with `/` opens a compact command suggestion strip.
-Phone-safe actions (`/dismiss`, `/stop`) and phone-local actions (`/clear`,
-`/retry`) are labeled separately from terminal-only commands. Terminal-only
-commands such as `/model`, `/provider`, `/tui`, `/server`, and `/exit` are shown
-as unavailable from the phone and are intercepted client-side before they can be
-submitted into the live terminal session.
+The bare slash menu only shows phone-usable actions: phone-safe actions
+(`/dismiss`, `/stop`) and phone-local actions (`/clear`, `/retry`). Terminal-only
+commands such as `/model`, `/provider`, `/tui`, `/server`, and `/exit` appear
+only when searched by name, are shown as unavailable from the phone, and are
+intercepted client-side before they can be submitted into the live terminal
+session. When one is submitted, the phone keeps the text in the composer and
+shows a local terminal notice. Disabled submit and stop states are also handled
+locally where possible to avoid unnecessary rejected network calls; the prompt
+placeholder changes from `type here` to `working` or `terminal busy` when phone
+submit is unavailable.
 
 ## Safety
 

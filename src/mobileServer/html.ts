@@ -291,10 +291,19 @@ export function renderMobileServerHtml({
       border-color: rgba(126,231,135,.24);
       background: rgba(126,231,135,.065);
     }
+    .suggestion.phoneLocal {
+      border-color: rgba(117,215,255,.22);
+      background: rgba(117,215,255,.06);
+    }
     .suggestion.terminalOnly {
-      color: var(--dim);
-      border-color: rgba(255,255,255,.09);
-      background: rgba(255,255,255,.035);
+      color: var(--muted);
+      border-color: rgba(255,255,255,.14);
+      background: rgba(255,255,255,.055);
+    }
+    .suggestion.terminalOnly[aria-selected="true"] {
+      color: var(--muted);
+      border-color: rgba(255,255,255,.18);
+      background: rgba(255,255,255,.07);
     }
     .suggestion[aria-selected="true"] {
       color: var(--ink);
@@ -332,6 +341,12 @@ export function renderMobileServerHtml({
       font: inherit;
       font-size: 13px;
       font-weight: 900;
+    }
+    .send:disabled {
+      opacity: 1;
+      border-color: rgba(255,255,255,.11);
+      background: rgba(126,231,135,.22);
+      color: rgba(6,16,6,.55);
     }
     .terminalStatus {
       min-width: 0;
@@ -430,6 +445,12 @@ export function renderMobileServerHtml({
       color: #ffc0c7;
       border-color: rgba(255,104,117,.32);
       background: rgba(255,104,117,.1);
+    }
+    .danger:disabled {
+      opacity: 1;
+      color: rgba(255,192,199,.38);
+      border-color: rgba(255,104,117,.16);
+      background: rgba(255,104,117,.035);
     }
     .iconKey {
       width: 36px;
@@ -540,7 +561,7 @@ export function renderMobileServerHtml({
       { value: '/dismiss', name: '/dismiss', meta: 'phone safe', kind: 'mobile' },
       { value: '/clear', name: '/clear', meta: 'phone local', kind: 'local' },
       { value: '/retry', name: '/retry', meta: 'phone local', kind: 'local' },
-      { value: '/stop', name: '/stop', meta: 'phone safe', kind: 'local' },
+      { value: '/stop', name: '/stop', meta: 'phone safe', kind: 'mobile' },
       { value: '/model', name: '/model', meta: 'terminal only', kind: 'terminal' },
       { value: '/provider', name: '/provider', meta: 'terminal only', kind: 'terminal' },
       { value: '/tui', name: '/tui', meta: 'terminal only', kind: 'terminal' },
@@ -552,6 +573,7 @@ export function renderMobileServerHtml({
     let promptHistoryIndex = -1;
     let visibleSuggestions = [];
     let selectedSuggestionIndex = 0;
+    let lastSuggestionQuery = null;
     let eventSource = null;
     let fallbackPollInterval = null;
     let lastEventAt = 0;
@@ -725,17 +747,29 @@ export function renderMobileServerHtml({
     }
     function renderSuggestions() {
       const query = slashCommandQuery();
+      if (query !== lastSuggestionQuery) {
+        selectedSuggestionIndex = 0;
+        lastSuggestionQuery = query;
+      }
       visibleSuggestions = query === null
         ? []
         : commandSuggestions
-          .filter(command => command.value.slice(1).startsWith(query))
+          .filter(command => {
+            if (query === '' && command.kind === 'terminal') return false;
+            return command.value.slice(1).startsWith(query);
+          })
           .slice(0, 5);
       selectedSuggestionIndex = Math.min(selectedSuggestionIndex, Math.max(visibleSuggestions.length - 1, 0));
       document.body.classList.toggle('suggesting', visibleSuggestions.length > 0);
       suggestionsEl.replaceChildren(...visibleSuggestions.map((command, index) => {
         const button = document.createElement('button');
         button.type = 'button';
-        button.className = 'suggestion ' + (command.kind === 'terminal' ? 'terminalOnly' : 'phoneSafe');
+        const kindClass = command.kind === 'terminal'
+          ? 'terminalOnly'
+          : command.kind === 'local'
+            ? 'phoneLocal'
+            : 'phoneSafe';
+        button.className = 'suggestion ' + kindClass;
         button.setAttribute('aria-selected', index === selectedSuggestionIndex ? 'true' : 'false');
         if (command.kind === 'terminal') button.setAttribute('aria-disabled', 'true');
         button.title = command.kind === 'terminal'
@@ -816,6 +850,11 @@ export function renderMobileServerHtml({
       const canStop = canStopRun(snapshot);
       sendButton.disabled = !canSubmit || promptEl.value.trim().length === 0;
       stopButton.disabled = !canStop;
+      promptEl.placeholder = canSubmit
+        ? 'type here'
+        : snapshot?.busyOwner === 'terminal'
+          ? 'terminal busy'
+          : 'working';
     }
     function canSubmitPrompt(snapshot = latestSnapshot) {
       const busy = snapshot && (snapshot.state === 'busy' || snapshot.activeRunId);
@@ -826,10 +865,6 @@ export function renderMobileServerHtml({
     }
     async function runLocalSlashCommand(prompt) {
       const command = prompt.trim().toLowerCase();
-      if (isTerminalOnlyCommand(command)) {
-        showTerminalOnlyCommand(command);
-        return true;
-      }
       if (command === '/clear') {
         localTurns = [];
         renderTerminal({ state: 'idle', messages: [] });
@@ -867,6 +902,13 @@ export function renderMobileServerHtml({
     async function submitPrompt(value = promptEl.value) {
       const prompt = value.trim();
       if (!prompt) return;
+      if (isTerminalOnlyCommand(prompt)) {
+        showTerminalOnlyCommand(prompt);
+        updateControls();
+        renderSuggestions();
+        resetMomentaryMods();
+        return;
+      }
       if (await runLocalSlashCommand(prompt)) {
         promptHistory.push(prompt);
         promptHistory = promptHistory.slice(-50);
@@ -903,6 +945,13 @@ export function renderMobileServerHtml({
       await submitPrompt(command);
     }
     async function stopRun() {
+      if (!canStopRun()) {
+        showLocalNotice(latestSnapshot?.busyOwner === 'terminal'
+          ? 'Terminal-owned work can only be stopped from the terminal.'
+          : 'No mobile-owned run is active.');
+        updateControls();
+        return;
+      }
       await api('/api/stop', { method: 'POST', body: '{}' });
       resetMomentaryMods();
       await poll();

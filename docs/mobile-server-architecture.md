@@ -51,8 +51,11 @@ There are currently two mobile/server surfaces:
   routes instead of the internal `/api/*` routes. It intentionally does not
   expose provider credential mutation; `GET /provider/auth` returns no auth
   methods. Its built-in page now separates phone-safe and phone-local slash
-  affordances from terminal-only commands, and blocks terminal-only slash
-  commands in the browser before they reach the live REPL.
+  affordances from terminal-only commands, keeps terminal-only commands out of
+  the default bare-slash menu, and blocks terminal-only slash commands in the
+  browser before they reach the live REPL. Disabled submit/stop states are also
+  short-circuited in the browser where possible to avoid avoidable mutation
+  requests.
 - `openclaude server` is the separate headless daemon. It exposes the first
   OpenCode-style compatibility layer:
 
