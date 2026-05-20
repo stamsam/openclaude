@@ -114,6 +114,8 @@ openclaude
 ### Private Fork Features
 
 - **/learn**: Review and apply local learnings. OpenClaude tracks patterns and feedback to improve its coding quality in your specific workspace.
+- **/server [local|status|stop|tailscale|pair|reset-token]**: Start or manage the in-session phone companion UI for the live terminal session.
+- **/exit** and **/quit**: Exit the interactive REPL through the normal shutdown flow.
 - **/telegram [on|off|status|setup]**: Bridge your live terminal session to a Telegram bot for remote coding from your phone.
 - **openclaude server**: Start a headless HTTP server for long-lived sessions,
   remote control connections, and early mobile-style REST/SSE clients. See
@@ -312,6 +314,18 @@ The goal command is local-first and works without any external service.
 ---
 
 ## Headless HTTP / Mobile Server
+
+OpenClaude now has two server surfaces:
+
+- `/server` runs a session-scoped phone companion UI for the OpenClaude process
+  already open in your terminal. Use `/server` for quick local access, `/server
+  tailscale` for phone access over Tailscale, `/server pair` for another device,
+  and `/server stop` to shut it down. Tailscale pairing prints a terminal QR
+  code. It supports token, cookie, and Basic auth, plus an OpenCode-style
+  `/global/event` SSE stream, `/doc`, and `/openapi.json`. See
+  [`docs/mobile-server.md`](docs/mobile-server.md).
+- `openclaude server` runs a separate headless daemon for long-lived sessions,
+  local dashboards, and future OpenCode-style mobile clients.
 
 OpenClaude can run as a headless HTTP server for local dashboards, phone
 clients, and future OpenCode-style mobile workflows. The current server exposes

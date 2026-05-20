@@ -9,6 +9,11 @@ describe('builtInCommandNames', () => {
   test('includes the LSP command', () => {
     expect(builtInCommandNames()).toContain('lsp')
   })
+
+  test('includes local session commands', () => {
+    expect(builtInCommandNames()).toContain('server')
+    expect(builtInCommandNames()).toContain('exit')
+  })
 })
 
 describe('isCommand', () => {

@@ -52,6 +52,7 @@ import rename from './commands/rename/index.js'
 import resume from './commands/resume/index.js'
 import review, { ultrareview } from './commands/review.js'
 import session from './commands/session/index.js'
+import server from './commands/server/index.js'
 import share from './commands/share/index.js'
 import skills from './commands/skills/index.js'
 import status from './commands/status/index.js'
@@ -338,6 +339,7 @@ const COMMANDS = memoize((): Command[] => [
   rename,
   resume,
   session,
+  server,
   skills,
   stats,
   status,

@@ -34,7 +34,19 @@ The public mobile API should be:
 
 ## Current Slice
 
-The current server now exposes the first compatibility layer:
+There are currently two mobile/server surfaces:
+
+- `/server` is the in-session phone companion. It starts a small HTTP UI from
+  the live REPL process and mirrors the current transcript, status, model, and
+  prompt submission path. It now uses an OpenCode-style `/global/event` SSE
+  stream for live snapshot updates, with polling only as a fallback. It also
+  exposes `/doc` and `/openapi.json` for client discovery, server-renders the
+  first authorized snapshot, removes tokenized pairing URLs from browser
+  history, pauses mobile streams while backgrounded, closes SSE clients on
+  shutdown, blocks cookie-only mutations without a mobile AJAX header, and does
+  not render private state to unpaired root page loads.
+- `openclaude server` is the separate headless daemon. It exposes the first
+  OpenCode-style compatibility layer:
 
 - `GET /global/health`
 - `GET /global/event`

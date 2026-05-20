@@ -148,6 +148,7 @@ import { handlePromptSubmit, type PromptInputHelpers } from '../utils/handleProm
 import { useQueueProcessor } from '../hooks/useQueueProcessor.js';
 import { useMailboxBridge } from '../hooks/useMailboxBridge.js';
 import { useTelegramBridge } from '../hooks/useTelegramBridge.js';
+import { useMobileServer } from '../hooks/useMobileServer.js';
 import { queryCheckpoint, logQueryProfileReport } from '../utils/queryProfiler.js';
 import type { Message as MessageType, UserMessage, ProgressMessage, HookResultMessage, PartialCompactDirection } from '../types/message.js';
 import { query } from '../query.js';
@@ -4200,6 +4201,12 @@ export function REPL({
     onSubmitMessage: handleIncomingTelegramPrompt,
     onAbortCurrent: () => abortControllerRef.current?.abort('user-cancel'),
     getSideQuestionContext: getTelegramSideQuestionContext,
+  });
+  useMobileServer({
+    isLoading,
+    messages,
+    onSubmitMessage: handleIncomingTelegramPrompt,
+    onAbortCurrent: () => abortControllerRef.current?.abort('user-cancel'),
   });
 
   // Scheduled tasks from .claude/scheduled_tasks.json (CronCreate/Delete/List)

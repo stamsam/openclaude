@@ -5,8 +5,8 @@
 - Repo: `/Users/samstamatiou/Desktop/AI Workspace/Codex Projects/active/openclaude-private`
 - Current branch: `main`
 - Status last checked: 2026-05-20
-- Current local head: `f7a04fd4 Add xAI OAuth profile support`
-- Private remote head: `origin/main` at `f7a04fd4 Add xAI OAuth profile support`
+- Current local head: mobile `/server` restoration and hardening slice on top of `5252fcc3 Add headless mobile server API`
+- Private remote head: expected to match local `main` after the push for this slice
 - Stock comparison ref: `gitlawb/main` refreshed from `https://github.com/Gitlawb/openclaude.git` at `03f87915 fix(xml): guard escapeXml/escapeXmlAttr against null and undefined (#1250)`
 - Important caveat: refreshed stock `main` currently has no merge base with this private fork, so compare by snapshot diff (`git diff gitlawb/main HEAD`) rather than ancestry diff (`...`).
 
@@ -15,7 +15,7 @@
 - Read `README.md` for install, quick start, and current fork features.
 - Read `docs/fork-map.md` before applying upstream patches.
 - Read `docs/agent-view.md` for the background session dashboard.
-- Read `docs/mobile-server-architecture.md` before doing more phone/mobile work.
+- Read `docs/mobile-server.md` and `docs/mobile-server-architecture.md` before doing more phone/mobile work.
 - Read `docs/learning.md` for `/learn` behavior and safety boundaries.
 - Read `docs/telegram.md` for phone/Telegram control.
 - Read `docs/fullscreen-rendering.md` for `/tui fullscreen`.
@@ -27,8 +27,8 @@
 - First-class xAI support with Grok 4.3, XAI_API_KEY auth, and xAI OAuth browser flow integration.
 - Local learning engine (`src/learning`) with `/learn` command.
 - Telegram bridge (`src/telegram`) with `/telegram` and CLI `telegram` command.
-- Headless session server (`src/server`) with `openclaude server` CLI command
-  and an early OpenCode-style mobile API layer.
+- In-session phone companion (`/server`) plus headless session server
+  (`openclaude server`) with an early OpenCode-style mobile API layer.
 - First-class oMLX local model support, including saved provider profiles, live `/v1/models` discovery, `profile:doctor`, `profile:benchmark`, local runtime status, and auto-unload behavior.
 - Optional `omlx-anthropic` route for Anthropic-compatible oMLX `/v1/messages` servers.
 - Cerebras provider support and credential routing hardening.
@@ -45,33 +45,39 @@
 - CI/test hardening for stateful HOME/config-sensitive tests.
 - Web search fallback/provider routing hardening and OpenGateway fallback handling.
 
-## Current Dirty Tree
+## Current Slice
 
-This checkout is not clean. `HEAD` and `origin/main` match. The intended feature slice spans docs, xAI/provider routing, generated integration metadata, build/typecheck config, Antigravity ignore hygiene, optional auto-mode prompt import hardening, and the headless mobile server.
+This slice restores the in-session `/server` phone companion that was missing
+from `main`, verifies `/exit` remains registered, and documents the two server
+modes. After committing/pushing this handoff, `git status --short --branch`
+should show `main` clean and even with `origin/main`.
 
 Documentation/status edits:
 
 - `AGENT_HANDOFF.md`
 - `README.md`
 - `CHANGELOG.md`
+- `docs/mobile-server.md`
 - `docs/mobile-server-architecture.md`
 
-Code/config edits:
+In-session `/server` files:
 
-- `.gitignore` (ignores `.antigravitycli/`)
-- `scripts/build.ts`
-- `src/integrations/generated/integrationArtifacts.generated.ts` (regenerated after xAI descriptor changes)
-- `src/integrations/vendors/xai.ts`
-- `src/main.tsx` (awaits server listen before printing dynamic port and writes a normalized `127.0.0.1` URL when bound to `0.0.0.0`)
-- `src/services/api/openaiErrorClassification.ts`
-- `src/services/api/openaiShim.ts`
-- `src/utils/providerProfile.ts`
-- `src/utils/providerSecrets.ts`
-- `src/utils/providerValidation.ts`
-- `src/utils/permissions/yoloClassifier.ts` (optional prompt asset imports no longer crash tests when prompt files are absent)
-- `tsconfig.app.json` (keeps the app typecheck narrow while covering the direct server support files)
+- `src/commands/server/index.ts`
+- `src/commands/server/server.ts`
+- `src/commands/server/server.test.ts`
+- `src/hooks/useMobileServer.tsx`
+- `src/mobileServer/html.ts`
+- `src/mobileServer/html.test.ts`
+- `src/mobileServer/server.ts`
+- `src/mobileServer/server.test.ts`
+- `src/mobileServer/tokenStore.ts`
+- `src/mobileServer/tokenStore.test.ts`
+- `src/screens/REPL.tsx`
+- `src/state/AppStateStore.ts`
+- `src/commands.ts`
+- `src/commands.test.ts`
 
-Headless server files:
+Existing headless server files from `5252fcc3`:
 
 - `src/server/backends/dangerousBackend.ts`
 - `src/server/lockfile.ts`
@@ -99,6 +105,7 @@ git diff --stat gitlawb/main HEAD
 bun run typecheck
 bun run build
 bun run integrations:check
+bun test src/commands/server/server.test.ts src/mobileServer/html.test.ts src/mobileServer/server.test.ts src/mobileServer/tokenStore.test.ts src/hooks/useMobileServer.test.ts src/commands.test.ts
 bun test src/server/server.test.ts src/server/lockfile.test.ts src/server/sessionManager.test.ts
 bun test src/utils/permissions/yoloClassifier.test.ts src/utils/providerProfiles.test.ts
 bun test src/utils/providerProfile.test.ts src/utils/providerProfiles.test.ts src/utils/providerValidation.test.ts src/services/api/openaiShim.test.ts src/services/api/openaiErrorClassification.test.ts src/integrations/routeMetadata.test.ts
@@ -115,7 +122,10 @@ bun test src/utils/providerProfile.test.ts src/utils/providerProfiles.test.ts sr
 - **Antigravity cleanup:** Removed the local `.antigravitycli` symlink artifact and added `.antigravitycli/` to `.gitignore`.
 - **Optional auto-mode prompt import hardening:** `src/utils/permissions/yoloClassifier.ts` no longer crashes test/provider imports when optional classifier prompt text files are absent from this private checkout.
 - **Build/typecheck fix:** Kept the app typecheck focused enough to stay fast while still covering the direct server files; the server no longer needs a `bun` external because it no longer imports Bun runtime APIs.
-- **Verification completed in this pass:** `bun run typecheck`, `bun run build`, `bun run integrations:check`, `bun test src/server/server.test.ts src/server/lockfile.test.ts src/server/sessionManager.test.ts`, `bun test src/utils/permissions/yoloClassifier.test.ts src/utils/providerProfiles.test.ts`, the focused 289-test provider/API route suite, and a `node dist/cli.mjs server --port 0 --host 127.0.0.1` smoke covering auth rejection, Basic auth health, Bearer `/project`, SSE `server.connected`, `/session` create, `/session/status`, and abort all pass. `git diff --check` and `git diff --cached --check` pass.
+- **In-session `/server` restoration:** Restored the prior phone companion command, mobile HTTP UI, token store, REPL hook, and app-state wiring. `/server` starts local-only by default, `/server tailscale` enables phone access, `/server pair` adds a device token, and `/server stop` disables it for the live session. `/exit` and `/quit` were already registered and now have a focused registry assertion.
+- **OpenCode-style mobile refinement:** The in-session mobile server now accepts Basic auth with the device token as password, exposes `/global/health`, `/global/event`, `/project`, `/project/current`, `/session`, `/session/status`, `/session/live/message`, `/doc`, and `/openapi.json`, and the phone page uses EventSource for live snapshot updates with slower polling only as fallback. The UI also has a compact mobile app header for project/model/session state, server-rendered initial snapshots, token URL scrubbing after pairing, standalone web app metadata, larger touch targets, reliable-only default controls, paired-success feedback, and background/foreground stream lifecycle handling.
+- **Latest mobile hardening:** Snapshot payloads now expose `canSubmit`, `canStop`, and `busyOwner` so the phone does not show a usable Stop button for terminal-owned work. Cookie-authenticated mutations require `X-OpenClaude-Mobile: 1`, query tokens no longer authorize POSTs, unauthenticated root loads are tested against private state leaks, SSE clients close on server stop, OpenAPI no longer publishes the full workspace path, the root mobile page uses per-response CSP nonces instead of `unsafe-inline`, `/server pair` preserves an existing Tailscale phone bind, and `/server tailscale` prints a terminal QR code.
+- **Verification completed in the latest `/server` pass:** `bun test src/commands/server/server.test.ts src/mobileServer/html.test.ts src/mobileServer/server.test.ts src/mobileServer/tokenStore.test.ts src/hooks/useMobileServer.test.ts src/commands.test.ts`, `bun test src/server/server.test.ts src/server/lockfile.test.ts src/server/sessionManager.test.ts`, `bun run typecheck`, and `bun run build` pass.
 
 ## Do Not Assume
 

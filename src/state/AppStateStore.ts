@@ -163,6 +163,18 @@ export type AppState = DeepImmutable<{
   telegramBridgeError?: string
   telegramBridgeWorkspaceDir?: string
   telegramBridgeConfigVersion?: number
+  mobileServerEnabled?: boolean
+  mobileServerConnected?: boolean
+  mobileServerError?: string
+  mobileServerHost?: string
+  mobileServerPort?: number
+  mobileServerToken?: string
+  mobileServerUrl?: string
+  mobileServerTailscaleUrl?: string
+  mobileServerTailscaleHost?: string
+  mobileServerWorkspaceDir?: string
+  mobileServerConfigVersion?: number
+  mobileServerStartedAt?: number
   activeLocalOverlayKind?: string
   activeLocalOverlaySequence?: number
   dismissLocalOverlayRequestNonce?: number
@@ -510,6 +522,18 @@ export function getDefaultAppState(): AppState {
     telegramBridgeError: undefined,
     telegramBridgeWorkspaceDir: undefined,
     telegramBridgeConfigVersion: 0,
+    mobileServerEnabled: false,
+    mobileServerConnected: false,
+    mobileServerError: undefined,
+    mobileServerHost: undefined,
+    mobileServerPort: undefined,
+    mobileServerToken: undefined,
+    mobileServerUrl: undefined,
+    mobileServerTailscaleUrl: undefined,
+    mobileServerTailscaleHost: undefined,
+    mobileServerWorkspaceDir: undefined,
+    mobileServerConfigVersion: 0,
+    mobileServerStartedAt: undefined,
     activeLocalOverlayKind: undefined,
     activeLocalOverlaySequence: 0,
     dismissLocalOverlayRequestNonce: 0,

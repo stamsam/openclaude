@@ -8,11 +8,16 @@
 * **xAI:** Support xAI OAuth browser flow and secure token storage
 * **xAI:** Automatic `chat_completions` mode mapping for xAI OAuth sessions
 * **server:** Add headless HTTP mobile API primitives with Basic auth, health, SSE, project, session, message, and abort routes
+* **server:** Restore `/server` in-session mobile companion command and phone UI
+* **server:** Add OpenCode-style `/global/event`, project, session, and Basic auth compatibility to the in-session mobile server
+* **server:** Add mobile API docs, OpenAPI JSON, standalone web app metadata, token URL scrubbing, and server-rendered first snapshots
+* **server:** Harden mobile CSRF handling, stop SSE clients on shutdown, add Tailscale pairing QR output, and clarify mobile busy/stop states
 * **version:** Major bump to 12.0.0 for xAI integration and runtime hardening
 
 ### Bug Fixes
 
 * **server:** Normalize `0.0.0.0` display URLs, close SSE clients on shutdown, and keep optional Antigravity CLI state out of git status
+* **commands:** Confirm `/exit` and `/quit` remain registered for the interactive REPL
 * **tests:** Avoid crashing when optional auto-mode classifier prompt assets are absent
 
 
