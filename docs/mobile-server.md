@@ -127,9 +127,12 @@ the viewport safe-area margins.
 
 While typing, the dock collapses into a tighter composer/status stack so the
 transcript and prompt move with the visible screen instead of leaving awkward
-dead space. Starting a prompt with `/` opens a compact command suggestion strip
-for supported phone actions (`/dismiss`, `/clear`, `/retry`, `/stop`) and labels
-terminal-only commands such as `/model` without executing them from the phone.
+dead space. Starting a prompt with `/` opens a compact command suggestion strip.
+Phone-safe actions (`/dismiss`, `/stop`) and phone-local actions (`/clear`,
+`/retry`) are labeled separately from terminal-only commands. Terminal-only
+commands such as `/model`, `/provider`, `/tui`, `/server`, and `/exit` are shown
+as unavailable from the phone and are intercepted client-side before they can be
+submitted into the live terminal session.
 
 ## Safety
 

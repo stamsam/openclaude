@@ -5,8 +5,8 @@
 - Repo: `/Users/samstamatiou/Desktop/AI Workspace/Codex Projects/active/openclaude-private`
 - Current branch: `main`
 - Status last checked: 2026-05-20
-- Current local head: mobile `/server` restoration and hardening slice on top of `5252fcc3 Add headless mobile server API`
-- Private remote head: expected to match local `main` after the push for this slice
+- Current local head before this pass: `a088d930 Add mobile slash command suggestions`
+- Private remote head: check with `git status --short --branch` after push; this repo may also contain unrelated local exit-summary edits
 - Stock comparison ref: `gitlawb/main` refreshed from `https://github.com/Gitlawb/openclaude.git` at `03f87915 fix(xml): guard escapeXml/escapeXmlAttr against null and undefined (#1250)`
 - Important caveat: refreshed stock `main` currently has no merge base with this private fork, so compare by snapshot diff (`git diff gitlawb/main HEAD`) rather than ancestry diff (`...`).
 
@@ -47,35 +47,35 @@
 
 ## Current Slice
 
-This slice restores the in-session `/server` phone companion that was missing
-from `main`, verifies `/exit` remains registered, and documents the two server
-modes. After committing/pushing this handoff, `git status --short --branch`
-should show `main` clean and even with `origin/main`.
+This slice polishes the in-session `/server` phone companion UI and keeps it
+phone-first: terminal-like layout, iPhone keyboard behavior, slash suggestions,
+and client-side guards for commands that still require the local terminal UI.
+After committing/pushing this slice, `git status --short --branch` may still
+show unrelated exit-summary work that was already dirty before this pass.
 
-Documentation/status edits:
+Documentation/status edits in this slice:
 
 - `AGENT_HANDOFF.md`
-- `README.md`
-- `CHANGELOG.md`
 - `docs/mobile-server.md`
 - `docs/mobile-server-architecture.md`
 
-In-session `/server` files:
+In-session `/server` files touched in this slice:
 
-- `src/commands/server/index.ts`
-- `src/commands/server/server.ts`
-- `src/commands/server/server.test.ts`
-- `src/hooks/useMobileServer.tsx`
 - `src/mobileServer/html.ts`
 - `src/mobileServer/html.test.ts`
-- `src/mobileServer/server.ts`
-- `src/mobileServer/server.test.ts`
-- `src/mobileServer/tokenStore.ts`
-- `src/mobileServer/tokenStore.test.ts`
-- `src/screens/REPL.tsx`
-- `src/state/AppStateStore.ts`
-- `src/commands.ts`
-- `src/commands.test.ts`
+
+Unrelated dirty files present before this pass and not part of the mobile
+server commit:
+
+- `src/bootstrap/state.ts`
+- `src/cost-tracker.ts`
+- `src/costHook.ts`
+- `src/services/tools/toolExecution.ts`
+- `src/setup.ts`
+- `src/utils/config.ts`
+- `src/utils/gracefulShutdown.ts`
+- `src/utils/exitSummary.ts`
+- `src/utils/exitSummary.test.ts`
 
 Existing headless server files from `5252fcc3`:
 
@@ -129,8 +129,10 @@ bun test src/utils/providerProfile.test.ts src/utils/providerProfiles.test.ts sr
 - **OpenCode-style discovery aliases:** The in-session mobile server also exposes read-only `GET /provider`, `GET /provider/auth`, `GET /config`, `GET /config/providers`, and `GET /command` endpoints backed by the live session snapshot. `/project` now returns the OpenCode-documented array shape, `GET /provider/auth` returns no credential methods, and `POST /session/live/command` only forwards the mobile-safe `dismiss` command.
 - **Mobile UI polish:** The phone page now presents a tighter mini-terminal surface with metadata kept in the header/status rail, transcript-first session content, a stronger single-line terminal header, subtle role-based transcript tinting, a dedicated prompt bar, separated action/modifier/key rows, and deterministic transcript wrapping for narrow iPhone-width viewports.
 - **iOS keyboard polish:** The prompt uses 16px text to avoid Safari focus zoom, the shell tracks `visualViewport` height changes, typing mode hides the extra key rail, and the prompt row stays inside safe-area margins so it remains docked above the phone keyboard.
-- **Mobile slash suggestions:** Typing `/` now opens a compact suggestion strip for phone-safe actions (`/dismiss`, `/clear`, `/retry`, `/stop`) and labels terminal-only commands like `/model` without trying to run unsupported local TUI flows from the phone.
-- **Verification completed in the latest `/server` pass:** `bun test src/commands/server/server.test.ts src/mobileServer/html.test.ts src/mobileServer/server.test.ts src/mobileServer/tokenStore.test.ts src/hooks/useMobileServer.test.ts src/commands.test.ts`, `bun test src/server/server.test.ts src/server/lockfile.test.ts src/server/sessionManager.test.ts`, `bun run typecheck`, and `bun run build` pass.
+- **Mobile slash suggestions:** Typing `/` now opens a compact suggestion strip that distinguishes phone-safe actions (`/dismiss`, `/stop`), phone-local controls (`/clear`, `/retry`), and terminal-only commands (`/model`, `/provider`, `/tui`, `/server`, `/exit`). Terminal-only suggestions are visually disabled and intercepted in the browser before they can be submitted into the live terminal session.
+- **Mobile submit efficiency:** The phone page now checks `canSubmit` locally before posting prompts, so Enter on a disabled prompt shows a local notice instead of making an avoidable rejected request.
+- **Latest preview screenshots:** Phone-sized Chrome DevTools captures were saved at `/tmp/openclaude-mobile-server-screenshots/normal.png` and `/tmp/openclaude-mobile-server-screenshots/slash-typing.png`. The slash capture simulates the browser-visible typing/keyboard viewport state; headless Chrome cannot render the real iOS Safari keyboard.
+- **Verification completed in the latest `/server` pass:** `bun test src/commands/server/server.test.ts src/mobileServer/html.test.ts src/mobileServer/server.test.ts src/mobileServer/tokenStore.test.ts src/hooks/useMobileServer.test.ts src/commands.test.ts`, `bun test src/server/server.test.ts src/server/lockfile.test.ts src/server/sessionManager.test.ts`, `bun run typecheck`, `bun run build`, and `git diff --check` pass.
 
 ## Do Not Assume
 

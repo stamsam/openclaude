@@ -55,10 +55,32 @@ describe('mobile server html', () => {
     expect(html).toContain("value: '/retry'")
     expect(html).toContain("value: '/stop'")
     expect(html).toContain("value: '/model'")
+    expect(html).toContain("value: '/provider'")
+    expect(html).toContain("value: '/tui'")
+    expect(html).toContain("value: '/exit'")
     expect(html).toContain("meta: 'terminal only'")
+    expect(html).toContain("meta: 'phone safe'")
+    expect(html).toContain("meta: 'phone local'")
+    expect(html).toContain("aria-disabled', 'true'")
+    expect(html).toContain('terminalOnly')
+    expect(html).toContain('phoneSafe')
     expect(html).toContain('function renderSuggestions()')
     expect(html).toContain('function acceptSuggestion')
     expect(html).toContain('function runLocalSlashCommand(prompt)')
+    expect(html).toContain('function isTerminalOnlyCommand(command)')
+    expect(html).toContain('function showTerminalOnlyCommand(command)')
+    expect(html).toContain('is not runnable from the phone yet')
+  })
+
+  test('prevents disabled mobile submits before posting to the server', () => {
+    const html = renderMobileServerHtml()
+
+    expect(html).toContain('function canSubmitPrompt(snapshot = latestSnapshot)')
+    expect(html).toContain('function canStopRun(snapshot = latestSnapshot)')
+    expect(html).toContain('function showLocalNotice(text)')
+    expect(html).toContain('if (!canSubmitPrompt())')
+    expect(html).toContain('Phone submit is paused until the local session is idle.')
+    expect(html).toContain('A mobile run is already active.')
   })
 
   test('keeps token auth available for mobile webviews that strip auth headers', () => {

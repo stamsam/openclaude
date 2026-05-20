@@ -50,7 +50,9 @@ There are currently two mobile/server surfaces:
   `POST /session/live/abort` so OpenCode-shaped mobile clients can use session
   routes instead of the internal `/api/*` routes. It intentionally does not
   expose provider credential mutation; `GET /provider/auth` returns no auth
-  methods.
+  methods. Its built-in page now separates phone-safe and phone-local slash
+  affordances from terminal-only commands, and blocks terminal-only slash
+  commands in the browser before they reach the live REPL.
 - `openclaude server` is the separate headless daemon. It exposes the first
   OpenCode-style compatibility layer:
 

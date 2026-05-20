@@ -287,6 +287,15 @@ export function renderMobileServerHtml({
       border-color: rgba(181,156,255,.2);
       background: rgba(181,156,255,.07);
     }
+    .suggestion.phoneSafe {
+      border-color: rgba(126,231,135,.24);
+      background: rgba(126,231,135,.065);
+    }
+    .suggestion.terminalOnly {
+      color: var(--dim);
+      border-color: rgba(255,255,255,.09);
+      background: rgba(255,255,255,.035);
+    }
     .suggestion[aria-selected="true"] {
       color: var(--ink);
       border-color: var(--green);
@@ -528,12 +537,15 @@ export function renderMobileServerHtml({
     const suggestionsEl = document.getElementById('suggestions');
     const mods = { shift: false, cmd: false, alt: false, ctrl: false };
     const commandSuggestions = [
-      { value: '/dismiss', name: '/dismiss', meta: 'close overlay', kind: 'mobile' },
-      { value: '/clear', name: '/clear', meta: 'clear phone', kind: 'local' },
-      { value: '/retry', name: '/retry', meta: 'reconnect', kind: 'local' },
-      { value: '/stop', name: '/stop', meta: 'stop run', kind: 'local' },
+      { value: '/dismiss', name: '/dismiss', meta: 'phone safe', kind: 'mobile' },
+      { value: '/clear', name: '/clear', meta: 'phone local', kind: 'local' },
+      { value: '/retry', name: '/retry', meta: 'phone local', kind: 'local' },
+      { value: '/stop', name: '/stop', meta: 'phone safe', kind: 'local' },
       { value: '/model', name: '/model', meta: 'terminal only', kind: 'terminal' },
+      { value: '/provider', name: '/provider', meta: 'terminal only', kind: 'terminal' },
+      { value: '/tui', name: '/tui', meta: 'terminal only', kind: 'terminal' },
       { value: '/server', name: '/server', meta: 'terminal only', kind: 'terminal' },
+      { value: '/exit', name: '/exit', meta: 'terminal only', kind: 'terminal' },
     ];
     let localTurns = [];
     let promptHistory = [];
@@ -723,8 +735,9 @@ export function renderMobileServerHtml({
       suggestionsEl.replaceChildren(...visibleSuggestions.map((command, index) => {
         const button = document.createElement('button');
         button.type = 'button';
-        button.className = 'suggestion';
+        button.className = 'suggestion ' + (command.kind === 'terminal' ? 'terminalOnly' : 'phoneSafe');
         button.setAttribute('aria-selected', index === selectedSuggestionIndex ? 'true' : 'false');
+        if (command.kind === 'terminal') button.setAttribute('aria-disabled', 'true');
         button.title = command.kind === 'terminal'
           ? command.name + ' is available from the terminal, not the phone yet'
           : command.name;
@@ -743,6 +756,10 @@ export function renderMobileServerHtml({
     function acceptSuggestion(index = selectedSuggestionIndex) {
       const command = visibleSuggestions[index];
       if (!command) return false;
+      if (command.kind === 'terminal') {
+        showTerminalOnlyCommand(command.value);
+        return false;
+      }
       setPromptValue(command.value);
       return true;
     }
@@ -795,14 +812,24 @@ export function renderMobileServerHtml({
       syncViewportHeight();
     }
     function updateControls(snapshot = latestSnapshot) {
-      const busy = snapshot && (snapshot.state === 'busy' || snapshot.activeRunId);
-      const canSubmit = typeof snapshot?.canSubmit === 'boolean' ? snapshot.canSubmit : !busy;
-      const canStop = typeof snapshot?.canStop === 'boolean' ? snapshot.canStop : !!snapshot?.activeRunId;
+      const canSubmit = canSubmitPrompt(snapshot);
+      const canStop = canStopRun(snapshot);
       sendButton.disabled = !canSubmit || promptEl.value.trim().length === 0;
       stopButton.disabled = !canStop;
     }
+    function canSubmitPrompt(snapshot = latestSnapshot) {
+      const busy = snapshot && (snapshot.state === 'busy' || snapshot.activeRunId);
+      return typeof snapshot?.canSubmit === 'boolean' ? snapshot.canSubmit : !busy;
+    }
+    function canStopRun(snapshot = latestSnapshot) {
+      return typeof snapshot?.canStop === 'boolean' ? snapshot.canStop : !!snapshot?.activeRunId;
+    }
     async function runLocalSlashCommand(prompt) {
       const command = prompt.trim().toLowerCase();
+      if (isTerminalOnlyCommand(command)) {
+        showTerminalOnlyCommand(command);
+        return true;
+      }
       if (command === '/clear') {
         localTurns = [];
         renderTerminal({ state: 'idle', messages: [] });
@@ -820,6 +847,23 @@ export function renderMobileServerHtml({
       }
       return false;
     }
+    function isTerminalOnlyCommand(command) {
+      const name = String(command || '').trim().split(/\\s+/)[0].toLowerCase();
+      return commandSuggestions.some(item => item.kind === 'terminal' && item.value === name);
+    }
+    function showTerminalOnlyCommand(command) {
+      const name = String(command || '').trim().split(/\\s+/)[0] || 'that command';
+      localTurns.push({
+        id: 'terminal-only-' + Date.now(),
+        role: 'system',
+        text: name + ' opens local terminal UI and is not runnable from the phone yet.',
+      });
+      renderTerminal({ ...latestSnapshot, state: latestSnapshot.state || 'idle', messages: localTurns });
+    }
+    function showLocalNotice(text) {
+      localTurns.push({ id: 'notice-' + Date.now(), role: 'system', text });
+      renderTerminal({ ...latestSnapshot, state: latestSnapshot.state || 'idle', messages: localTurns });
+    }
     async function submitPrompt(value = promptEl.value) {
       const prompt = value.trim();
       if (!prompt) return;
@@ -832,6 +876,13 @@ export function renderMobileServerHtml({
         updateControls();
         renderSuggestions();
         resetMomentaryMods();
+        return;
+      }
+      if (!canSubmitPrompt()) {
+        showLocalNotice(latestSnapshot?.busyOwner === 'terminal'
+          ? 'Terminal is working. Phone submit is paused until the local session is idle.'
+          : 'A mobile run is already active. Stop it or wait for it to finish.');
+        updateControls();
         return;
       }
       promptHistory.push(prompt);
