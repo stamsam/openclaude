@@ -122,7 +122,9 @@ plain terminal text first paint. Long final-response bullets, screenshot paths,
 and validation commands wrap at path separators where possible instead of
 leaving dense one-character bullet lines. The transcript also keeps extra bottom
 padding in typing mode so the final visible lines sit above the mobile composer
-and browser accessory area.
+and browser accessory area. Common assistant final-summary headings such as
+Changed, Validation, Screenshots, and Caveats get a small amount of extra
+vertical rhythm while bullet lists remain compact.
 
 On iOS, the prompt uses a 16px input size to prevent Safari focus zoom. The page
 also tracks `visualViewport` changes so the terminal shell resizes with the

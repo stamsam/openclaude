@@ -216,6 +216,20 @@ export function renderMobileServerHtml({
       font-weight: 760;
     }
     .termAssistant { color: #e8e4ed; }
+    .termSummaryHeading {
+      margin-top: .48em;
+      color: var(--text);
+      font-weight: 820;
+    }
+    .termSummaryHeading:first-child {
+      margin-top: 0;
+    }
+    .termSummaryBullet {
+      line-height: 1.46;
+    }
+    .termSummaryContinuation {
+      color: #d8d3df;
+    }
     .dim { color: var(--dim); }
     .dock {
       min-width: 0;
@@ -698,9 +712,24 @@ export function renderMobileServerHtml({
       const cleaned = cleanText(text);
       if (!cleaned) return;
       const wrapped = cleaned.split('\\n').flatMap(line => wrapTerminalLine(line));
-      rows.push({ kind, text: prefix + wrapped[0] });
-      for (const line of wrapped.slice(1)) rows.push({ kind, text: '  ' + line });
+      const firstLine = prefix + wrapped[0];
+      rows.push({ kind: rowKind(kind, firstLine), text: firstLine });
+      for (const line of wrapped.slice(1)) {
+        const text = '  ' + line;
+        rows.push({ kind: rowKind(kind, text), text });
+      }
       rows.push({ kind: 'termDim', text: '' });
+    }
+    function rowKind(kind, text) {
+      if (kind !== 'termAssistant') return kind;
+      const trimmed = String(text || '').trim();
+      if (isSummaryHeading(trimmed)) return kind + ' termSummaryHeading';
+      if (/^[-*]\\s+/.test(trimmed)) return kind + ' termSummaryBullet';
+      if (/^(\\/|~\\/|\\w+\\s+(test|run|build|typecheck)\\b)/.test(trimmed)) return kind + ' termSummaryContinuation';
+      return kind;
+    }
+    function isSummaryHeading(text) {
+      return /^(commit|changed|validation(?: passed)?|screenshots?|caveats?|built|tests?):$/i.test(text);
     }
     function renderTerminal(snapshot) {
       const remote = Array.isArray(snapshot.messages) ? snapshot.messages : [];
