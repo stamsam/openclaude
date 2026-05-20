@@ -125,6 +125,12 @@ also tracks `visualViewport` changes so the terminal shell resizes with the
 keyboard, hides the extra key rail while typing, and keeps the prompt row inside
 the viewport safe-area margins.
 
+While typing, the dock collapses into a tighter composer/status stack so the
+transcript and prompt move with the visible screen instead of leaving awkward
+dead space. Starting a prompt with `/` opens a compact command suggestion strip
+for supported phone actions (`/dismiss`, `/clear`, `/retry`, `/stop`) and labels
+terminal-only commands such as `/model` without executing them from the phone.
+
 ## Safety
 
 Do not expose the server publicly. Use the printed `Phone URL` for phone access

@@ -74,6 +74,8 @@ export function renderMobileServerHtml({
       height: var(--app-height);
       width: 100vw;
       max-width: 100vw;
+      position: fixed;
+      inset: 0;
       padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
       overscroll-behavior: none;
       background:
@@ -221,7 +223,9 @@ export function renderMobileServerHtml({
       background: var(--dock);
       border-top: 1px solid var(--line);
       backdrop-filter: blur(18px) saturate(130%);
-      padding: 7px 0 max(6px, env(safe-area-inset-bottom));
+      display: grid;
+      gap: 5px;
+      padding: 6px 0 max(6px, env(safe-area-inset-bottom));
     }
     .promptRow {
       min-width: 0;
@@ -232,7 +236,7 @@ export function renderMobileServerHtml({
       align-items: center;
       gap: 8px;
       min-height: 44px;
-      margin: 0 max(8px, env(safe-area-inset-right)) 6px max(8px, env(safe-area-inset-left));
+      margin: 0 max(8px, env(safe-area-inset-right)) 0 max(8px, env(safe-area-inset-left));
       padding: 4px 5px 4px 9px;
       border: 1px solid var(--line-strong);
       border-radius: 7px;
@@ -258,6 +262,56 @@ export function renderMobileServerHtml({
       line-height: 1.42;
     }
     textarea::placeholder { color: var(--dim); }
+    .suggestions {
+      min-width: 0;
+      max-width: 100vw;
+      display: none;
+      gap: 5px;
+      overflow-x: auto;
+      scrollbar-width: none;
+      padding: 0 max(8px, env(safe-area-inset-right)) 0 max(8px, env(safe-area-inset-left));
+    }
+    .suggestions::-webkit-scrollbar { display: none; }
+    body.suggesting .suggestions {
+      display: flex;
+    }
+    .suggestion {
+      height: 32px;
+      min-width: 84px;
+      max-width: 150px;
+      display: inline-grid;
+      align-content: center;
+      gap: 1px;
+      text-align: left;
+      padding: 0 8px;
+      border-color: rgba(181,156,255,.2);
+      background: rgba(181,156,255,.07);
+    }
+    .suggestion[aria-selected="true"] {
+      color: var(--ink);
+      border-color: var(--green);
+      background: var(--green);
+    }
+    .suggestionName,
+    .suggestionMeta {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .suggestionName {
+      color: inherit;
+      font-size: 10.5px;
+      font-weight: 820;
+    }
+    .suggestionMeta {
+      color: var(--dim);
+      font-size: 8.75px;
+      font-weight: 680;
+    }
+    .suggestion[aria-selected="true"] .suggestionMeta {
+      color: rgba(6,16,6,.7);
+    }
     .send {
       width: var(--touch);
       min-width: var(--touch);
@@ -278,7 +332,7 @@ export function renderMobileServerHtml({
       grid-template-columns: auto auto 1fr;
       align-items: center;
       gap: 7px;
-      padding: 0 max(11px, env(safe-area-inset-right)) 5px max(11px, env(safe-area-inset-left));
+      padding: 0 max(11px, env(safe-area-inset-right)) 0 max(11px, env(safe-area-inset-left));
       color: var(--muted);
       font-size: 10.5px;
     }
@@ -379,7 +433,11 @@ export function renderMobileServerHtml({
       display: none;
     }
     body.typing .dock {
-      padding-bottom: max(9px, env(safe-area-inset-bottom));
+      gap: 4px;
+      padding-bottom: max(8px, env(safe-area-inset-bottom));
+    }
+    body.typing #terminal {
+      padding-bottom: 10px;
     }
     @media (max-width: 390px) {
       html, body { font-size: 12.25px; }
@@ -388,6 +446,7 @@ export function renderMobileServerHtml({
       .mod { min-width: 51px; }
       button { min-width: 35px; padding: 0 6px; }
       #terminal { padding-top: 10px; }
+      .suggestion { min-width: 78px; }
     }
   </style>
 </head>
@@ -409,6 +468,7 @@ export function renderMobileServerHtml({
         <textarea id="prompt" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="send" placeholder="type here"></textarea>
         <button id="send" class="send" aria-label="Send">↵</button>
       </div>
+      <div id="suggestions" class="suggestions" aria-label="Command suggestions"></div>
       <div class="terminalStatus" aria-live="polite"><span id="statusDot"></span><span id="state">link</span><span id="meta">connecting...</span></div>
       <div class="rail">
         <div class="row actionRow" aria-label="Actions">
@@ -465,10 +525,21 @@ export function renderMobileServerHtml({
     const sessionStateEl = document.getElementById('sessionState');
     const sendButton = document.getElementById('send');
     const stopButton = document.getElementById('stop');
+    const suggestionsEl = document.getElementById('suggestions');
     const mods = { shift: false, cmd: false, alt: false, ctrl: false };
+    const commandSuggestions = [
+      { value: '/dismiss', name: '/dismiss', meta: 'close overlay', kind: 'mobile' },
+      { value: '/clear', name: '/clear', meta: 'clear phone', kind: 'local' },
+      { value: '/retry', name: '/retry', meta: 'reconnect', kind: 'local' },
+      { value: '/stop', name: '/stop', meta: 'stop run', kind: 'local' },
+      { value: '/model', name: '/model', meta: 'terminal only', kind: 'terminal' },
+      { value: '/server', name: '/server', meta: 'terminal only', kind: 'terminal' },
+    ];
     let localTurns = [];
     let promptHistory = [];
     let promptHistoryIndex = -1;
+    let visibleSuggestions = [];
+    let selectedSuggestionIndex = 0;
     let eventSource = null;
     let fallbackPollInterval = null;
     let lastEventAt = 0;
@@ -626,6 +697,55 @@ export function renderMobileServerHtml({
         button.classList.toggle('active', !!mods[button.dataset.mod]);
       });
     }
+    function slashCommandQuery() {
+      const value = promptEl.value.trimStart();
+      if (!value.startsWith('/') || /\\s/.test(value)) return null;
+      return value.slice(1).toLowerCase();
+    }
+    function setPromptValue(value) {
+      promptEl.value = value;
+      promptEl.focus();
+      promptEl.selectionStart = promptEl.selectionEnd = promptEl.value.length;
+      resizePrompt();
+      updateControls();
+      renderSuggestions();
+      syncViewportHeight();
+    }
+    function renderSuggestions() {
+      const query = slashCommandQuery();
+      visibleSuggestions = query === null
+        ? []
+        : commandSuggestions
+          .filter(command => command.value.slice(1).startsWith(query))
+          .slice(0, 5);
+      selectedSuggestionIndex = Math.min(selectedSuggestionIndex, Math.max(visibleSuggestions.length - 1, 0));
+      document.body.classList.toggle('suggesting', visibleSuggestions.length > 0);
+      suggestionsEl.replaceChildren(...visibleSuggestions.map((command, index) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'suggestion';
+        button.setAttribute('aria-selected', index === selectedSuggestionIndex ? 'true' : 'false');
+        button.title = command.kind === 'terminal'
+          ? command.name + ' is available from the terminal, not the phone yet'
+          : command.name;
+        const name = document.createElement('span');
+        name.className = 'suggestionName';
+        name.textContent = command.name;
+        const meta = document.createElement('span');
+        meta.className = 'suggestionMeta';
+        meta.textContent = command.meta;
+        button.append(name, meta);
+        button.addEventListener('pointerdown', event => event.preventDefault());
+        button.addEventListener('click', () => acceptSuggestion(index));
+        return button;
+      }));
+    }
+    function acceptSuggestion(index = selectedSuggestionIndex) {
+      const command = visibleSuggestions[index];
+      if (!command) return false;
+      setPromptValue(command.value);
+      return true;
+    }
     function insertText(text) {
       const start = promptEl.selectionStart || 0;
       const end = promptEl.selectionEnd || 0;
@@ -633,6 +753,8 @@ export function renderMobileServerHtml({
       promptEl.focus();
       promptEl.selectionStart = promptEl.selectionEnd = start + text.length;
       resizePrompt();
+      updateControls();
+      renderSuggestions();
     }
     function moveCaret(delta) {
       const next = Math.max(0, Math.min(promptEl.value.length, (promptEl.selectionStart || 0) + delta));
@@ -647,6 +769,8 @@ export function renderMobileServerHtml({
       promptEl.focus();
       promptEl.selectionStart = promptEl.selectionEnd = promptEl.value.length;
       resizePrompt();
+      updateControls();
+      renderSuggestions();
     }
     function resizePrompt() {
       promptEl.style.height = '0px';
@@ -677,9 +801,39 @@ export function renderMobileServerHtml({
       sendButton.disabled = !canSubmit || promptEl.value.trim().length === 0;
       stopButton.disabled = !canStop;
     }
+    async function runLocalSlashCommand(prompt) {
+      const command = prompt.trim().toLowerCase();
+      if (command === '/clear') {
+        localTurns = [];
+        renderTerminal({ state: 'idle', messages: [] });
+        return true;
+      }
+      if (command === '/retry') {
+        reconnectNoticeShown = false;
+        await poll();
+        connectEventStream();
+        return true;
+      }
+      if (command === '/stop') {
+        await stopRun();
+        return true;
+      }
+      return false;
+    }
     async function submitPrompt(value = promptEl.value) {
       const prompt = value.trim();
       if (!prompt) return;
+      if (await runLocalSlashCommand(prompt)) {
+        promptHistory.push(prompt);
+        promptHistory = promptHistory.slice(-50);
+        promptHistoryIndex = -1;
+        promptEl.value = '';
+        resizePrompt();
+        updateControls();
+        renderSuggestions();
+        resetMomentaryMods();
+        return;
+      }
       promptHistory.push(prompt);
       promptHistory = promptHistory.slice(-50);
       promptHistoryIndex = -1;
@@ -689,6 +843,7 @@ export function renderMobileServerHtml({
       promptEl.value = '';
       resizePrompt();
       updateControls();
+      renderSuggestions();
       resetMomentaryMods();
       await poll();
     }
@@ -704,14 +859,12 @@ export function renderMobileServerHtml({
     function handleVirtualKey(key) {
       if (mods.ctrl && (key === 'c' || key === 'd' || key === 'esc')) return stopRun();
       if (mods.cmd && mods.shift && key === 'slash') {
-        promptEl.value = '/';
-        promptEl.focus();
+        setPromptValue('/');
         resetMomentaryMods();
         return;
       }
       if (mods.cmd && key === 'slash') {
-        promptEl.value = '';
-        promptEl.focus();
+        setPromptValue('');
         resetMomentaryMods();
         return;
       }
@@ -794,6 +947,25 @@ export function renderMobileServerHtml({
       connectEventStream();
     });
     promptEl.addEventListener('keydown', (event) => {
+      if (document.body.classList.contains('suggesting')) {
+        if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+          event.preventDefault();
+          selectedSuggestionIndex = (selectedSuggestionIndex + 1) % visibleSuggestions.length;
+          renderSuggestions();
+          return;
+        }
+        if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+          event.preventDefault();
+          selectedSuggestionIndex = (selectedSuggestionIndex + visibleSuggestions.length - 1) % visibleSuggestions.length;
+          renderSuggestions();
+          return;
+        }
+        if (event.key === 'Tab') {
+          event.preventDefault();
+          acceptSuggestion();
+          return;
+        }
+      }
       if (event.key === 'Enter' && !event.shiftKey && !event.altKey) {
         event.preventDefault();
         submitPrompt().catch(handleActionError);
@@ -801,6 +973,7 @@ export function renderMobileServerHtml({
     });
     promptEl.addEventListener('input', resizePrompt);
     promptEl.addEventListener('input', () => updateControls());
+    promptEl.addEventListener('input', renderSuggestions);
     promptEl.addEventListener('focus', () => setTypingMode(true));
     promptEl.addEventListener('blur', () => {
       setTimeout(() => setTypingMode(document.activeElement === promptEl), 80);
@@ -811,6 +984,7 @@ export function renderMobileServerHtml({
       window.visualViewport.addEventListener('scroll', syncViewportHeight);
     }
     resizePrompt();
+    renderSuggestions();
     syncViewportHeight();
     updateControls();
     async function poll() {

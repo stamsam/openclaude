@@ -37,11 +37,28 @@ describe('mobile server html', () => {
     expect(html).toContain('interactive-widget=resizes-content')
     expect(html).toContain('font-size: 16px')
     expect(html).toContain('body.typing .rail')
+    expect(html).toContain('body.typing #terminal')
     expect(html).toContain('function syncViewportHeight()')
     expect(html).toContain('window.visualViewport')
     expect(html).toContain('function wrapTerminalLine')
     expect(html).toContain('termSystem')
     expect(html).toContain('termAssistant')
+  })
+
+  test('suggests slash commands without opening terminal-only commands', () => {
+    const html = renderMobileServerHtml()
+
+    expect(html).toContain('id="suggestions"')
+    expect(html).toContain('Command suggestions')
+    expect(html).toContain("value: '/dismiss'")
+    expect(html).toContain("value: '/clear'")
+    expect(html).toContain("value: '/retry'")
+    expect(html).toContain("value: '/stop'")
+    expect(html).toContain("value: '/model'")
+    expect(html).toContain("meta: 'terminal only'")
+    expect(html).toContain('function renderSuggestions()')
+    expect(html).toContain('function acceptSuggestion')
+    expect(html).toContain('function runLocalSlashCommand(prompt)')
   })
 
   test('keeps token auth available for mobile webviews that strip auth headers', () => {
