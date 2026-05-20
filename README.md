@@ -8,6 +8,11 @@ Use OpenAI-compatible APIs, Gemini, GitHub Models, Codex OAuth, Codex, Ollama, A
 
 ## What's New
 
+- First-class xAI support with Grok 4.3, XAI_API_KEY auth, and xAI OAuth browser flow integration
+- Local learning with `/learn` — review and apply persistent session learnings to improve future agent accuracy
+- Live Telegram bridge with `/telegram` — interact with your OpenClaude session via a secure Telegram bot
+- Headless session server with `openclaude server` — run OpenClaude as a daemon
+  for remote control, persistence, and early mobile-style REST/SSE clients
 - First-class oMLX local model support with saved provider profiles, `OMLX_API_KEY`, `/v1/models` discovery, `dev:omlx`, `profile:doctor`, and `profile:benchmark`
 - Optional `omlx-anthropic` fast path for oMLX Anthropic-compatible `/v1/messages` servers, kept separate from the default oMLX preset for safer tool behavior
 - Autonomous goal mode with `/goal <objective>` — set a verifiable goal and the agent immediately starts work without a second prompt. It loops autonomously (plan -> act -> review -> continue) across turns until complete. Includes token budget tracking, elapsed-time display, footer status, advisory plans, checkpoints, and auto-completion signals
@@ -37,7 +42,7 @@ Fork map: [`docs/fork-map.md`](docs/fork-map.md)
 
 - Use one CLI across cloud APIs and local model backends
 - Save provider profiles inside the app with `/provider`
-- Run with OpenAI-compatible services, Gemini, GitHub Models, Codex OAuth, Codex, Ollama, Atomic Chat, and other supported providers
+- Run with OpenAI-compatible services, xAI, Gemini, GitHub Models, Codex OAuth, Codex, Ollama, Atomic Chat, and other supported providers
 - Keep coding-agent workflows in one place: bash, file tools, grep, glob, agents, tasks, MCP, and web tools
 - Use the bundled VS Code extension for launch integration and theme support
 
@@ -106,6 +111,36 @@ $env:OPENAI_MODEL="gpt-4o"
 openclaude
 ```
 
+### Private Fork Features
+
+- **/learn**: Review and apply local learnings. OpenClaude tracks patterns and feedback to improve its coding quality in your specific workspace.
+- **/telegram [on|off|status|setup]**: Bridge your live terminal session to a Telegram bot for remote coding from your phone.
+- **openclaude server**: Start a headless HTTP server for long-lived sessions,
+  remote control connections, and early mobile-style REST/SSE clients. See
+  [`docs/mobile-server-architecture.md`](docs/mobile-server-architecture.md).
+
+### Fastest xAI setup
+
+macOS / Linux:
+
+```bash
+export CLAUDE_CODE_USE_OPENAI=1
+export XAI_API_KEY=your-key-here
+export OPENAI_MODEL=grok-4.3
+
+openclaude
+```
+
+Windows PowerShell:
+
+```powershell
+$env:CLAUDE_CODE_USE_OPENAI="1"
+$env:XAI_API_KEY="your-key-here"
+$env:OPENAI_MODEL="grok-4.3"
+
+openclaude
+```
+
 ### Fastest local Ollama setup
 
 macOS / Linux:
@@ -160,6 +195,7 @@ Advanced and source-build guides:
 | Gemini | `/provider` or env vars | Supports API key only |
 | GitHub Models | `/onboard-github` | Interactive onboarding with saved credentials |
 | Codex OAuth | `/provider` | Opens ChatGPT sign-in in your browser and stores Codex credentials securely |
+| xAI | `/provider` or env vars | Supports XAI_API_KEY and xAI OAuth browser flow |
 | Codex | `/provider` | Uses existing Codex CLI auth, OpenClaude secure storage, or env credentials |
 | Ollama | `/provider`, env vars, or `ollama launch` | Local inference with no API key |
 | Atomic Chat | `/provider`, env vars, or `bun run dev:atomic-chat` | Local Model Provider; auto-detects loaded models |
@@ -275,43 +311,59 @@ The goal command is local-first and works without any external service.
 
 ---
 
-## Headless gRPC Server
+## Headless HTTP / Mobile Server
 
-OpenClaude can be run as a headless gRPC service, allowing you to integrate its agentic capabilities (tools, bash, file editing) into other applications, CI/CD pipelines, or custom user interfaces. The server uses bidirectional streaming to send real-time text chunks, tool calls, and request permissions for sensitive commands.
+OpenClaude can run as a headless HTTP server for local dashboards, phone
+clients, and future OpenCode-style mobile workflows. The current server exposes
+health, Server-Sent Events, project, session, prompt, message, and abort routes.
+It keeps the older WebSocket session bridge for compatibility while the richer
+domain API is filled in.
 
-### 1. Start the gRPC Server
+### Start the server
 
-Start the core engine as a gRPC service on `localhost:50051`:
-
-```bash
-npm run dev:grpc
-```
-
-#### Configuration
-
-| Variable | Default | Description |
-|-----------|-------------|------------------------------------------------|
-| `GRPC_PORT` | `50051` | Port the gRPC server listens on |
-| `GRPC_HOST` | `localhost` | Bind address. Use `0.0.0.0` to expose on all interfaces (not recommended without authentication) |
-
-### 2. Run the Test CLI Client
-
-We provide a lightweight CLI client that communicates exclusively over gRPC. It acts just like the main interactive CLI, rendering colors, streaming tokens, and prompting you for tool permissions (y/n) via the gRPC `action_required` event.
-
-In a separate terminal, run:
+Start the server on a random local port:
 
 ```bash
-npm run dev:grpc:cli
+node dist/cli.mjs server --host 127.0.0.1 --port 0
 ```
 
-*Note: The gRPC definitions are located in `src/proto/openclaude.proto`. You can use this file to generate clients in Python, Go, Rust, or any other language.*
+For LAN/mobile testing, bind to all interfaces and use the printed endpoint or
+the machine's LAN IP:
+
+```bash
+node dist/cli.mjs server --host 0.0.0.0 --port 0
+```
+
+Important routes:
+
+| Route | Purpose |
+|-------|---------|
+| `GET /global/health` | server reachability check |
+| `GET /global/event` | SSE stream with `server.connected`, heartbeat, session, status, and message events |
+| `GET /project` | current project/directory metadata |
+| `GET /session` / `POST /session` | list or create sessions |
+| `GET /session/:id/message` | message records with `info` and `parts` |
+| `POST /session/:id/message` | send a text prompt |
+| `POST /session/:id/abort` | stop a running session |
+
+Auth accepts the generated Bearer token and OpenCode-style Basic auth. The Basic
+username defaults to `openclaude`; override it with `--auth-username`.
+
+```bash
+curl -H "Authorization: Basic $(printf 'openclaude:<token>' | base64)" \
+  http://127.0.0.1:<port>/global/health
+```
+
+See [`docs/mobile-server-architecture.md`](docs/mobile-server-architecture.md)
+for the OpenCode comparison and remaining mobile API work.
 
 ### Telegram bridge
 
 OpenClaude supports two Telegram paths:
 
 - in-session Telegram access with `/telegram` and `/telegram setup`
-- a standalone local bridge command that talks to the headless gRPC server
+- a legacy standalone local bridge command that talks to the older headless
+  gRPC server
 
 For the live REPL path, launch OpenClaude normally and then use:
 
@@ -337,7 +389,7 @@ The in-session bridge is intended for controlling a live local OpenClaude sessio
 
 The bridge is local-first: it uses Telegram long polling, accepts messages only from the configured numeric Telegram user ID, does not store secrets in repo files, and keeps tool approvals local for now.
 
-For the standalone bridge, start the gRPC server:
+For the legacy standalone bridge, start the gRPC server:
 
 ```bash
 npm run dev:grpc

@@ -7,7 +7,13 @@
     "src/telegram/runtimeState.ts",
     "src/utils/localRuntimeStatus.ts",
     "src/utils/omlxModelLifecycle.ts",
-    "src/utils/terminalMascot.ts"
+    "src/utils/terminalMascot.ts",
+    "src/server/server.ts",
+    "src/server/serverBanner.tsx",
+    "src/server/sessionManager.ts",
+    "src/server/lockfile.ts",
+    "src/server/backends/dangerousBackend.ts",
+    "src/server/types.ts"
   ],
   "include": [],
   "exclude": [

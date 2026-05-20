@@ -14,6 +14,7 @@ export type ServerConfig = {
   port: number
   host: string
   authToken: string
+  authUsername?: string
   unix?: string
   /** Idle timeout for detached sessions (ms). 0 = never expire. */
   idleTimeoutMs?: number

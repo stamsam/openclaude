@@ -94,6 +94,10 @@ type SecretValueSource = Partial<{
   GOOGLE_API_KEY: string
   GEMINI_ACCESS_TOKEN: string
   MISTRAL_API_KEY: string
+  BNKR_API_KEY: string
+  XAI_API_KEY: string
+  XAI_OAUTH_ACCESS_TOKEN: string
+  TELEGRAM_BOT_TOKEN: string
 }>
 
 const GITHUB_429_MAX_RETRIES = 3

@@ -7,6 +7,8 @@ export default defineVendor({
   defaultBaseUrl: 'https://api.x.ai/v1',
   defaultModel: 'grok-4.3',
   requiredEnvVars: ['XAI_API_KEY'],
+  baseUrlEnvVars: ['XAI_BASE_URL'],
+  modelEnvVars: ['XAI_MODEL', 'OPENAI_MODEL'],
   setup: {
     requiresAuth: true,
     authMode: 'token',
@@ -18,8 +20,8 @@ export default defineVendor({
   preset: {
     id: 'xai',
     description: 'xAI Grok OpenAI-compatible endpoint',
-    apiKeyEnvVars: ['XAI_API_KEY'],
-    modelEnvVars: ['OPENAI_MODEL'],
+    apiKeyEnvVars: ['XAI_API_KEY', 'XAI_OAUTH_ACCESS_TOKEN'],
+    modelEnvVars: ['XAI_MODEL', 'OPENAI_MODEL'],
   },
   validation: {
     kind: 'credential-env',

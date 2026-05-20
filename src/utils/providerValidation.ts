@@ -378,11 +378,15 @@ export async function getProviderValidationError(
 ): Promise<string | null> {
   const secretSource: SecretValueSource = {
     OPENAI_API_KEY: env.OPENAI_API_KEY,
+    OPENAI_AUTH_HEADER_VALUE: env.OPENAI_AUTH_HEADER_VALUE,
     CODEX_API_KEY: env.CODEX_API_KEY,
     GEMINI_API_KEY: env.GEMINI_API_KEY,
     GOOGLE_API_KEY: env.GOOGLE_API_KEY,
     MISTRAL_API_KEY: env.MISTRAL_API_KEY,
     BNKR_API_KEY: env.BNKR_API_KEY,
+    XAI_API_KEY: env.XAI_API_KEY,
+    XAI_OAUTH_ACCESS_TOKEN: env.XAI_OAUTH_ACCESS_TOKEN,
+    GEMINI_ACCESS_TOKEN: env.GEMINI_ACCESS_TOKEN,
   }
   const useOpenAI = isEnvTruthy(env.CLAUDE_CODE_USE_OPENAI)
   const validationTarget = getRuntimeValidationTarget(env)

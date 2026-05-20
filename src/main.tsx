@@ -3990,10 +3990,11 @@ async function run(): Promise<CommanderCommand> {
 
   // claude server
   if (feature('DIRECT_CONNECT')) {
-    program.command('server').description('Start an OpenClaude session server').option('--port <number>', 'HTTP port', '0').option('--host <string>', 'Bind address', '0.0.0.0').option('--auth-token <token>', 'Bearer token for auth').option('--unix <path>', 'Listen on a unix domain socket').option('--workspace <dir>', 'Default working directory for sessions that do not specify cwd').option('--idle-timeout <ms>', 'Idle timeout for detached sessions in ms (0 = never expire)', '600000').option('--max-sessions <n>', 'Maximum concurrent sessions (0 = unlimited)', '32').action(async (opts: {
+    program.command('server').description('Start an OpenClaude session server').option('--port <number>', 'HTTP port', '0').option('--host <string>', 'Bind address', '0.0.0.0').option('--auth-token <token>', 'Bearer token for auth; also accepted as the Basic auth password').option('--auth-username <username>', 'Basic auth username', 'openclaude').option('--unix <path>', 'Listen on a unix domain socket').option('--workspace <dir>', 'Default working directory for sessions that do not specify cwd').option('--idle-timeout <ms>', 'Idle timeout for detached sessions in ms (0 = never expire)', '600000').option('--max-sessions <n>', 'Maximum concurrent sessions (0 = unlimited)', '32').action(async (opts: {
       port: string;
       host: string;
       authToken?: string;
+      authUsername?: string;
       unix?: string;
       workspace?: string;
       idleTimeout: string;
@@ -4032,6 +4033,7 @@ async function run(): Promise<CommanderCommand> {
         port: parseInt(opts.port, 10),
         host: opts.host,
         authToken,
+        authUsername: opts.authUsername,
         unix: opts.unix,
         workspace: opts.workspace,
         idleTimeoutMs: parseInt(opts.idleTimeout, 10),
@@ -4043,14 +4045,14 @@ async function run(): Promise<CommanderCommand> {
         maxSessions: config.maxSessions
       });
       const logger = createServerLogger();
-      const server = startServer(config, sessionManager, logger);
+      const server = await startServer(config, sessionManager, logger);
       const actualPort = server.port ?? config.port;
       printBanner(config, authToken, actualPort);
       await writeServerLock({
         pid: process.pid,
         port: actualPort,
         host: config.host,
-        httpUrl: config.unix ? `unix:${config.unix}` : `http://${config.host}:${actualPort}`,
+        httpUrl: config.unix ? `unix:${config.unix}` : `http://${config.host === '0.0.0.0' ? '127.0.0.1' : config.host}:${actualPort}`,
         startedAt: Date.now()
       });
       let shuttingDown = false;

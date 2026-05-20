@@ -330,7 +330,8 @@ export function isProviderProfile(value: unknown): value is ProviderProfile {
     value === 'github' ||
     value === 'bedrock' ||
     value === 'vertex' ||
-    value === 'xai'
+    value === 'xai' ||
+    value === 'xai-oauth'
   )
 }
 
@@ -816,10 +817,14 @@ function buildXaiProfileEnv(options: {
     OPENAI_BASE_URL:
       sanitizeProviderConfigValue(options.baseUrl, secretSource) ||
       sanitizeProviderConfigValue(processEnv.OPENAI_BASE_URL, secretSource) ||
+      sanitizeProviderConfigValue(processEnv.XAI_BASE_URL, secretSource) ||
       defaultBaseUrl,
     OPENAI_MODEL:
       normalizeProfileModel(
         sanitizeProviderConfigValue(options.model, secretSource),
+      ) ||
+      normalizeProfileModel(
+        sanitizeProviderConfigValue(processEnv.XAI_MODEL, secretSource),
       ) ||
       normalizeProfileModel(
         sanitizeProviderConfigValue(processEnv.OPENAI_MODEL, secretSource),
@@ -1349,10 +1354,22 @@ export async function buildLaunchEnv(options: {
       sanitizeApiKey(persistedEnv.XAI_API_KEY) ||
       sanitizeApiKey(processEnv.OPENAI_API_KEY) ||
       sanitizeApiKey(persistedEnv.OPENAI_API_KEY)
+    const xaiSecretSource: SecretValueSource = {
+      OPENAI_API_KEY: xaiKey,
+      XAI_API_KEY: xaiKey,
+      XAI_OAUTH_ACCESS_TOKEN: xaiKey,
+    }
+    const shellXaiModel = normalizeProfileModel(
+      sanitizeProviderConfigValue(processEnv.XAI_MODEL, xaiSecretSource),
+    )
+    const shellXaiBaseUrl = sanitizeProviderConfigValue(
+      processEnv.XAI_BASE_URL,
+      xaiSecretSource,
+    )
 
     const env = buildXaiProfileEnv({
-      model: shellOpenAIModel || persistedOpenAIModel,
-      baseUrl: shellOpenAIBaseUrl || persistedOpenAIBaseUrl,
+      model: shellXaiModel || shellOpenAIModel || persistedOpenAIModel,
+      baseUrl: shellXaiBaseUrl || shellOpenAIBaseUrl || persistedOpenAIBaseUrl,
       apiKey: xaiKey,
       processEnv,
     })

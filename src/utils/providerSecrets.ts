@@ -7,6 +7,9 @@ const SECRET_ENV_KEYS = [
   'MISTRAL_API_KEY',
   'BNKR_API_KEY',
   'XAI_API_KEY',
+  'XAI_OAUTH_ACCESS_TOKEN',
+  'GEMINI_ACCESS_TOKEN',
+  'TELEGRAM_BOT_TOKEN',
 ] as const
 
 export type SecretValueSource = Partial<

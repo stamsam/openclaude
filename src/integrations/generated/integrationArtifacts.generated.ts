@@ -348,9 +348,11 @@ export const PROVIDER_PRESET_MANIFEST = [
     "vendorId": "xai",
     "description": "xAI Grok OpenAI-compatible endpoint",
     "apiKeyEnvVars": [
-      "XAI_API_KEY"
+      "XAI_API_KEY",
+      "XAI_OAUTH_ACCESS_TOKEN"
     ],
     "modelEnvVars": [
+      "XAI_MODEL",
       "OPENAI_MODEL"
     ]
   },

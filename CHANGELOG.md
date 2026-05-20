@@ -1,5 +1,21 @@
 # Changelog
 
+## [12.0.0] (2026-05-19)
+
+### Features
+
+* **xAI:** Add first-class xAI support with Grok 4.3, 4, and 3
+* **xAI:** Support xAI OAuth browser flow and secure token storage
+* **xAI:** Automatic `chat_completions` mode mapping for xAI OAuth sessions
+* **server:** Add headless HTTP mobile API primitives with Basic auth, health, SSE, project, session, message, and abort routes
+* **version:** Major bump to 12.0.0 for xAI integration and runtime hardening
+
+### Bug Fixes
+
+* **server:** Normalize `0.0.0.0` display URLs, close SSE clients on shutdown, and keep optional Antigravity CLI state out of git status
+* **tests:** Avoid crashing when optional auto-mode classifier prompt assets are absent
+
+
 ## [0.10.0](https://github.com/Gitlawb/openclaude/compare/v0.9.2...v0.10.0) (2026-05-11)
 
 
