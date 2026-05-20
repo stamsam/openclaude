@@ -103,7 +103,7 @@ describe('mobile server html', () => {
     })
 
     expect(html).toContain('project')
-    expect(html).toContain('cwd ~/project')
+    expect(html).not.toContain('cwd ~/project')
     expect(html).toContain('model&lt;/script&gt;')
     expect(html).toContain('ready &lt;now&gt;')
     expect(html).toContain('window.__SAM_INITIAL_SNAPSHOT__')

@@ -114,10 +114,11 @@ newline. Ctrl+C/Ctrl+D stop mobile-owned runs. Esc dismisses local overlays.
 Other slash commands are blocked from mobile until they have native server
 endpoints, so the phone UI cannot accidentally open local TUI overlays.
 
-The terminal surface uses compact `~/project` workspace labels and wraps
-transcript lines for narrow phone widths so long agent output does not require
-sideways scrolling. Live snapshots render subtle role tinting for system, user,
-and assistant lines while preserving the plain terminal text first paint.
+The terminal surface keeps app/model/workspace metadata in the header and
+status rail, so the transcript starts on session content instead of repeated
+chrome. Transcript lines wrap for narrow phone widths, and live snapshots render
+subtle role tinting for system, user, and assistant lines while preserving the
+plain terminal text first paint.
 
 ## Safety
 

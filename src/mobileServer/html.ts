@@ -560,12 +560,7 @@ export function renderMobileServerHtml({
     function renderTerminal(snapshot) {
       const remote = Array.isArray(snapshot.messages) ? snapshot.messages : [];
       const turns = remote.length ? remote : localTurns;
-      const lines = terminalHeader(snapshot);
-      const rows = [
-        { kind: 'termHeader', text: lines[0] || 'OpenClaude mobile' },
-        ...lines.slice(1).map(line => ({ kind: 'termDim', text: line })),
-        { kind: 'termDim', text: '' },
-      ];
+      const rows = [];
       if (!turns.length && !snapshot.lastResponse) {
         rows.push({ kind: 'termUser', text: '› mobile session ready' });
         rows.push({
@@ -820,8 +815,6 @@ export function renderMobileServerHtml({
       sessionStateEl.textContent = snapshot.state || 'live';
       projectNameEl.textContent = basename(snapshot.workspace) || 'OpenClaude mobile';
       const meta = [
-        snapshot.model || null,
-        snapshot.provider || null,
         snapshot.workspace ? compactWorkspace(snapshot.workspace) : null,
       ].filter(Boolean).join(' · ');
       modelNameEl.textContent = [snapshot.model || null, snapshot.provider || null].filter(Boolean).join(' · ') || 'live terminal session';
@@ -914,11 +907,7 @@ function buildInitialTerminalText(snapshot: MobileServerSnapshot | null): string
     return ['OpenClaude mobile', '', '› connecting to live session'].join('\n')
   }
 
-  const lines = ['OpenClaude mobile']
-  const modelLine = [snapshot.model, snapshot.provider].filter(Boolean).join(' · ')
-  if (modelLine) lines.push(modelLine)
-  if (snapshot.workspace) lines.push(`cwd ${compactWorkspace(snapshot.workspace)}`)
-  lines.push('')
+  const lines: string[] = []
 
   const turns = snapshot.messages ?? []
   if (turns.length === 0 && !snapshot.lastResponse) {
