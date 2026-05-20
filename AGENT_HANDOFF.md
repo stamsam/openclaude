@@ -5,7 +5,7 @@
 - Repo: `/Users/samstamatiou/Desktop/AI Workspace/Codex Projects/active/openclaude-private`
 - Current branch: `main`
 - Status last checked: 2026-05-20
-- Current local head before this pass: `57cfac88 Polish mobile server slash UI`
+- Current local head before this final QA pass: `fb827a3d Tighten mobile server phone controls`
 - Private remote head: check with `git status --short --branch` after push; this repo may also contain unrelated local exit-summary edits
 - Stock comparison ref: `gitlawb/main` refreshed from `https://github.com/Gitlawb/openclaude.git` at `03f87915 fix(xml): guard escapeXml/escapeXmlAttr against null and undefined (#1250)`
 - Important caveat: refreshed stock `main` currently has no merge base with this private fork, so compare by snapshot diff (`git diff gitlawb/main HEAD`) rather than ancestry diff (`...`).
@@ -133,7 +133,8 @@ bun test src/utils/providerProfile.test.ts src/utils/providerProfiles.test.ts sr
 - **Mobile submit efficiency:** The phone page now checks `canSubmit` locally before posting prompts, so Enter on a disabled prompt shows a local notice instead of making an avoidable rejected request.
 - **Follow-up slash polish:** The bare `/` menu now stays limited to phone-usable actions, terminal-only suggestions keep a disabled visual treatment even when selected, phone-local suggestions get their own styling, and typed terminal-only commands keep the prompt text in place while showing the local notice.
 - **Busy/disabled polish:** Disabled submit/stop paths now short-circuit locally where possible. The prompt placeholder changes to `working` or `terminal busy` when submit is unavailable, and disabled send/stop buttons use quieter styling instead of looking runnable.
-- **Latest preview screenshots:** Phone-sized Chrome DevTools captures were saved at `/tmp/openclaude-mobile-review-screenshots/final/idle.png`, `/tmp/openclaude-mobile-review-screenshots/final/slash-typing.png`, and `/tmp/openclaude-mobile-review-screenshots/final/busy.png`. The slash capture simulates the browser-visible typing/keyboard viewport state; headless Chrome cannot render the real iOS Safari keyboard.
+- **Final mobile QA pass:** Reviewed the current `/server` UI on a 390px phone viewport against idle, typing, slash-search, terminal-only, and busy states. The current committed UI already keeps terminal-only commands out of the bare slash menu, shows searched terminal-only commands as unavailable, intercepts typed terminal-only commands locally, and short-circuits disabled submit/stop states before avoidable mutation requests.
+- **Latest preview screenshots:** Phone-sized Chrome DevTools captures were saved at `/tmp/openclaude-mobile-review-screenshots/final/idle.png`, `/tmp/openclaude-mobile-review-screenshots/final/slash-typing.png`, `/tmp/openclaude-mobile-review-screenshots/final/terminal-only-search.png`, `/tmp/openclaude-mobile-review-screenshots/final/terminal-only-notice.png`, and `/tmp/openclaude-mobile-review-screenshots/final/busy.png`. The typing captures simulate the browser-visible keyboard viewport state; headless Chrome cannot render the real iOS Safari keyboard.
 - **Verification completed in the latest `/server` pass:** `bun test src/commands/server/server.test.ts src/mobileServer/html.test.ts src/mobileServer/server.test.ts src/mobileServer/tokenStore.test.ts src/hooks/useMobileServer.test.ts src/commands.test.ts`, `bun test src/server/server.test.ts src/server/lockfile.test.ts src/server/sessionManager.test.ts`, `bun run typecheck`, `bun run build`, and `git diff --check` pass.
 
 ## Do Not Assume

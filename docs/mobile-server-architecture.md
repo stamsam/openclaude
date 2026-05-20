@@ -55,7 +55,10 @@ There are currently two mobile/server surfaces:
   the default bare-slash menu, and blocks terminal-only slash commands in the
   browser before they reach the live REPL. Disabled submit/stop states are also
   short-circuited in the browser where possible to avoid avoidable mutation
-  requests.
+  requests. The final phone QA pass did not require heavier frontend runtime
+  code or new dependencies; the current surface remains a static, dependency-free
+  page backed by the existing snapshot, SSE, polling fallback, submit, and stop
+  routes.
 - `openclaude server` is the separate headless daemon. It exposes the first
   OpenCode-style compatibility layer:
 
