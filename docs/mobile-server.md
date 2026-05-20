@@ -48,12 +48,18 @@ web page and also exposes OpenCode-style read aliases:
 - `GET /global/event`
 - `GET /project`
 - `GET /project/current`
+- `GET /provider`
+- `GET /provider/auth`
+- `GET /config`
+- `GET /config/providers`
+- `GET /command`
 - `GET /session`
 - `GET /session/status`
 - `GET /session/live`
 - `GET /session/live/message`
 - `POST /session/live/message`
 - `POST /session/live/prompt_async`
+- `POST /session/live/command`
 - `POST /session/live/abort`
 - `GET /doc`
 - `GET /openapi.json`
@@ -67,6 +73,16 @@ OpenCode-style mutation aliases accept text parts on
 `POST /session/live/message`, accept simple `{ "prompt": "..." }` bodies on
 `POST /session/live/prompt_async`, and map `POST /session/live/abort` to the
 same mobile-owned stop behavior as the built-in web UI.
+
+The provider/config/command endpoints are intentionally read-only and reflect
+the active live session. They exist so OpenCode-shaped clients can discover the
+current provider, model, and mobile-safe slash commands without requiring the
+full headless daemon. `GET /provider/auth` currently returns no auth methods
+because the phone companion does not manage provider credentials.
+
+`POST /session/live/command` only accepts the mobile-safe `dismiss` command.
+Unknown commands are rejected instead of being forwarded into the local
+terminal session.
 
 The page also publishes `manifest.webmanifest` and iOS standalone metadata so it
 can be saved to the phone home screen as a compact companion app.

@@ -204,7 +204,49 @@ async function routeRequest(
     (url.pathname === '/project' || url.pathname === '/project/current')
   ) {
     const project = projectFromSnapshot(handlers.getSnapshot())
-    sendJson(res, 200, url.pathname === '/project' ? { all: [project] } : project)
+    sendJson(res, 200, url.pathname === '/project' ? [project] : project)
+    return
+  }
+
+  if (
+    req.method === 'GET' &&
+    (url.pathname === '/provider' || url.pathname === '/config/providers')
+  ) {
+    const providers = providersFromSnapshot(handlers.getSnapshot())
+    sendJson(
+      res,
+      200,
+      url.pathname === '/config/providers'
+        ? {
+            providers: providers.all,
+            default: providers.default,
+          }
+        : providers,
+    )
+    return
+  }
+
+  if (req.method === 'GET' && url.pathname === '/provider/auth') {
+    sendJson(res, 200, {})
+    return
+  }
+
+  if (req.method === 'GET' && url.pathname === '/command') {
+    sendJson(res, 200, commandList())
+    return
+  }
+
+  if (req.method === 'GET' && url.pathname === '/config') {
+    const snapshot = handlers.getSnapshot()
+    const provider = providerFromSnapshot(snapshot)
+    sendJson(res, 200, {
+      theme: 'openclaude-mobile',
+      model: snapshot.model ?? 'current',
+      provider: provider.id,
+      path: {
+        cwd: snapshot.workspace,
+      },
+    })
     return
   }
 
@@ -257,6 +299,23 @@ async function routeRequest(
     }
     if (url.pathname.endsWith('/prompt_async')) {
       sendNoContent(res)
+      return
+    }
+    sendJson(res, 202, messageRecordFromText('user', prompt, result.runId))
+    return
+  }
+
+  if (req.method === 'POST' && url.pathname === `/session/${MOBILE_SESSION_ID}/command`) {
+    const body = await readJsonBody(req)
+    const command = typeof body.command === 'string' ? body.command.trim() : ''
+    if (!isAllowedMobileCommand(command)) {
+      sendJson(res, 403, { error: 'Command is not available from mobile.' })
+      return
+    }
+    const prompt = `/${command}`
+    const result = handlers.submitPrompt(prompt)
+    if (!result.ok) {
+      sendJson(res, result.status ?? 409, { error: result.error })
       return
     }
     sendJson(res, 202, messageRecordFromText('user', prompt, result.runId))
@@ -399,6 +458,49 @@ function sessionFromSnapshot(snapshot: MobileServerSnapshot): Record<string, unk
   }
 }
 
+function providersFromSnapshot(snapshot: MobileServerSnapshot): Record<string, unknown> {
+  const provider = providerFromSnapshot(snapshot)
+  return {
+    all: [provider],
+    default: {
+      providerID: provider.id,
+      modelID: provider.models[0]?.id ?? 'current',
+    },
+    connected: [provider.id],
+  }
+}
+
+function providerFromSnapshot(
+  snapshot: MobileServerSnapshot,
+): { id: string; name: string; models: Array<{ id: string; name: string }> } {
+  const providerName = snapshot.provider?.trim() || 'OpenClaude'
+  const modelName = snapshot.model?.trim() || 'current'
+  return {
+    id: slugifyProviderId(providerName),
+    name: providerName,
+    models: [
+      {
+        id: modelName,
+        name: modelName,
+      },
+    ],
+  }
+}
+
+function commandList(): Array<Record<string, unknown>> {
+  return [
+    {
+      name: 'dismiss',
+      description: 'Dismiss the active local overlay.',
+      template: '/dismiss',
+    },
+  ]
+}
+
+function isAllowedMobileCommand(command: string): boolean {
+  return command === 'dismiss'
+}
+
 function messagesFromSnapshot(
   snapshot: MobileServerSnapshot,
 ): Array<Record<string, unknown>> {
@@ -489,6 +591,36 @@ function buildOpenApiDocument(snapshot: MobileServerSnapshot): Record<string, un
           responses: { '200': { description: 'Project list with current project' } },
         },
       },
+      '/config': {
+        get: {
+          summary: 'Mobile config',
+          responses: { '200': { description: 'Current mobile config' } },
+        },
+      },
+      '/config/providers': {
+        get: {
+          summary: 'Provider list and defaults',
+          responses: { '200': { description: 'Provider list and default model' } },
+        },
+      },
+      '/provider': {
+        get: {
+          summary: 'Providers',
+          responses: { '200': { description: 'OpenCode-style provider list' } },
+        },
+      },
+      '/provider/auth': {
+        get: {
+          summary: 'Provider auth methods',
+          responses: { '200': { description: 'Provider auth methods by provider' } },
+        },
+      },
+      '/command': {
+        get: {
+          summary: 'Commands',
+          responses: { '200': { description: 'Mobile-safe command list' } },
+        },
+      },
       '/session': {
         get: {
           summary: 'Live sessions',
@@ -521,6 +653,12 @@ function buildOpenApiDocument(snapshot: MobileServerSnapshot): Record<string, un
         post: {
           summary: 'Submit a prompt asynchronously',
           responses: { '204': { description: 'Prompt accepted' } },
+        },
+      },
+      '/session/live/command': {
+        post: {
+          summary: 'Run a mobile-safe command',
+          responses: { '202': { description: 'Command accepted' } },
         },
       },
       '/session/live/abort': {
@@ -574,12 +712,18 @@ function renderApiDocsHtml(): string {
     ['GET', '/global/health', 'Reachability check'],
     ['GET', '/global/event', 'SSE snapshot stream'],
     ['GET', '/project/current', 'Current project metadata'],
+    ['GET', '/provider', 'Provider and model list'],
+    ['GET', '/provider/auth', 'Provider auth methods'],
+    ['GET', '/config', 'Mobile config summary'],
+    ['GET', '/config/providers', 'Provider defaults'],
+    ['GET', '/command', 'Mobile-safe command list'],
     ['GET', '/session', 'Live terminal session list'],
     ['GET', '/session/status', 'Live status map'],
     ['GET', '/session/live', 'Live terminal session details'],
     ['GET', '/session/live/message', 'OpenCode-style message records'],
     ['POST', '/session/live/message', 'Submit OpenCode-style message parts'],
     ['POST', '/session/live/prompt_async', 'Submit OpenCode-style async prompt'],
+    ['POST', '/session/live/command', 'Run a mobile-safe command'],
     ['POST', '/session/live/abort', 'Stop active mobile-owned run'],
     ['GET', '/api/snapshot', 'Mobile UI snapshot'],
     ['POST', '/api/message', 'Submit prompt text'],
@@ -756,6 +900,16 @@ function isUnsafeCookieMutation(req: IncomingMessage, authKind: AuthKind): boole
 
 function isSafeMethod(req: IncomingMessage): boolean {
   return req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS'
+}
+
+function slugifyProviderId(value: string): string {
+  return (
+    value
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'openclaude'
+  )
 }
 
 async function readJsonBody(req: IncomingMessage): Promise<Record<string, unknown>> {

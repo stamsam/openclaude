@@ -210,6 +210,95 @@ describe('mobile server', () => {
         name: 'project',
       })
 
+      const projects = await fetch(`${baseUrl}project`, {
+        headers: { authorization: 'Bearer sam-test-token' },
+      })
+      expect(projects.status).toBe(200)
+      expect(await projects.json()).toMatchObject([
+        {
+          id: 'current',
+          directory: '/tmp/project',
+          name: 'project',
+        },
+      ])
+
+      const provider = await fetch(`${baseUrl}provider`, {
+        headers: { authorization: 'Bearer sam-test-token' },
+      })
+      expect(provider.status).toBe(200)
+      expect(await provider.json()).toMatchObject({
+        all: [
+          {
+            id: 'openclaude',
+            name: 'OpenClaude',
+            models: [{ id: 'test-model', name: 'test-model' }],
+          },
+        ],
+        default: {
+          providerID: 'openclaude',
+          modelID: 'test-model',
+        },
+        connected: ['openclaude'],
+      })
+
+      const providerAuth = await fetch(`${baseUrl}provider/auth`, {
+        headers: { authorization: 'Bearer sam-test-token' },
+      })
+      expect(providerAuth.status).toBe(200)
+      expect(await providerAuth.json()).toEqual({})
+
+      const authMutation = await fetch(`${baseUrl}auth/openclaude`, {
+        method: 'PUT',
+        headers: {
+          authorization: 'Bearer sam-test-token',
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ key: 'nope' }),
+      })
+      expect(authMutation.status).toBe(404)
+
+      const configProviders = await fetch(`${baseUrl}config/providers`, {
+        headers: { authorization: 'Bearer sam-test-token' },
+      })
+      expect(configProviders.status).toBe(200)
+      expect(await configProviders.json()).toMatchObject({
+        providers: [
+          {
+            id: 'openclaude',
+            models: [{ id: 'test-model' }],
+          },
+        ],
+        default: {
+          providerID: 'openclaude',
+          modelID: 'test-model',
+        },
+      })
+
+      const config = await fetch(`${baseUrl}config`, {
+        headers: { authorization: 'Bearer sam-test-token' },
+      })
+      expect(config.status).toBe(200)
+      expect(await config.json()).toMatchObject({
+        theme: 'openclaude-mobile',
+        model: 'test-model',
+        provider: 'openclaude',
+        path: {
+          cwd: '/tmp/project',
+        },
+      })
+
+      const commands = await fetch(`${baseUrl}command`, {
+        headers: { authorization: 'Bearer sam-test-token' },
+      })
+      expect(commands.status).toBe(200)
+      expect(await commands.json()).toEqual([
+        {
+          name: 'dismiss',
+          description: 'Dismiss the active local overlay.',
+          template: '/dismiss',
+        },
+      ])
+
       const sessions = await fetch(`${baseUrl}session`, {
         headers: { authorization: 'Bearer sam-test-token' },
       })
@@ -287,9 +376,15 @@ describe('mobile server', () => {
       })
       expect(openapiJson.paths).toHaveProperty('/project')
       expect(openapiJson.paths).toHaveProperty('/project/current')
+      expect(openapiJson.paths).toHaveProperty('/provider')
+      expect(openapiJson.paths).toHaveProperty('/provider/auth')
+      expect(openapiJson.paths).toHaveProperty('/config')
+      expect(openapiJson.paths).toHaveProperty('/config/providers')
+      expect(openapiJson.paths).toHaveProperty('/command')
       expect(openapiJson.paths).toHaveProperty('/session/live')
       expect(openapiJson.paths).toHaveProperty('/session/live/message')
       expect(openapiJson.paths).toHaveProperty('/session/live/prompt_async')
+      expect(openapiJson.paths).toHaveProperty('/session/live/command')
       expect(openapiJson.paths).toHaveProperty('/session/live/abort')
       expect(openapiJson.components.securitySchemes).toMatchObject({
         bearerAuth: { type: 'http', scheme: 'bearer' },
@@ -471,6 +566,39 @@ describe('mobile server', () => {
       })
       expect(cookieMutationDenied.status).toBe(403)
       expect(submitted).not.toContain('cookie alias')
+
+      const command = await fetch(`${baseUrl}session/live/command`, {
+        method: 'POST',
+        headers: {
+          authorization: 'Bearer sam-test-token',
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ command: 'dismiss' }),
+      })
+      expect(command.status).toBe(202)
+      expect(await command.json()).toMatchObject({
+        info: {
+          id: 'run-opencode',
+          role: 'user',
+        },
+        parts: [
+          {
+            text: '/dismiss',
+          },
+        ],
+      })
+      expect(submitted).toContain('/dismiss')
+
+      const rejectedCommand = await fetch(`${baseUrl}session/live/command`, {
+        method: 'POST',
+        headers: {
+          authorization: 'Bearer sam-test-token',
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ command: 'exit' }),
+      })
+      expect(rejectedCommand.status).toBe(403)
+      expect(submitted).not.toContain('/exit')
 
       const abort = await fetch(`${baseUrl}session/live/abort`, {
         method: 'POST',
