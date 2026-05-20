@@ -50,7 +50,11 @@ web page and also exposes OpenCode-style read aliases:
 - `GET /project/current`
 - `GET /session`
 - `GET /session/status`
+- `GET /session/live`
 - `GET /session/live/message`
+- `POST /session/live/message`
+- `POST /session/live/prompt_async`
+- `POST /session/live/abort`
 - `GET /doc`
 - `GET /openapi.json`
 
@@ -58,6 +62,11 @@ web page and also exposes OpenCode-style read aliases:
 snapshot updates and falls back to slower polling when EventSource is
 unavailable or interrupted. The stream and fallback polling pause while the page
 is backgrounded and reconnect when it becomes visible again.
+
+OpenCode-style mutation aliases accept text parts on
+`POST /session/live/message`, accept simple `{ "prompt": "..." }` bodies on
+`POST /session/live/prompt_async`, and map `POST /session/live/abort` to the
+same mobile-owned stop behavior as the built-in web UI.
 
 The page also publishes `manifest.webmanifest` and iOS standalone metadata so it
 can be saved to the phone home screen as a compact companion app.

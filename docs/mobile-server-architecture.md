@@ -44,7 +44,11 @@ There are currently two mobile/server surfaces:
   first authorized snapshot, removes tokenized pairing URLs from browser
   history, pauses mobile streams while backgrounded, closes SSE clients on
   shutdown, blocks cookie-only mutations without a mobile AJAX header, and does
-  not render private state to unpaired root page loads.
+  not render private state to unpaired root page loads. Its compatibility layer
+  includes `GET /session/live`, `POST /session/live/message`,
+  `POST /session/live/prompt_async`, and `POST /session/live/abort` so
+  OpenCode-shaped mobile clients can use session routes instead of the internal
+  `/api/*` routes.
 - `openclaude server` is the separate headless daemon. It exposes the first
   OpenCode-style compatibility layer:
 

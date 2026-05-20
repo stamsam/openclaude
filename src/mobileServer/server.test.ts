@@ -287,7 +287,10 @@ describe('mobile server', () => {
       })
       expect(openapiJson.paths).toHaveProperty('/project')
       expect(openapiJson.paths).toHaveProperty('/project/current')
+      expect(openapiJson.paths).toHaveProperty('/session/live')
       expect(openapiJson.paths).toHaveProperty('/session/live/message')
+      expect(openapiJson.paths).toHaveProperty('/session/live/prompt_async')
+      expect(openapiJson.paths).toHaveProperty('/session/live/abort')
       expect(openapiJson.components.securitySchemes).toMatchObject({
         bearerAuth: { type: 'http', scheme: 'bearer' },
         basicAuth: { type: 'http', scheme: 'basic' },
@@ -367,6 +370,115 @@ describe('mobile server', () => {
       expect(await invalidPage.text()).toContain(
         'window.__SAM_TOKEN_STATE__ = "invalid"',
       )
+    } finally {
+      await server.stop()
+    }
+  })
+
+  test('accepts OpenCode-style session mutation aliases', async () => {
+    const submitted: string[] = []
+    let stopCount = 0
+    const server = await startMobileServer({
+      host: '127.0.0.1',
+      port: 0,
+      token: 'sam-test-token',
+      getSnapshot: () => ({
+        state: 'idle',
+        workspace: '/tmp/project',
+        canSubmit: true,
+        canStop: true,
+      }),
+      submitPrompt: prompt => {
+        submitted.push(prompt)
+        return { ok: true, runId: 'run-opencode' }
+      },
+      stopCurrentRun: () => {
+        stopCount += 1
+        return true
+      },
+    })
+
+    try {
+      const baseUrl = server.url.replace(/\?.*/, '')
+      const session = await fetch(`${baseUrl}session/live`, {
+        headers: { authorization: 'Bearer sam-test-token' },
+      })
+      expect(session.status).toBe(200)
+      expect(await session.json()).toMatchObject({
+        id: 'live',
+        directory: '/tmp/project',
+      })
+
+      const message = await fetch(`${baseUrl}session/live/message`, {
+        method: 'POST',
+        headers: {
+          authorization: 'Bearer sam-test-token',
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          parts: [
+            { type: 'text', text: 'first line' },
+            { type: 'text', text: 'second line' },
+          ],
+        }),
+      })
+      expect(message.status).toBe(202)
+      expect(await message.json()).toMatchObject({
+        info: {
+          id: 'run-opencode',
+          sessionID: 'live',
+          role: 'user',
+        },
+        parts: [
+          {
+            id: 'run-opencode-text',
+            type: 'text',
+            text: 'first line\nsecond line',
+          },
+        ],
+      })
+      expect(submitted).toEqual(['first line\nsecond line'])
+
+      const missingText = await fetch(`${baseUrl}session/live/message`, {
+        method: 'POST',
+        headers: {
+          authorization: 'Bearer sam-test-token',
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ parts: [{ type: 'file', text: 'ignored' }] }),
+      })
+      expect(missingText.status).toBe(400)
+
+      const asyncPrompt = await fetch(`${baseUrl}session/live/prompt_async`, {
+        method: 'POST',
+        headers: {
+          authorization: 'Bearer sam-test-token',
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ prompt: 'background prompt' }),
+      })
+      expect(asyncPrompt.status).toBe(204)
+      expect(await asyncPrompt.text()).toBe('')
+      expect(submitted).toContain('background prompt')
+
+      const cookieMutationDenied = await fetch(`${baseUrl}session/live/message`, {
+        method: 'POST',
+        headers: {
+          cookie: 'sam_mobile_token=sam-test-token',
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ prompt: 'cookie alias' }),
+      })
+      expect(cookieMutationDenied.status).toBe(403)
+      expect(submitted).not.toContain('cookie alias')
+
+      const abort = await fetch(`${baseUrl}session/live/abort`, {
+        method: 'POST',
+        headers: { authorization: 'Bearer sam-test-token' },
+      })
+      expect(abort.status).toBe(200)
+      expect(await abort.json()).toBe(true)
+      expect(stopCount).toBe(1)
     } finally {
       await server.stop()
     }

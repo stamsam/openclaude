@@ -234,6 +234,44 @@ async function routeRequest(
     return
   }
 
+  if (req.method === 'GET' && url.pathname === `/session/${MOBILE_SESSION_ID}`) {
+    sendJson(res, 200, sessionFromSnapshot(handlers.getSnapshot()))
+    return
+  }
+
+  if (
+    req.method === 'POST' &&
+    (url.pathname === `/session/${MOBILE_SESSION_ID}/message` ||
+      url.pathname === `/session/${MOBILE_SESSION_ID}/prompt_async`)
+  ) {
+    const body = await readJsonBody(req)
+    const prompt = promptFromMessageBody(body)
+    if (!prompt) {
+      sendJson(res, 400, { error: 'Missing prompt text' })
+      return
+    }
+    const result = handlers.submitPrompt(prompt)
+    if (!result.ok) {
+      sendJson(res, result.status ?? 409, { error: result.error })
+      return
+    }
+    if (url.pathname.endsWith('/prompt_async')) {
+      sendNoContent(res)
+      return
+    }
+    sendJson(res, 202, messageRecordFromText('user', prompt, result.runId))
+    return
+  }
+
+  if (req.method === 'POST' && url.pathname === `/session/${MOBILE_SESSION_ID}/abort`) {
+    if (!handlers.stopCurrentRun()) {
+      sendJson(res, 409, { error: 'No mobile-owned run is active.' })
+      return
+    }
+    sendJson(res, 200, true)
+    return
+  }
+
   if (
     req.method === 'GET' &&
     (url.pathname === '/api/status' || url.pathname === '/api/snapshot')
@@ -364,23 +402,50 @@ function sessionFromSnapshot(snapshot: MobileServerSnapshot): Record<string, unk
 function messagesFromSnapshot(
   snapshot: MobileServerSnapshot,
 ): Array<Record<string, unknown>> {
-  return (snapshot.messages ?? []).map(message => ({
+  return (snapshot.messages ?? []).map(message =>
+    messageRecordFromText(message.role, message.text, message.id),
+  )
+}
+
+function messageRecordFromText(
+  role: MobileServerTimelineItem['role'],
+  text: string,
+  id = `mobile-${Date.now()}`,
+): Record<string, unknown> {
+  return {
     info: {
-      id: message.id,
+      id,
       sessionID: MOBILE_SESSION_ID,
-      role: message.role,
+      role,
       time: {
         created: Date.now(),
       },
     },
     parts: [
       {
-        id: `${message.id}-text`,
+        id: `${id}-text`,
         type: 'text',
-        text: message.text,
+        text,
       },
     ],
-  }))
+  }
+}
+
+function promptFromMessageBody(body: Record<string, unknown>): string {
+  if (typeof body.prompt === 'string') return body.prompt.trim()
+  if (typeof body.message === 'string') return body.message.trim()
+  if (!Array.isArray(body.parts)) return ''
+  return body.parts
+    .map(part => {
+      if (!part || typeof part !== 'object') return ''
+      const typed = part as { type?: unknown; text?: unknown }
+      return typed.type === 'text' && typeof typed.text === 'string'
+        ? typed.text
+        : ''
+    })
+    .filter(Boolean)
+    .join('\n')
+    .trim()
 }
 
 function buildOpenApiDocument(snapshot: MobileServerSnapshot): Record<string, unknown> {
@@ -436,10 +501,32 @@ function buildOpenApiDocument(snapshot: MobileServerSnapshot): Record<string, un
           responses: { '200': { description: 'Status by session ID' } },
         },
       },
+      '/session/live': {
+        get: {
+          summary: 'Live session details',
+          responses: { '200': { description: 'Live session metadata' } },
+        },
+      },
       '/session/live/message': {
         get: {
           summary: 'Live session messages',
           responses: { '200': { description: 'OpenCode-style message records' } },
+        },
+        post: {
+          summary: 'Submit a prompt with an OpenCode-style message body',
+          responses: { '202': { description: 'Prompt accepted' } },
+        },
+      },
+      '/session/live/prompt_async': {
+        post: {
+          summary: 'Submit a prompt asynchronously',
+          responses: { '204': { description: 'Prompt accepted' } },
+        },
+      },
+      '/session/live/abort': {
+        post: {
+          summary: 'Stop the active mobile-owned run',
+          responses: { '200': { description: 'Stop requested' } },
         },
       },
       '/api/snapshot': {
@@ -489,7 +576,11 @@ function renderApiDocsHtml(): string {
     ['GET', '/project/current', 'Current project metadata'],
     ['GET', '/session', 'Live terminal session list'],
     ['GET', '/session/status', 'Live status map'],
+    ['GET', '/session/live', 'Live terminal session details'],
     ['GET', '/session/live/message', 'OpenCode-style message records'],
+    ['POST', '/session/live/message', 'Submit OpenCode-style message parts'],
+    ['POST', '/session/live/prompt_async', 'Submit OpenCode-style async prompt'],
+    ['POST', '/session/live/abort', 'Stop active mobile-owned run'],
     ['GET', '/api/snapshot', 'Mobile UI snapshot'],
     ['POST', '/api/message', 'Submit prompt text'],
     ['POST', '/api/stop', 'Stop active mobile-owned run'],
@@ -722,6 +813,13 @@ function sendManifest(res: ServerResponse): void {
       theme_color: '#050506',
     }),
   )
+}
+
+function sendNoContent(res: ServerResponse): void {
+  res.writeHead(204, {
+    'cache-control': 'no-store',
+  })
+  res.end()
 }
 
 function sendJson(
