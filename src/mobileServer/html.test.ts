@@ -35,6 +35,8 @@ describe('mobile server html', () => {
     expect(html).toContain("if (key === 'up')")
     expect(html).toContain('function resizePrompt()')
     expect(html).toContain('function wrapTerminalLine')
+    expect(html).toContain('termSystem')
+    expect(html).toContain('termAssistant')
   })
 
   test('keeps token auth available for mobile webviews that strip auth headers', () => {

@@ -116,7 +116,8 @@ endpoints, so the phone UI cannot accidentally open local TUI overlays.
 
 The terminal surface uses compact `~/project` workspace labels and wraps
 transcript lines for narrow phone widths so long agent output does not require
-sideways scrolling.
+sideways scrolling. Live snapshots render subtle role tinting for system, user,
+and assistant lines while preserving the plain terminal text first paint.
 
 ## Safety
 

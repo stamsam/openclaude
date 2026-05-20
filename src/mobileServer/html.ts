@@ -86,17 +86,17 @@ export function renderMobileServerHtml({
     }
     .topbar {
       min-width: 0;
+      width: 100%;
       max-width: 100vw;
-      min-height: 53px;
-      display: grid;
-      grid-template-columns: 1fr auto;
+      min-height: 50px;
+      display: flex;
       align-items: center;
-      gap: 10px;
       padding: 8px max(12px, env(safe-area-inset-right)) 7px max(12px, env(safe-area-inset-left));
       border-bottom: 1px solid var(--line);
       background: rgba(8,8,10,.98);
     }
     .topTitle {
+      flex: 1 1 auto;
       min-width: 0;
       display: grid;
       gap: 2px;
@@ -105,11 +105,11 @@ export function renderMobileServerHtml({
       min-width: 0;
       display: flex;
       align-items: center;
-      gap: 7px;
+      gap: 6px;
     }
     .brandMark {
-      width: 18px;
-      height: 18px;
+      width: 17px;
+      height: 17px;
       display: inline-grid;
       place-items: center;
       border: 1px solid rgba(126,231,135,.4);
@@ -119,6 +119,8 @@ export function renderMobileServerHtml({
       font-weight: 900;
     }
     #projectName {
+      min-width: 0;
+      max-width: 100%;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
@@ -133,20 +135,28 @@ export function renderMobileServerHtml({
       color: var(--dim);
       font-size: 10.25px;
     }
-    .sessionPill {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      height: 25px;
-      padding: 0 8px;
-      border: 1px solid var(--line-strong);
-      border-radius: 7px;
-      background: var(--panel);
+    .topState {
+      flex: 0 0 auto;
       color: var(--muted);
       font-size: 10px;
+      font-weight: 720;
       white-space: nowrap;
     }
+    .topState::before {
+      content: "/";
+      color: var(--dim);
+      margin: 0 4px 0 2px;
+    }
+    .sessionPill {
+      display: none;
+      align-items: center;
+      gap: 6px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
     #topDot {
+      flex: 0 0 auto;
+      margin-left: 8px;
       width: 6px;
       height: 6px;
       border-radius: 999px;
@@ -180,16 +190,37 @@ export function renderMobileServerHtml({
       font-size: 13.25px;
       line-height: 1.52;
     }
+    .termLine {
+      min-height: 1.52em;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+    .termHeader {
+      color: var(--text);
+      font-weight: 780;
+    }
+    .termDim { color: var(--dim); }
+    .termSystem { color: var(--amber); }
+    .termUser {
+      color: var(--text);
+      font-weight: 760;
+    }
+    .termAssistant { color: #e8e4ed; }
     .dim { color: var(--dim); }
     .dock {
       min-width: 0;
+      width: 100%;
       max-width: 100vw;
+      overflow: hidden;
       background: var(--dock);
       border-top: 1px solid var(--line);
       backdrop-filter: blur(18px) saturate(130%);
       padding: 7px 0 max(6px, env(safe-area-inset-bottom));
     }
     .promptRow {
+      min-width: 0;
+      max-width: calc(100vw - 16px);
       display: grid;
       grid-template-columns: auto 1fr auto;
       align-items: center;
@@ -233,6 +264,8 @@ export function renderMobileServerHtml({
       font-weight: 900;
     }
     .terminalStatus {
+      min-width: 0;
+      max-width: 100%;
       min-height: 20px;
       display: grid;
       grid-template-columns: auto auto 1fr;
@@ -259,11 +292,17 @@ export function renderMobileServerHtml({
       color: var(--dim);
     }
     .rail {
+      min-width: 0;
+      max-width: 100%;
+      overflow: hidden;
       display: grid;
       gap: 4px;
       padding: 0 max(8px, env(safe-area-inset-right)) 0 max(8px, env(safe-area-inset-left));
     }
     .row {
+      min-width: 0;
+      width: 100%;
+      max-width: 100%;
       display: flex;
       gap: 4px;
       overflow-x: auto;
@@ -342,10 +381,10 @@ export function renderMobileServerHtml({
   <main id="terminalShell">
     <section class="topbar" aria-label="Session">
       <div class="topTitle">
-        <div class="brandRow"><span class="brandMark">›</span><div id="projectName">${escapeHtml(initialProjectName)}</div></div>
+        <div class="brandRow"><span class="brandMark">›</span><div id="projectName">${escapeHtml(initialProjectName)}</div><span id="sessionState" class="topState">${escapeHtml(initialState)}</span></div>
         <div id="modelName">${escapeHtml(initialModelName)}</div>
       </div>
-      <div class="sessionPill"><span id="topDot" class="${initialDotClass}"></span><span id="sessionState">${escapeHtml(initialState)}</span></div>
+      <span id="topDot" class="${initialDotClass}" aria-hidden="true"></span>
     </section>
     <section id="terminal" aria-label="Terminal">
       <div id="terminalText">${escapeHtml(initialTerminalText)}</div>
@@ -501,31 +540,57 @@ export function renderMobileServerHtml({
       terminalTextEl.textContent = lines.filter(line => line !== null && line !== undefined).join('\\n');
       terminalEl.scrollTop = terminalEl.scrollHeight;
     }
+    function setTerminalRows(rows) {
+      terminalTextEl.replaceChildren(...rows.map(row => {
+        const line = document.createElement('div');
+        line.className = 'termLine ' + row.kind;
+        line.textContent = row.text || '\\u00a0';
+        return line;
+      }));
+      terminalEl.scrollTop = terminalEl.scrollHeight;
+    }
+    function pushTerminalBlock(rows, kind, prefix, text) {
+      const cleaned = cleanText(text);
+      if (!cleaned) return;
+      const wrapped = cleaned.split('\\n').flatMap(line => wrapTerminalLine(line));
+      rows.push({ kind, text: prefix + wrapped[0] });
+      for (const line of wrapped.slice(1)) rows.push({ kind, text: '  ' + line });
+      rows.push({ kind: 'termDim', text: '' });
+    }
     function renderTerminal(snapshot) {
       const remote = Array.isArray(snapshot.messages) ? snapshot.messages : [];
       const turns = remote.length ? remote : localTurns;
       const lines = terminalHeader(snapshot);
-      lines.push('');
+      const rows = [
+        { kind: 'termHeader', text: lines[0] || 'OpenClaude mobile' },
+        ...lines.slice(1).map(line => ({ kind: 'termDim', text: line })),
+        { kind: 'termDim', text: '' },
+      ];
       if (!turns.length && !snapshot.lastResponse) {
-        lines.push('› mobile session ready');
-        lines.push(snapshot.busyOwner === 'terminal' ? '  terminal is working' : '  waiting for input');
+        rows.push({ kind: 'termUser', text: '› mobile session ready' });
+        rows.push({
+          kind: 'termAssistant',
+          text: snapshot.busyOwner === 'terminal'
+            ? '  terminal is working'
+            : '  waiting for input',
+        });
       } else {
         for (const turn of turns) {
-          const rendered = turnText(turn);
-          if (rendered) {
-            lines.push(rendered);
-            lines.push('');
-          }
+          if (turn.role === 'user') pushTerminalBlock(rows, 'termUser', '› ', turn.text);
+          else if (turn.role === 'system') pushTerminalBlock(rows, 'termSystem', '! ', turn.text);
+          else pushTerminalBlock(rows, 'termAssistant', '  ', turn.text);
         }
         if (!remote.length && snapshot.lastResponse) {
-          lines.push(turnText({ role: 'assistant', text: snapshot.lastResponse }));
-          lines.push('');
+          pushTerminalBlock(rows, 'termAssistant', '  ', snapshot.lastResponse);
         }
       }
       if (snapshot.state === 'busy' || snapshot.activeRunId) {
-        lines.push(snapshot.busyOwner === 'terminal' ? '  terminal is working...' : '  working...');
+        rows.push({
+          kind: 'termAssistant',
+          text: snapshot.busyOwner === 'terminal' ? '  terminal is working...' : '  working...',
+        });
       }
-      setTerminalText(lines);
+      setTerminalRows(rows);
     }
     function explainAuthError() {
       setTerminalText([
