@@ -5,7 +5,7 @@
 - Repo: `/Users/samstamatiou/Desktop/AI Workspace/Codex Projects/active/openclaude-private`
 - Current branch: `main`
 - Status last checked: 2026-05-20
-- Latest mobile UI polish baseline before this documentation handoff: `220b809b Refine mobile final summary rhythm`
+- Latest mobile permission recovery baseline: `ac545343 Add mobile permissions yolo recovery`
 - Private remote head: re-check with `git status --short --branch` after future pushes. This repo may also contain unrelated local exit-summary edits.
 - Stock comparison ref: `gitlawb/main` refreshed from `https://github.com/Gitlawb/openclaude.git` at `03f87915 fix(xml): guard escapeXml/escapeXmlAttr against null and undefined (#1250)`
 - Important caveat: refreshed stock `main` currently has no merge base with this private fork, so compare by snapshot diff (`git diff gitlawb/main HEAD`) rather than ancestry diff (`...`).
