@@ -167,6 +167,60 @@ describe('OpenClaude mobile server API', () => {
     expect(messages[0].parts[0].text).toBe('hello mobile')
   })
 
+  test('command endpoint exposes and forwards permissions yolo', async () => {
+    const { baseUrl, children } = await makeServer()
+
+    const commandsRes = await fetch(`${baseUrl}/command`, {
+      headers: { authorization: basicAuth('test-token') },
+    })
+    expect(commandsRes.status).toBe(200)
+    expect(await commandsRes.json()).toEqual([
+      {
+        name: 'permissions yolo',
+        description:
+          'Switch the session to yolo permissions when the REPL is ready for slash commands.',
+        template: '/permissions yolo',
+      },
+    ])
+
+    const sessionRes = await fetch(`${baseUrl}/session`, {
+      method: 'POST',
+      headers: {
+        authorization: basicAuth('test-token'),
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({ directory: '/tmp/mobile-project' }),
+    })
+    const session = await sessionRes.json()
+
+    const commandRes = await fetch(`${baseUrl}/session/${session.id}/command`, {
+      method: 'POST',
+      headers: {
+        authorization: basicAuth('test-token'),
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({ command: '/permissions   yolo' }),
+    })
+
+    expect(commandRes.status).toBe(200)
+    const message = await commandRes.json()
+    expect(message.parts[0].text).toBe('/permissions yolo')
+
+    await new Promise(resolve => setTimeout(resolve, 0))
+    const stdinText = children[0].stdin.read()?.toString('utf8') ?? ''
+    expect(stdinText).toBe('/permissions yolo\n')
+
+    const rejected = await fetch(`${baseUrl}/session/${session.id}/command`, {
+      method: 'POST',
+      headers: {
+        authorization: basicAuth('test-token'),
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({ command: 'exit' }),
+    })
+    expect(rejected.status).toBe(403)
+  })
+
   test('captures process stdout as assistant messages', async () => {
     const { baseUrl, children } = await makeServer()
 

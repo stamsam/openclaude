@@ -270,6 +270,29 @@ function createTextMessage(
   }
 }
 
+function commandList(): Array<Record<string, string>> {
+  return [
+    {
+      name: 'permissions yolo',
+      description:
+        'Switch the session to yolo permissions when the REPL is ready for slash commands.',
+      template: '/permissions yolo',
+    },
+  ]
+}
+
+function normalizeServerCommand(command: string): string {
+  return command
+    .trim()
+    .replace(/^\/+/, '')
+    .replace(/\s+/g, ' ')
+    .toLowerCase()
+}
+
+function isAllowedServerCommand(command: string): boolean {
+  return command === 'permissions yolo'
+}
+
 export async function startServer(
   config: ServerConfig,
   sessionManager: SessionManager,
@@ -377,6 +400,11 @@ export async function startServer(
         version: SERVER_VERSION,
         service: 'openclaude',
       })
+      return
+    }
+
+    if (req.method === 'GET' && url.pathname === '/command') {
+      writeJson(res, commandList())
       return
     }
 
@@ -558,6 +586,36 @@ export async function startServer(
         writeJson(res, message)
         return
       }
+    }
+
+    const sessionCommandMatch = url.pathname.match(/^\/session\/([^/]+)\/command$/)
+    if (req.method === 'POST' && sessionCommandMatch) {
+      const sessionId = sessionCommandMatch[1]
+      const session = sessionManager.getSession(sessionId)
+      if (!session) {
+        writeJson(res, { error: 'Session not found' }, 404)
+        return
+      }
+
+      const body = (await readJsonBody(req)) as { command?: string }
+      const command = normalizeServerCommand(
+        typeof body.command === 'string' ? body.command : '',
+      )
+      if (!isAllowedServerCommand(command)) {
+        writeJson(res, { error: 'Command is not available from server.' }, 403)
+        return
+      }
+      if (!session.process?.stdin) {
+        writeJson(res, { error: 'Session is not running' }, 409)
+        return
+      }
+
+      const text = `/${command}`
+      const message = createTextMessage(session.id, 'user', text)
+      appendMessage(message)
+      session.process.stdin.write(`${text}\n`)
+      writeJson(res, message)
+      return
     }
 
     const sessionAbortMatch = url.pathname.match(/^\/session\/([^/]+)\/abort$/)

@@ -297,6 +297,12 @@ describe('mobile server', () => {
           description: 'Dismiss the active local overlay.',
           template: '/dismiss',
         },
+        {
+          name: 'permissions yolo',
+          description:
+            'Switch this live session to yolo permissions and recheck waiting prompts.',
+          template: '/permissions yolo',
+        },
       ])
 
       const sessions = await fetch(`${baseUrl}session`, {
@@ -588,6 +594,24 @@ describe('mobile server', () => {
         ],
       })
       expect(submitted).toContain('/dismiss')
+
+      const yoloCommand = await fetch(`${baseUrl}session/live/command`, {
+        method: 'POST',
+        headers: {
+          authorization: 'Bearer sam-test-token',
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ command: '/permissions   yolo' }),
+      })
+      expect(yoloCommand.status).toBe(202)
+      expect(await yoloCommand.json()).toMatchObject({
+        parts: [
+          {
+            text: '/permissions yolo',
+          },
+        ],
+      })
+      expect(submitted).toContain('/permissions yolo')
 
       const rejectedCommand = await fetch(`${baseUrl}session/live/command`, {
         method: 'POST',

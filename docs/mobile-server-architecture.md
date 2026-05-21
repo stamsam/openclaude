@@ -53,16 +53,21 @@ There are currently two mobile/server surfaces:
   methods. Its built-in page now separates phone-safe and phone-local slash
   affordances from terminal-only commands, keeps terminal-only commands out of
   the default bare-slash menu, and blocks terminal-only slash commands in the
-  browser before they reach the live REPL. Disabled submit/stop states are also
-  short-circuited in the browser where possible to avoid avoidable mutation
-  requests. The final phone QA pass did not require heavier frontend runtime
-  code or new dependencies; the current surface remains a static, dependency-free
-  page backed by the existing snapshot, SSE, polling fallback, submit, and stop
-  routes. Current private-phone behavior is documented in
+  browser before they reach the live REPL. `/permissions yolo` is the explicit
+  exception for terminal-owned permission stalls: it is authenticated like other
+  mutations, switches only the live session to `bypassPermissions`, and rechecks
+  queued permission prompts so the phone is not stuck at `terminal busy`.
+  Disabled submit/stop states are also short-circuited in the browser where
+  possible to avoid avoidable mutation requests. The final phone QA pass did not
+  require heavier frontend runtime code or new dependencies; the current
+  surface remains a static, dependency-free page backed by the existing
+  snapshot, SSE, polling fallback, submit, and stop routes. Current
+  private-phone behavior is documented in
   `docs/mobile-server.md`: local-only by default, optional Tailscale phone mode,
   pair/reset-token device management, local submit/stop guards, slash
   suggestions that separate phone-safe, phone-local, and terminal-only commands,
-  and blocked terminal-only commands from the phone.
+  `/permissions yolo` for authenticated permission-mode recovery, and blocked
+  terminal-only commands from the phone.
 - `openclaude server` is the separate headless daemon. It exposes the first
   OpenCode-style compatibility layer:
 
@@ -72,8 +77,10 @@ There are currently two mobile/server surfaces:
 - `GET /session`
 - `POST /session`
 - `GET /session/status`
+- `GET /command`
 - `GET /session/:id/message`
 - `POST /session/:id/message`
+- `POST /session/:id/command`
 - `POST /session/:id/abort`
 
 Events are emitted in the OpenCode-style envelope:
@@ -99,6 +106,11 @@ Events are emitted in the OpenCode-style envelope:
 `GET /session/:id/message` now returns message records shaped as
 `{ info, parts }`, and the server captures user prompts plus stdout-backed
 assistant messages for the live process.
+
+`GET /command` and `POST /session/:id/command` expose only the narrow
+`/permissions yolo` command. In the in-session phone server this flips the live
+permission mode directly; in the headless daemon it is forwarded to the child
+REPL stdin and therefore runs when that REPL is ready to process slash commands.
 
 It still keeps the older `/sessions` and `/sessions/:id/ws` bridge so current
 direct-connect behavior is not broken while the mobile API is filled in.

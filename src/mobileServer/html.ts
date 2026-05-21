@@ -520,6 +520,7 @@ export function renderMobileServerHtml({
       <div class="rail">
         <div class="row actionRow" aria-label="Actions">
           <button id="retry" class="command">retry</button>
+          <button id="yolo" class="danger">yolo</button>
           <button id="stop" class="danger">stop</button>
           <button id="clear" class="command">clear</button>
         </div>
@@ -572,6 +573,7 @@ export function renderMobileServerHtml({
     const sessionStateEl = document.getElementById('sessionState');
     const sendButton = document.getElementById('send');
     const stopButton = document.getElementById('stop');
+    const yoloButton = document.getElementById('yolo');
     const suggestionsEl = document.getElementById('suggestions');
     const mods = { shift: false, cmd: false, alt: false, ctrl: false };
     const commandSuggestions = [
@@ -579,6 +581,7 @@ export function renderMobileServerHtml({
       { value: '/clear', name: '/clear', meta: 'phone local', kind: 'local' },
       { value: '/retry', name: '/retry', meta: 'phone local', kind: 'local' },
       { value: '/stop', name: '/stop', meta: 'phone safe', kind: 'mobile' },
+      { value: '/permissions yolo', name: '/permissions yolo', meta: 'phone safe', kind: 'mobile' },
       { value: '/model', name: '/model', meta: 'terminal only', kind: 'terminal' },
       { value: '/provider', name: '/provider', meta: 'terminal only', kind: 'terminal' },
       { value: '/tui', name: '/tui', meta: 'terminal only', kind: 'terminal' },
@@ -758,6 +761,12 @@ export function renderMobileServerHtml({
           kind: 'termAssistant',
           text: snapshot.busyOwner === 'terminal' ? '  terminal is working...' : '  working...',
         });
+        if (snapshot.busyOwner === 'terminal' && canSetYolo(snapshot)) {
+          rows.push({
+            kind: 'termSystem',
+            text: '  permission prompt may be waiting; /permissions yolo is available from phone',
+          });
+        }
       }
       setTerminalRows(rows);
     }
@@ -903,8 +912,12 @@ export function renderMobileServerHtml({
     function updateControls(snapshot = latestSnapshot) {
       const canSubmit = canSubmitPrompt(snapshot);
       const canStop = canStopRun(snapshot);
-      sendButton.disabled = !canSubmit || promptEl.value.trim().length === 0;
+      const prompt = promptEl.value.trim();
+      const canRunLocal = isRunnableLocalPrompt(prompt, snapshot);
+      sendButton.disabled = (!canSubmit && !canRunLocal) || prompt.length === 0;
       stopButton.disabled = !canStop;
+      yoloButton.hidden = !canShowYoloAction(snapshot);
+      yoloButton.disabled = !canSetYolo(snapshot);
       promptEl.placeholder = canSubmit
         ? 'type here'
         : snapshot?.busyOwner === 'terminal'
@@ -917,6 +930,22 @@ export function renderMobileServerHtml({
     }
     function canStopRun(snapshot = latestSnapshot) {
       return typeof snapshot?.canStop === 'boolean' ? snapshot.canStop : !!snapshot?.activeRunId;
+    }
+    function canSetYolo(snapshot = latestSnapshot) {
+      return !!snapshot?.canSetYolo && snapshot?.permissionMode !== 'bypassPermissions';
+    }
+    function canShowYoloAction(snapshot = latestSnapshot) {
+      return canSetYolo(snapshot) && snapshot?.busyOwner === 'terminal';
+    }
+    function isPermissionsYoloCommand(command) {
+      return /^\\/?(?:permissions|allowed-tools)\\s+yolo$/i.test(String(command || '').trim());
+    }
+    function isRunnableLocalPrompt(command, snapshot = latestSnapshot) {
+      const normalized = String(command || '').trim().toLowerCase();
+      return normalized === '/clear'
+        || normalized === '/retry'
+        || normalized === '/stop'
+        || (isPermissionsYoloCommand(normalized) && canSetYolo(snapshot));
     }
     async function runLocalSlashCommand(prompt) {
       const command = prompt.trim().toLowerCase();
@@ -933,6 +962,10 @@ export function renderMobileServerHtml({
       }
       if (command === '/stop') {
         await stopRun();
+        return true;
+      }
+      if (isPermissionsYoloCommand(command)) {
+        await enableYoloMode();
         return true;
       }
       return false;
@@ -998,6 +1031,24 @@ export function renderMobileServerHtml({
     async function sendCommand(command) {
       promptEl.value = '';
       await submitPrompt(command);
+    }
+    async function enableYoloMode() {
+      if (!canSetYolo()) {
+        showLocalNotice(latestSnapshot?.permissionMode === 'bypassPermissions'
+          ? 'Permissions are already in yolo mode.'
+          : 'Yolo permissions are not available for this session.');
+        updateControls();
+        return;
+      }
+      const result = await api('/session/live/command', {
+        method: 'POST',
+        body: JSON.stringify({ command: 'permissions yolo' }),
+      });
+      const text = result?.parts?.[0]?.text || '/permissions yolo';
+      localTurns.push({ id: 'local-yolo-' + Date.now(), role: 'user', text });
+      showLocalNotice('Permissions set to yolo mode for this session.');
+      resetMomentaryMods();
+      await poll();
     }
     async function stopRun() {
       if (!canStopRun()) {
@@ -1079,6 +1130,7 @@ export function renderMobileServerHtml({
       });
     });
     document.getElementById('send').addEventListener('click', () => submitPrompt().catch(handleActionError));
+    yoloButton.addEventListener('click', () => enableYoloMode().catch(handleActionError));
     document.getElementById('stop').addEventListener('click', () => stopRun().catch(handleActionError));
     document.getElementById('clear').addEventListener('click', () => {
       const now = Date.now();
@@ -1187,6 +1239,7 @@ export function renderMobileServerHtml({
       projectNameEl.textContent = basename(snapshot.workspace) || 'OpenClaude mobile';
       const meta = [
         snapshot.workspace ? compactWorkspace(snapshot.workspace) : null,
+        snapshot.permissionMode === 'bypassPermissions' ? 'yolo' : null,
       ].filter(Boolean).join(' · ');
       modelNameEl.textContent = [snapshot.model || null, snapshot.provider || null].filter(Boolean).join(' · ') || 'live terminal session';
       metaEl.textContent = meta || 'connected';

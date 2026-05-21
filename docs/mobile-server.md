@@ -95,9 +95,9 @@ current provider, model, and mobile-safe slash commands without requiring the
 full headless daemon. `GET /provider/auth` currently returns no auth methods
 because the phone companion does not manage provider credentials.
 
-`POST /session/live/command` only accepts the mobile-safe `dismiss` command.
-Unknown commands are rejected instead of being forwarded into the local
-terminal session.
+`POST /session/live/command` only accepts explicit mobile-safe commands:
+`dismiss` and `permissions yolo`. Unknown commands are rejected instead of
+being forwarded into the local terminal session.
 
 The page also publishes `manifest.webmanifest` and iOS standalone metadata so it
 can be saved to the phone home screen as a compact companion app.
@@ -122,7 +122,7 @@ composer, status rail, and virtual keys for phone use:
 
 - modifiers: Shift, Cmd, Alt, Ctrl
 - controls: Esc, Tab, arrows, slash, Enter
-- common actions: Send, Retry, Stop, Clear
+- common actions: Send, Retry, Stop, Clear, Yolo when available
 
 Modifier buttons are latching controls. Shift+Enter and Alt+Enter insert a
 newline. Ctrl+C/Ctrl+D stop mobile-owned runs. Esc dismisses local overlays.
@@ -150,15 +150,23 @@ While typing, the dock collapses into a tighter composer/status stack so the
 transcript and prompt move with the visible screen instead of leaving awkward
 dead space. Starting a prompt with `/` opens a compact command suggestion strip.
 The bare slash menu only shows phone-usable actions: phone-safe actions
-(`/dismiss`, `/stop`) and phone-local actions (`/clear`, `/retry`). Terminal-only
-commands such as `/model`, `/provider`, `/tui`, `/server`, and `/exit` appear
-only when searched by name, are shown as unavailable from the phone, and are
-intercepted client-side before they can be submitted into the live terminal
-session. When one is submitted, the phone keeps the text in the composer and
-shows a local terminal notice. Disabled submit and stop states are also handled
-locally where possible to avoid unnecessary rejected network calls; the prompt
-placeholder changes from `type here` to `working` or `terminal busy` when phone
-submit is unavailable.
+(`/dismiss`, `/stop`, `/permissions yolo`) and phone-local actions (`/clear`,
+`/retry`). `/permissions yolo` is intentionally phone-safe but sensitive: it
+switches only the current live session into bypass/yolo permissions, rechecks
+any waiting permission prompt, and remains unavailable when yolo mode is
+disabled by settings. Use it when the terminal is blocked on a local permission
+prompt and the phone is otherwise stuck at `terminal busy`.
+
+Terminal-only commands such as `/model`, `/provider`, `/tui`, `/server`, and
+`/exit` appear only when searched by name, are shown as unavailable from the
+phone, and are intercepted client-side before they can be submitted into the
+live terminal session. When one is submitted, the phone keeps the text in the
+composer and shows a local terminal notice. Disabled submit and stop states are
+also handled locally where possible to avoid unnecessary rejected network calls;
+the prompt placeholder changes from `type here` to `working` or `terminal busy`
+when phone submit is unavailable. `/permissions yolo`, `/clear`, `/retry`, and
+`/stop` remain runnable from the composer even while ordinary prompt submit is
+disabled.
 
 ## Safety
 

@@ -12,6 +12,8 @@ export type MobileServerSnapshot = {
   busyOwner?: 'mobile' | 'terminal' | null
   canSubmit?: boolean
   canStop?: boolean
+  permissionMode?: string
+  canSetYolo?: boolean
   activeRunId?: string | null
   lastResponse?: string | null
   messages?: MobileServerTimelineItem[]
@@ -307,7 +309,9 @@ async function routeRequest(
 
   if (req.method === 'POST' && url.pathname === `/session/${MOBILE_SESSION_ID}/command`) {
     const body = await readJsonBody(req)
-    const command = typeof body.command === 'string' ? body.command.trim() : ''
+    const command = normalizeMobileCommand(
+      typeof body.command === 'string' ? body.command : '',
+    )
     if (!isAllowedMobileCommand(command)) {
       sendJson(res, 403, { error: 'Command is not available from mobile.' })
       return
@@ -494,11 +498,25 @@ function commandList(): Array<Record<string, unknown>> {
       description: 'Dismiss the active local overlay.',
       template: '/dismiss',
     },
+    {
+      name: 'permissions yolo',
+      description:
+        'Switch this live session to yolo permissions and recheck waiting prompts.',
+      template: '/permissions yolo',
+    },
   ]
 }
 
 function isAllowedMobileCommand(command: string): boolean {
-  return command === 'dismiss'
+  return command === 'dismiss' || command === 'permissions yolo'
+}
+
+function normalizeMobileCommand(command: string): string {
+  return command
+    .trim()
+    .replace(/^\/+/, '')
+    .replace(/\s+/g, ' ')
+    .toLowerCase()
 }
 
 function messagesFromSnapshot(

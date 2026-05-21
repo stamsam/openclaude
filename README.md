@@ -149,6 +149,9 @@ The phone UI is optimized for iPhone Safari with the keyboard open: compact
 terminal layout, 16px prompt text to avoid iOS zoom, visible-viewport resizing,
 slash suggestions, phone-safe versus terminal-only command labels, and extra
 bottom padding so final summaries remain readable above the mobile composer.
+If the local terminal is blocked on a permission prompt while the phone only
+shows `terminal busy`, use `/permissions yolo` from the phone to switch that
+live session into yolo permissions and recheck the pending prompt.
 
 ### Fastest xAI setup
 

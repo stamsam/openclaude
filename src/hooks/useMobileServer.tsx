@@ -16,6 +16,10 @@ import {
   type MobileServerTimelineItem,
 } from '../mobileServer/server.js'
 import { readMobileServerTokens } from '../mobileServer/tokenStore.js'
+import {
+  enableYoloPermissionMode,
+  isPermissionsYoloCommand,
+} from '../utils/permissions/yoloPermissionMode.js'
 
 type Props = {
   isLoading: boolean
@@ -137,6 +141,7 @@ export function useMobileServer({
     s => s.mainLoopModelForSession ?? s.mainLoopModel,
   )
   const activeLocalOverlayKind = useAppState(s => s.activeLocalOverlayKind)
+  const toolPermissionContext = useAppState(s => s.toolPermissionContext)
 
   const isLoadingRef = useRef(isLoading)
   isLoadingRef.current = isLoading
@@ -151,6 +156,8 @@ export function useMobileServer({
   const lastResponseRef = useRef<string | null>(null)
   const activeLocalOverlayKindRef = useRef(activeLocalOverlayKind)
   activeLocalOverlayKindRef.current = activeLocalOverlayKind
+  const toolPermissionContextRef = useRef(toolPermissionContext)
+  toolPermissionContextRef.current = toolPermissionContext
   const modelLabelRef = useRef(
     currentModel ? renderDefaultModelSetting(currentModel) : 'unknown',
   )
@@ -211,6 +218,26 @@ export function useMobileServer({
           dismissLocalOverlayRequestNonce:
             (prev.dismissLocalOverlayRequestNonce ?? 0) + 1,
         }))
+        return { ok: true }
+      }
+      if (isPermissionsYoloCommand(trimmedPrompt)) {
+        const result = enableYoloPermissionMode({
+          getToolPermissionContext: () => toolPermissionContextRef.current,
+          setToolPermissionContext: updater => {
+            setAppState(prev => ({
+              ...prev,
+              toolPermissionContext: updater(prev.toolPermissionContext),
+            }))
+          },
+        })
+        if (!result.ok) {
+          return {
+            ok: false,
+            status: 409,
+            error: result.message,
+          }
+        }
+        lastResponseRef.current = result.message
         return { ok: true }
       }
       if (isMobileExitCommand(trimmedPrompt)) {
@@ -289,6 +316,10 @@ export function useMobileServer({
               !isLoadingRef.current &&
               !activeLocalOverlayKindRef.current,
             canStop: !!activeRunRef.current,
+            permissionMode: toolPermissionContextRef.current.mode,
+            canSetYolo:
+              toolPermissionContextRef.current.isBypassPermissionsModeAvailable &&
+              toolPermissionContextRef.current.mode !== 'bypassPermissions',
             activeRunId: activeRunRef.current?.id ?? null,
             lastResponse: lastResponseRef.current,
             messages: extractMobileTimeline(messagesRef.current),
