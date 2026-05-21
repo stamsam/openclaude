@@ -5,8 +5,8 @@
 - Repo: `/Users/samstamatiou/Desktop/AI Workspace/Codex Projects/active/openclaude-private`
 - Current branch: `main`
 - Status last checked: 2026-05-20
-- Current local head before this final QA pass: `fb827a3d Tighten mobile server phone controls`
-- Private remote head: check with `git status --short --branch` after push; this repo may also contain unrelated local exit-summary edits
+- Latest mobile UI polish baseline before this documentation handoff: `220b809b Refine mobile final summary rhythm`
+- Private remote head: re-check with `git status --short --branch` after future pushes. This repo may also contain unrelated local exit-summary edits.
 - Stock comparison ref: `gitlawb/main` refreshed from `https://github.com/Gitlawb/openclaude.git` at `03f87915 fix(xml): guard escapeXml/escapeXmlAttr against null and undefined (#1250)`
 - Important caveat: refreshed stock `main` currently has no merge base with this private fork, so compare by snapshot diff (`git diff gitlawb/main HEAD`) rather than ancestry diff (`...`).
 
@@ -47,15 +47,17 @@
 
 ## Current Slice
 
-This slice polishes the in-session `/server` phone companion UI and keeps it
-phone-first: terminal-like layout, iPhone keyboard behavior, slash suggestions,
-and client-side guards for commands that still require the local terminal UI.
-After committing/pushing this slice, `git status --short --branch` may still
-show unrelated exit-summary work that was already dirty before this pass.
+This slice has polished the in-session `/server` phone companion into a
+production-ish private companion UI: terminal-like layout, iPhone keyboard
+handling, slash suggestions, final-summary readability, and client-side guards
+for commands that still require the local terminal UI. After committing/pushing
+mobile docs or UI slices, `git status --short --branch` may still show unrelated
+exit-summary work that was already dirty before this pass.
 
 Documentation/status edits in this slice:
 
 - `AGENT_HANDOFF.md`
+- `README.md`
 - `docs/mobile-server.md`
 - `docs/mobile-server-architecture.md`
 

@@ -58,7 +58,11 @@ There are currently two mobile/server surfaces:
   requests. The final phone QA pass did not require heavier frontend runtime
   code or new dependencies; the current surface remains a static, dependency-free
   page backed by the existing snapshot, SSE, polling fallback, submit, and stop
-  routes.
+  routes. Current private-phone behavior is documented in
+  `docs/mobile-server.md`: local-only by default, optional Tailscale phone mode,
+  pair/reset-token device management, local submit/stop guards, slash
+  suggestions that separate phone-safe, phone-local, and terminal-only commands,
+  and blocked terminal-only commands from the phone.
 - `openclaude server` is the separate headless daemon. It exposes the first
   OpenCode-style compatibility layer:
 

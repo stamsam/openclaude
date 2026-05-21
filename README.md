@@ -121,6 +121,35 @@ openclaude
   remote control connections, and early mobile-style REST/SSE clients. See
   [`docs/mobile-server-architecture.md`](docs/mobile-server-architecture.md).
 
+### Mobile `/server` Companion
+
+`/server` starts a phone-friendly mini terminal for the OpenClaude session
+already running on your Mac. It is intended as a private companion surface for
+checking status, sending short prompts, stopping mobile-owned runs, and using
+phone-safe controls from iPhone Safari.
+
+Start it from inside OpenClaude:
+
+```text
+/server
+```
+
+By default it binds local-only on `127.0.0.1`, so the printed URL works only on
+the Mac. For phone access over your private network, run:
+
+```text
+/server tailscale
+```
+
+Pair another device with `/server pair`; revoke all existing phone tokens and
+return to local-only mode with `/server reset-token`. Treat every printed phone
+URL and token as private. Do not expose the mobile server publicly.
+
+The phone UI is optimized for iPhone Safari with the keyboard open: compact
+terminal layout, 16px prompt text to avoid iOS zoom, visible-viewport resizing,
+slash suggestions, phone-safe versus terminal-only command labels, and extra
+bottom padding so final summaries remain readable above the mobile composer.
+
 ### Fastest xAI setup
 
 macOS / Linux:

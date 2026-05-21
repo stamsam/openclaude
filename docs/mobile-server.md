@@ -39,6 +39,21 @@ that is already open in the terminal.
   `tailscale ip -4` or `TAILSCALE_IP` is available.
 - The server is session-scoped. Closing OpenClaude stops it.
 
+## Current Status
+
+- Production-ish private companion UI for daily phone use, not a public server.
+- Dependency-free frontend served by the in-session mobile server.
+- SSE updates are primary; polling is only a fallback when EventSource is not
+  available or reconnecting.
+- Local submit and stop guards avoid unnecessary rejected mutation requests.
+- Slash suggestions distinguish phone-safe actions, phone-local actions, and
+  terminal-only commands.
+- Terminal-only commands are shown as unavailable from the phone and are blocked
+  before they reach the live terminal session.
+- Known screenshot caveat: headless Chrome can verify 390px layout and simulated
+  keyboard-height viewports, but it cannot render the real iOS Safari keyboard
+  chrome.
+
 ## API Shape
 
 The in-session server keeps the lightweight `/api/*` routes used by the built-in
