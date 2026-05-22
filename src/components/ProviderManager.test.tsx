@@ -1304,6 +1304,117 @@ test('ProviderManager first-run Codex OAuth switches the current session after l
   await mounted.dispose()
 })
 
+test('ProviderManager first-run xAI OAuth marks the saved profile active after login completes', async () => {
+  delete process.env.CLAUDE_CODE_SIMPLE
+  delete process.env.CLAUDE_CODE_USE_GITHUB
+  delete process.env.GITHUB_TOKEN
+  delete process.env.GH_TOKEN
+
+  const onDone = mock(() => {})
+  const applySavedProfileToCurrentSession = mock(async () => null)
+  const persistCredentials = mock(() => {})
+  const setActiveProviderProfile = mock((profileId: string) => ({
+    id: profileId,
+    provider: 'xai',
+    name: 'xAI Grok OAuth',
+    baseUrl: 'https://api.x.ai/v1',
+    model: 'grok-4.3',
+    apiKey: '',
+  }))
+  const addProviderProfile = mock((payload: {
+    provider: string
+    name: string
+    baseUrl: string
+    model: string
+    apiKey?: string
+  }) => ({
+    id: 'provider_xai_oauth',
+    provider: payload.provider,
+    name: payload.name,
+    baseUrl: payload.baseUrl,
+    model: payload.model,
+    apiKey: payload.apiKey,
+  }))
+
+  mockProviderManagerDependencies(
+    () => undefined,
+    async () => undefined,
+    {
+      addProviderProfile,
+      applySavedProfileToCurrentSession,
+      setActiveProviderProfile,
+      useXaiOAuthFlow: ({ onAuthenticated }) => {
+        React.useEffect(() => {
+          void onAuthenticated({
+            accessToken: 'xai-oauth-access-token',
+            refreshToken: 'xai-oauth-refresh-token',
+          }, persistCredentials)
+        }, [onAuthenticated])
+
+        return {
+          state: 'waiting',
+          authUrl: 'https://auth.x.ai/oauth2/authorize',
+          browserOpened: true,
+          submitCallbackUrl: () => {},
+        }
+      },
+    },
+  )
+
+  const nonce = `${Date.now()}-${Math.random()}`
+  const { ProviderManager } = await import(`./ProviderManager.js?ts=${nonce}`)
+  const mounted = await mountProviderManager(ProviderManager, {
+    mode: 'first-run',
+    onDone,
+  })
+
+  await waitForFrameOutput(
+    mounted.getOutput,
+    frame => frame.includes('Set up provider') && frame.includes('xAI Grok OAuth'),
+  )
+
+  await navigateToPreset(mounted.stdin, 'xAI Grok OAuth')
+  mounted.stdin.write('\r')
+
+  await waitForCondition(() => onDone.mock.calls.length > 0)
+
+  expect(addProviderProfile).toHaveBeenCalledWith(
+    expect.objectContaining({
+      provider: 'xai',
+      name: 'xAI Grok OAuth',
+      baseUrl: 'https://api.x.ai/v1',
+      model: 'grok-4.3',
+      apiKey: '',
+    }),
+    expect.objectContaining({ makeActive: false }),
+  )
+  expect(setActiveProviderProfile).toHaveBeenCalledWith('provider_xai_oauth')
+  expect(applySavedProfileToCurrentSession).toHaveBeenCalledWith({
+    profileFile: expect.objectContaining({
+      profile: 'xai-oauth',
+      env: expect.objectContaining({
+        OPENAI_BASE_URL: 'https://api.x.ai/v1',
+        OPENAI_MODEL: 'grok-4.3',
+        OPENAI_API_KEY: 'xai-oauth-access-token',
+        XAI_OAUTH_ACCESS_TOKEN: 'xai-oauth-access-token',
+        OPENAI_API_FORMAT: 'responses',
+      }),
+    }),
+  })
+  expect(persistCredentials).toHaveBeenCalledWith({
+    profileId: 'provider_xai_oauth',
+  })
+  expect(onDone).toHaveBeenCalledWith(
+    expect.objectContaining({
+      action: 'saved',
+      activeProfileId: 'provider_xai_oauth',
+      message: 'xAI OAuth configured. OpenClaude switched to Grok for this session.',
+    }),
+  )
+
+  await mounted.dispose()
+})
+
 test('ProviderManager first-run Codex OAuth reports next-startup fallback when session activation fails', async () => {
   delete process.env.CLAUDE_CODE_SIMPLE
   delete process.env.CLAUDE_CODE_USE_GITHUB

@@ -8,6 +8,13 @@ Use OpenAI-compatible APIs, Gemini, GitHub Models, Codex OAuth, Codex, Ollama, A
 
 ## What's New
 
+- Synced selected Gitlawb/openclaude `v0.13.0` release work into this private
+  fork without replacing the custom provider/mobile/local-model surfaces:
+  Markdown/JSON conversation export, Bash sandbox fanout cap, Gemini raw
+  tool-call parsing, spinner layout fixes, and visible WebSearch adapter errors.
+- Hardened xAI Grok OAuth: the loopback callback now handles xAI browser
+  preflight requests, manual callback paste accepts more recovery formats, and
+  successful OAuth setup activates the saved Grok profile immediately.
 - First-class xAI support with Grok 4.3, XAI_API_KEY auth, and xAI OAuth browser flow integration
 - Local learning with `/learn` — review and apply persistent session learnings to improve future agent accuracy
 - Live Telegram bridge with `/telegram` — interact with your OpenClaude session via a secure Telegram bot
@@ -22,6 +29,31 @@ Use OpenAI-compatible APIs, Gemini, GitHub Models, Codex OAuth, Codex, Ollama, A
 - Bundled VS Code extension for launch integration and theme support
 
 Fork map: [`docs/fork-map.md`](docs/fork-map.md)
+
+## Latest Private Update vs Gitlawb/openclaude
+
+This fork keeps private features layered on top of the public
+[`Gitlawb/openclaude`](https://github.com/Gitlawb/openclaude) codebase instead
+of doing broad upstream merges. The latest update ports the useful pieces of
+upstream `v0.13.0` and keeps stronger private behavior where this fork already
+goes further.
+
+- **Conversation exports:** adds `/export` output modes for plain text,
+  Markdown, and JSON, including direct filename support and interactive format
+  selection.
+- **Provider compatibility:** preserves this fork's xAI OAuth/SuperGrok path,
+  xAI web-search route, oMLX profiles, Hicap/custom auth routing, and local
+  provider launch helpers while adding upstream Gemini raw tool-call parsing.
+- **xAI OAuth reliability:** fixes the browser callback path for xAI's
+  loopback/preflight behavior, supports full URL/query/bare-code manual paste,
+  and makes the saved Grok OAuth profile active immediately after login.
+- **Safety and reliability:** includes the upstream Bash sandbox subcommand cap,
+  WebSearch adapter failure surfacing, and spinner/task-list layout-stability
+  fixes.
+- **Not taken from upstream:** public package naming, release version bumping,
+  sponsor docs, and anything that would replace private OpenClaude branding,
+  phone/mobile companion work, local model routing, Telegram, learning, or goal
+  mode.
 
 ## Current Fork Additions
 
@@ -154,6 +186,12 @@ shows `terminal busy`, use `/permissions yolo` from the phone to switch that
 live session into yolo permissions and recheck the pending prompt.
 
 ### Fastest xAI setup
+
+xAI can be configured with either an API key or the private OAuth flow. For
+OAuth, run `/provider`, choose `xAI Grok OAuth`, finish the browser login, and
+OpenClaude will store the token securely and switch the current session to
+Grok. If the browser cannot reach the local callback, paste the callback URL,
+query string, or authorization code into the manual fallback field.
 
 macOS / Linux:
 

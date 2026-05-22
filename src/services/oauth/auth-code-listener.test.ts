@@ -59,3 +59,58 @@ test('waitForAuthorization accepts callbacks on an explicit loopback host', asyn
     'ok',
   )
 })
+
+test('waitForAuthorization answers allowed OAuth preflight without rejecting the flow', async () => {
+  const listener = new AuthCodeListener('/callback', '127.0.0.1', {
+    allowedCorsOrigins: ['https://accounts.x.ai'],
+  })
+  listeners.push(listener)
+
+  const port = await listener.start()
+  let callbackResponse: Promise<Response> | null = null
+
+  const pendingAuthorization = listener.waitForAuthorization(
+    'state-test',
+    async () => {
+      const preflight = await fetch(`http://127.0.0.1:${port}/callback`, {
+        method: 'OPTIONS',
+        headers: {
+          Origin: 'https://accounts.x.ai',
+          'Access-Control-Request-Method': 'GET',
+          'Access-Control-Request-Private-Network': 'true',
+        },
+      })
+
+      expect(preflight.status).toBe(204)
+      expect(preflight.headers.get('access-control-allow-origin')).toBe(
+        'https://accounts.x.ai',
+      )
+      expect(preflight.headers.get('access-control-allow-private-network')).toBe(
+        'true',
+      )
+
+      callbackResponse = fetch(
+        `http://127.0.0.1:${port}/callback?code=oauth-code&state=state-test`,
+        {
+          headers: {
+            Origin: 'https://accounts.x.ai',
+          },
+        },
+      )
+    },
+  )
+
+  await expect(pendingAuthorization).resolves.toBe('oauth-code')
+
+  listener.handleSuccessRedirect([], res => {
+    res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' })
+    res.end('ok')
+  })
+
+  expect(callbackResponse).not.toBeNull()
+  const response = await callbackResponse!
+  expect(response.headers.get('access-control-allow-origin')).toBe(
+    'https://accounts.x.ai',
+  )
+  expect(await response.text()).toBe('ok')
+})

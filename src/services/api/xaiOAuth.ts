@@ -36,7 +36,7 @@ export type XaiOAuthTokens = {
 
 type XaiAuthorizationCode = {
   authorizationCode: string
-  state: string
+  state?: string
 }
 
 function asTrimmedString(value: unknown): string | undefined {
@@ -53,11 +53,23 @@ export function parseXaiOAuthCallbackInput(value: string): XaiAuthorizationCode 
     const url = new URL(trimmed)
     const authorizationCode = asTrimmedString(url.searchParams.get('code'))
     const state = asTrimmedString(url.searchParams.get('state'))
-    if (authorizationCode && state) {
+    if (authorizationCode) {
       return { authorizationCode, state }
     }
   } catch {
-    // Fall through to the compact code#state format.
+    // Fall through to raw query, compact code#state, or bare-code formats.
+  }
+
+  try {
+    const query = trimmed.startsWith('?') ? trimmed.slice(1) : trimmed
+    const params = new URLSearchParams(query)
+    const authorizationCode = asTrimmedString(params.get('code'))
+    const state = asTrimmedString(params.get('state'))
+    if (authorizationCode) {
+      return { authorizationCode, state }
+    }
+  } catch {
+    // Fall through to compact code#state or bare-code formats.
   }
 
   const [authorizationCode, state] = trimmed.split('#')
@@ -68,8 +80,12 @@ export function parseXaiOAuthCallbackInput(value: string): XaiAuthorizationCode 
     }
   }
 
+  if (/^[A-Za-z0-9_-]{20,}$/.test(trimmed)) {
+    return { authorizationCode: trimmed }
+  }
+
   throw new Error(
-    'Invalid xAI callback. Paste the full 127.0.0.1 callback URL, or code#state.',
+    'Invalid xAI callback. Paste the full 127.0.0.1 callback URL, code/state query, or code#state.',
   )
 }
 
@@ -177,6 +193,9 @@ export class XaiOAuthService {
     const authCodeListener = new AuthCodeListener(
       XAI_OAUTH_REDIRECT_PATH,
       XAI_OAUTH_REDIRECT_HOST,
+      {
+        allowedCorsOrigins: ['https://accounts.x.ai', 'https://auth.x.ai'],
+      },
     )
     this.authCodeListener = authCodeListener
 
@@ -285,7 +304,7 @@ export class XaiOAuthService {
 
   handleManualCallbackInput(value: string): void {
     const { authorizationCode, state } = parseXaiOAuthCallbackInput(value)
-    if (state !== this.expectedState) {
+    if (state && state !== this.expectedState) {
       throw new Error('Invalid xAI callback state. Restart the OAuth flow and try again.')
     }
     if (!this.manualAuthorizationResolver) {

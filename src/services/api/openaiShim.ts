@@ -862,13 +862,14 @@ interface OpenAIStreamChunk {
   model: string
   choices: Array<{
     index: number
-    delta: {
-      role?: string
-      content?: string | null
-      reasoning_content?: string | null
-      tool_calls?: Array<{
-        index: number
-        id?: string
+      delta: {
+        role?: string
+        content?: string | null
+        reasoning_content?: string | null
+        extra_content?: Record<string, unknown>
+        tool_calls?: Array<{
+          index: number
+          id?: string
         type?: string
         function?: { name?: string; arguments?: string }
         extra_content?: Record<string, unknown>
@@ -913,6 +914,57 @@ function convertChunkUsage(
 const JSON_REPAIR_SUFFIXES = [
   '}', '"}', ']}', '"]}', '}}', '"}}', ']}}', '"]}}', '"]}]}', '}]}'
 ]
+
+const RAW_TOOL_CALLS_REQUESTED_PREFIX = 'Tool calls requested:'
+
+type ParsedRawToolCall = {
+  id: string
+  name: string
+  argumentsJson: string
+}
+
+function couldBeRawToolCallsRequestedPrefix(text: string): boolean {
+  const trimmedStart = text.trimStart()
+  return (
+    RAW_TOOL_CALLS_REQUESTED_PREFIX.startsWith(trimmedStart) ||
+    trimmedStart.startsWith(RAW_TOOL_CALLS_REQUESTED_PREFIX)
+  )
+}
+
+function parseRawToolCallsRequestedText(text: string): ParsedRawToolCall[] | null {
+  const trimmed = text.trim()
+  if (!trimmed.startsWith(RAW_TOOL_CALLS_REQUESTED_PREFIX)) {
+    return null
+  }
+
+  const lines = trimmed
+    .slice(RAW_TOOL_CALLS_REQUESTED_PREFIX.length)
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(Boolean)
+
+  if (lines.length === 0) return null
+
+  const toolCalls: ParsedRawToolCall[] = []
+  for (const line of lines) {
+    const match = line.match(
+      /^-\s*([A-Za-z_][A-Za-z0-9_.-]*)\(([\s\S]*)\)\s*\[id:\s*([^\]\s]+)\]\s*$/,
+    )
+    if (!match) return null
+
+    const [, name, rawArguments, id] = match
+    if (!name || !id || rawArguments === undefined) return null
+
+    const normalizedArguments = normalizeToolArguments(name, rawArguments)
+    toolCalls.push({
+      id,
+      name,
+      argumentsJson: JSON.stringify(normalizedArguments ?? {}),
+    })
+  }
+
+  return toolCalls.length > 0 ? toolCalls : null
+}
 
 function repairPossiblyTruncatedObjectJson(raw: string): string | null {
   try {
@@ -963,6 +1015,7 @@ async function* openaiStreamToAnthropic(
   let hasEmittedFinalUsage = false
   let hasProcessedFinishReason = false
   const streamState = createStreamState()
+  let bufferedRawToolCallsText: string | null = null
 
   // Emit message_start
   yield {
@@ -1055,6 +1108,66 @@ async function* openaiStreamToAnthropic(
     hasEmittedContentStart = false
   }
 
+  const emitTextDelta = async function* (text: string) {
+    if (!text) return
+    if (!hasEmittedContentStart) {
+      yield {
+        type: 'content_block_start',
+        index: contentBlockIndex,
+        content_block: { type: 'text', text: '' },
+      }
+      hasEmittedContentStart = true
+    }
+
+    const visible = thinkFilter.feed(text)
+    if (visible) {
+      yield {
+        type: 'content_block_delta',
+        index: contentBlockIndex,
+        delta: { type: 'text_delta', text: visible },
+      }
+    }
+    processStreamChunk(streamState, text)
+  }
+
+  const emitParsedRawToolCalls = async function* (
+    toolCalls: ParsedRawToolCall[],
+  ) {
+    if (hasEmittedThinkingStart && !hasClosedThinking) {
+      yield { type: 'content_block_stop', index: contentBlockIndex }
+      contentBlockIndex++
+      hasClosedThinking = true
+    }
+    if (hasEmittedContentStart) {
+      yield* closeActiveContentBlock()
+    }
+
+    for (const toolCall of toolCalls) {
+      const toolBlockIndex = contentBlockIndex
+      yield {
+        type: 'content_block_start',
+        index: toolBlockIndex,
+        content_block: {
+          type: 'tool_use',
+          id: toolCall.id,
+          name: toolCall.name,
+          input: {},
+        },
+      }
+      contentBlockIndex++
+      yield {
+        type: 'content_block_delta',
+        index: toolBlockIndex,
+        delta: {
+          type: 'input_json_delta',
+          partial_json: toolCall.argumentsJson,
+        },
+      }
+      yield { type: 'content_block_stop', index: toolBlockIndex }
+      processStreamChunk(streamState, toolCall.argumentsJson)
+    }
+  }
+
   try {
     while (true) {
       const { done, value } = await readWithTimeout()
@@ -1109,28 +1222,40 @@ async function* openaiStreamToAnthropic(
             contentBlockIndex++
             hasClosedThinking = true
           }
-          if (!hasEmittedContentStart) {
-            yield {
-              type: 'content_block_start',
-              index: contentBlockIndex,
-              content_block: { type: 'text', text: '' },
-            }
-            hasEmittedContentStart = true
-          }
 
-          const visible = thinkFilter.feed(delta.content)
-          if (visible) {
-            yield {
-              type: 'content_block_delta',
-              index: contentBlockIndex,
-              delta: { type: 'text_delta', text: visible },
+          if (
+            !hasEmittedContentStart &&
+            bufferedRawToolCallsText === null &&
+            couldBeRawToolCallsRequestedPrefix(delta.content)
+          ) {
+            bufferedRawToolCallsText = delta.content
+            processStreamChunk(streamState, delta.content)
+          } else if (bufferedRawToolCallsText !== null) {
+            bufferedRawToolCallsText += delta.content
+            processStreamChunk(streamState, delta.content)
+            if (!couldBeRawToolCallsRequestedPrefix(bufferedRawToolCallsText)) {
+              yield* emitTextDelta(bufferedRawToolCallsText)
+              bufferedRawToolCallsText = null
             }
+          } else {
+            yield* emitTextDelta(delta.content)
           }
-          processStreamChunk(streamState, delta.content)
         }
 
         // Tool calls
         if (delta.tool_calls) {
+          if (bufferedRawToolCallsText !== null) {
+            const parsedBufferedToolCalls = parseRawToolCallsRequestedText(
+              bufferedRawToolCallsText,
+            )
+            if (
+              !parsedBufferedToolCalls &&
+              !couldBeRawToolCallsRequestedPrefix(bufferedRawToolCallsText)
+            ) {
+              yield* emitTextDelta(bufferedRawToolCallsText)
+            }
+            bufferedRawToolCallsText = null
+          }
           for (const tc of delta.tool_calls) {
             if (tc.id && tc.function?.name) {
               // New tool call starting — close any open thinking block first
@@ -1146,6 +1271,7 @@ async function* openaiStreamToAnthropic(
               const toolBlockIndex = contentBlockIndex
               const initialArguments = tc.function.arguments ?? ''
               const normalizeAtStop = hasToolFieldMapping(tc.function.name)
+              const toolExtraContent = tc.extra_content ?? delta.extra_content
               processStreamChunk(streamState, tc.function.arguments ?? '')
               activeToolCalls.set(tc.index, {
                 id: tc.id,
@@ -1163,11 +1289,11 @@ async function* openaiStreamToAnthropic(
                   id: tc.id,
                   name: tc.function.name,
                   input: {},
-                  ...(tc.extra_content ? { extra_content: tc.extra_content } : {}),
+                  ...(toolExtraContent ? { extra_content: toolExtraContent } : {}),
                   // Extract Gemini signature from extra_content
-                  ...((tc.extra_content?.google as any)?.thought_signature
+                  ...((toolExtraContent?.google as any)?.thought_signature
                     ? {
-                        signature: (tc.extra_content.google as any)
+                        signature: (toolExtraContent.google as any)
                           .thought_signature,
                       }
                     : {}),
@@ -1221,6 +1347,16 @@ async function* openaiStreamToAnthropic(
             yield { type: 'content_block_stop', index: contentBlockIndex }
             contentBlockIndex++
             hasClosedThinking = true
+          }
+          const parsedBufferedToolCalls = bufferedRawToolCallsText
+            ? parseRawToolCallsRequestedText(bufferedRawToolCallsText)
+            : null
+          if (parsedBufferedToolCalls) {
+            yield* emitParsedRawToolCalls(parsedBufferedToolCalls)
+            bufferedRawToolCallsText = null
+          } else if (bufferedRawToolCallsText !== null) {
+            yield* emitTextDelta(bufferedRawToolCallsText)
+            bufferedRawToolCallsText = null
           }
           // Close any open content blocks
           if (hasEmittedContentStart) {
@@ -1290,7 +1426,7 @@ async function* openaiStreamToAnthropic(
           }
 
           const stopReason =
-            choice.finish_reason === 'tool_calls'
+            parsedBufferedToolCalls || choice.finish_reason === 'tool_calls'
               ? 'tool_use'
               : choice.finish_reason === 'length'
                 ? 'max_tokens'
@@ -2343,6 +2479,7 @@ class OpenAIShimMessages {
             | null
             | Array<{ type?: string; text?: string }>
           reasoning_content?: string | null
+          extra_content?: Record<string, unknown>
           tool_calls?: Array<{
             id: string
             function: { name: string; arguments: string }
@@ -2376,10 +2513,25 @@ class OpenAIShimMessages {
         ? choice?.message?.content
         : null
     if (typeof rawContent === 'string' && rawContent) {
-      content.push({
-        type: 'text',
-        text: stripThinkTags(rawContent),
-      })
+      const strippedContent = stripThinkTags(rawContent)
+      const rawToolCalls = choice?.message?.tool_calls
+        ? null
+        : parseRawToolCallsRequestedText(strippedContent)
+      if (rawToolCalls) {
+        for (const toolCall of rawToolCalls) {
+          content.push({
+            type: 'tool_use',
+            id: toolCall.id,
+            name: toolCall.name,
+            input: JSON.parse(toolCall.argumentsJson),
+          })
+        }
+      } else {
+        content.push({
+          type: 'text',
+          text: strippedContent,
+        })
+      }
     } else if (Array.isArray(rawContent) && rawContent.length > 0) {
       const parts: string[] = []
       for (const part of rawContent) {
@@ -2394,10 +2546,25 @@ class OpenAIShimMessages {
       }
       const joined = parts.join('\n')
       if (joined) {
-        content.push({
-          type: 'text',
-          text: stripThinkTags(joined),
-        })
+        const strippedContent = stripThinkTags(joined)
+        const rawToolCalls = choice?.message?.tool_calls
+          ? null
+          : parseRawToolCallsRequestedText(strippedContent)
+        if (rawToolCalls) {
+          for (const toolCall of rawToolCalls) {
+            content.push({
+              type: 'tool_use',
+              id: toolCall.id,
+              name: toolCall.name,
+              input: JSON.parse(toolCall.argumentsJson),
+            })
+          }
+        } else {
+          content.push({
+            type: 'text',
+            text: strippedContent,
+          })
+        }
       }
     }
 
@@ -2407,22 +2574,24 @@ class OpenAIShimMessages {
           tc.function.name,
           tc.function.arguments,
         )
+        const toolExtraContent = tc.extra_content ?? choice.message.extra_content
         content.push({
           type: 'tool_use',
           id: tc.id,
           name: tc.function.name,
           input,
-          ...(tc.extra_content ? { extra_content: tc.extra_content } : {}),
+          ...(toolExtraContent ? { extra_content: toolExtraContent } : {}),
           // Extract Gemini signature from extra_content
-          ...((tc.extra_content?.google as any)?.thought_signature
-            ? { signature: (tc.extra_content.google as any).thought_signature }
+          ...((toolExtraContent?.google as any)?.thought_signature
+            ? { signature: (toolExtraContent.google as any).thought_signature }
             : {}),
         })
       }
     }
 
     const stopReason =
-      choice?.finish_reason === 'tool_calls'
+      choice?.finish_reason === 'tool_calls' ||
+      content.some(block => block.type === 'tool_use')
         ? 'tool_use'
         : choice?.finish_reason === 'length'
           ? 'max_tokens'

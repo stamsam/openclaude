@@ -20,8 +20,29 @@ test('parseXaiOAuthCallbackInput parses compact code and state input', () => {
   })
 })
 
-test('parseXaiOAuthCallbackInput rejects missing callback data', () => {
+test('parseXaiOAuthCallbackInput parses raw query input', () => {
+  expect(
+    parseXaiOAuthCallbackInput('?code=oauth-code&state=oauth-state'),
+  ).toEqual({
+    authorizationCode: 'oauth-code',
+    state: 'oauth-state',
+  })
+})
+
+test('parseXaiOAuthCallbackInput accepts bare manual authorization codes', () => {
+  expect(parseXaiOAuthCallbackInput('abc_DEF-1234567890abc_DEF')).toEqual({
+    authorizationCode: 'abc_DEF-1234567890abc_DEF',
+  })
+})
+
+test('parseXaiOAuthCallbackInput accepts URL callbacks without state for manual recovery', () => {
   expect(() =>
     parseXaiOAuthCallbackInput('http://127.0.0.1:56121/callback?code=oauth-code'),
+  ).not.toThrow()
+})
+
+test('parseXaiOAuthCallbackInput rejects missing callback data', () => {
+  expect(() =>
+    parseXaiOAuthCallbackInput('http://127.0.0.1:56121/callback?state=oauth-state'),
   ).toThrow('Invalid xAI callback')
 })

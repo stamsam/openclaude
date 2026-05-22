@@ -24,14 +24,17 @@ export class AuthCodeListener {
   private pendingResponse: ServerResponse | null = null // Response object for final redirect
   private callbackPath: string // Configurable callback path
   private listenHost: string
+  private allowedCorsOrigins: Set<string>
 
   constructor(
     callbackPath: string = '/callback',
     listenHost: string = 'localhost',
+    options: { allowedCorsOrigins?: string[] } = {},
   ) {
     this.localServer = createServer()
     this.callbackPath = callbackPath
     this.listenHost = listenHost
+    this.allowedCorsOrigins = new Set(options.allowedCorsOrigins ?? [])
   }
 
   /**
@@ -207,10 +210,34 @@ export class AuthCodeListener {
       return
     }
 
+    this.writeCorsHeaders(req, res)
+
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204)
+      res.end()
+      return
+    }
+
     const authCode = parsedUrl.searchParams.get('code') ?? undefined
     const state = parsedUrl.searchParams.get('state') ?? undefined
 
     this.validateAndRespond(authCode, state, res)
+  }
+
+  private writeCorsHeaders(req: IncomingMessage, res: ServerResponse): void {
+    const origin = req.headers.origin
+    if (
+      typeof origin !== 'string' ||
+      !this.allowedCorsOrigins.has(origin)
+    ) {
+      return
+    }
+
+    res.setHeader('Access-Control-Allow-Origin', origin)
+    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS')
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
+    res.setHeader('Access-Control-Allow-Private-Network', 'true')
+    res.setHeader('Vary', 'Origin')
   }
 
   private validateAndRespond(
