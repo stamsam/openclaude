@@ -152,6 +152,8 @@ function inferRemoteModelOpenAIShimConfig(
       requireReasoningContentOnAssistantMessages: true,
       reasoningContentFallback: '',
       thinkingRequestFormat: 'deepseek-compatible',
+      // DeepSeek detected by model name (no descriptor) is still capped: xhigh -> max.
+      reasoningEffortPolicy: 'downgrade',
       maxTokensField: 'max_tokens',
       removeBodyFields: ['store'],
     }

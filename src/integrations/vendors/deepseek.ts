@@ -19,6 +19,8 @@ export default defineVendor({
       requireReasoningContentOnAssistantMessages: true,
       reasoningContentFallback: '',
       thinkingRequestFormat: 'deepseek-compatible',
+      // DeepSeek rejects reasoning_effort: 'xhigh' (400). Cap it: xhigh -> max.
+      reasoningEffortPolicy: 'downgrade',
       maxTokensField: 'max_tokens',
       removeBodyFields: ['store'],
       supportsApiFormatSelection: false,

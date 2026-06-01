@@ -5696,3 +5696,97 @@ test('emits reasoning_effort from codex alias default when no override is passed
 
   expect(requestBody?.reasoning_effort).toBe('high')
 })
+
+test('ultracode/xhigh on DeepSeek caps reasoning_effort to max even with thinking disabled (the 400 path)', async () => {
+  process.env.OPENAI_BASE_URL = 'https://api.deepseek.com/v1'
+  process.env.OPENAI_API_KEY = 'sk-deepseek'
+
+  let requestBody: Record<string, unknown> | undefined
+  globalThis.fetch = (async (_input, init) => {
+    requestBody = JSON.parse(String(init?.body))
+    return new Response(
+      JSON.stringify({
+        id: 'chatcmpl-1',
+        model: 'deepseek-reasoner',
+        choices: [{ message: { role: 'assistant', content: 'ok' }, finish_reason: 'stop' }],
+        usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+      }),
+      { headers: { 'Content-Type': 'application/json' } },
+    )
+  }) as FetchType
+
+  // 'xhigh' is exactly what the CLI's ultracode/max collapse to before the shim.
+  // Thinking disabled means the deepseek-compatible branch (SITE B) is skipped, so
+  // this exercises the universal SITE A path that previously leaked raw 'xhigh' -> 400.
+  const client = createOpenAIShimClient({ reasoningEffort: 'xhigh' }) as OpenAIShimClient
+  await client.beta.messages.create({
+    model: 'deepseek-reasoner',
+    system: 'test',
+    messages: [{ role: 'user', content: 'hi' }],
+    max_tokens: 32,
+    stream: false,
+    thinking: { type: 'disabled' },
+  })
+
+  expect(requestBody?.reasoning_effort).toBe('max')
+  expect(requestBody?.reasoning_effort).not.toBe('xhigh')
+})
+
+test('universal: xhigh on any OpenAI-compatible endpoint with no policy is capped to high, never xhigh', async () => {
+  process.env.OPENAI_BASE_URL = 'https://api.some-openai-compatible.example/v1'
+  process.env.OPENAI_API_KEY = 'test-key'
+
+  let requestBody: Record<string, unknown> | undefined
+  globalThis.fetch = (async (_input, init) => {
+    requestBody = JSON.parse(String(init?.body))
+    return new Response(
+      JSON.stringify({
+        id: 'chatcmpl-1',
+        model: 'some-reasoner',
+        choices: [{ message: { role: 'assistant', content: 'ok' }, finish_reason: 'stop' }],
+        usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+      }),
+      { headers: { 'Content-Type': 'application/json' } },
+    )
+  }) as FetchType
+
+  const client = createOpenAIShimClient({ reasoningEffort: 'xhigh' }) as OpenAIShimClient
+  await client.beta.messages.create({
+    model: 'some-reasoner',
+    messages: [{ role: 'user', content: 'hi' }],
+    max_tokens: 16,
+    stream: false,
+  })
+
+  expect(requestBody?.reasoning_effort).toBe('high')
+  expect(requestBody?.reasoning_effort).not.toBe('xhigh')
+})
+
+test('MiniMax suppresses reasoning_effort entirely (policy: suppress)', async () => {
+  process.env.OPENAI_BASE_URL = 'https://api.minimax.io/v1'
+  process.env.OPENAI_API_KEY = 'sk-minimax'
+
+  let requestBody: Record<string, unknown> | undefined
+  globalThis.fetch = (async (_input, init) => {
+    requestBody = JSON.parse(String(init?.body))
+    return new Response(
+      JSON.stringify({
+        id: 'chatcmpl-1',
+        model: 'MiniMax-M2.7',
+        choices: [{ message: { role: 'assistant', content: 'ok' }, finish_reason: 'stop' }],
+        usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+      }),
+      { headers: { 'Content-Type': 'application/json' } },
+    )
+  }) as FetchType
+
+  const client = createOpenAIShimClient({ reasoningEffort: 'xhigh' }) as OpenAIShimClient
+  await client.beta.messages.create({
+    model: 'MiniMax-M2.7',
+    messages: [{ role: 'user', content: 'hi' }],
+    max_tokens: 16,
+    stream: false,
+  })
+
+  expect(requestBody && 'reasoning_effort' in requestBody).toBe(false)
+})

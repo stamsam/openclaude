@@ -38,6 +38,7 @@ import { hydrateGeminiAccessTokenFromSecureStorage } from '../../utils/geminiCre
 import { hydrateGithubModelsTokenFromSecureStorage } from '../../utils/githubModelsCredentials.js'
 import { resolveOpenAIShimRuntimeContext } from '../../integrations/runtimeMetadata.js'
 import { resolveRouteCredentialValue } from '../../integrations/routeMetadata.js'
+import type { ReasoningEffortPolicy } from '../../integrations/descriptors.js'
 import {
   createThinkTagFilter,
   stripThinkTags,
@@ -171,10 +172,41 @@ function hasXaiApiHost(baseUrl: string | undefined): boolean {
   }
 }
 
-function normalizeDeepSeekReasoningEffort(
+/**
+ * Single decision point for what to put on body.reasoning_effort (or whether to
+ * omit it) for an OpenAI-compatible chat_completions request, based on the
+ * provider's reasoningEffortPolicy.
+ *
+ * By the time effort reaches the shim it is always one of low|medium|high|xhigh
+ * (the CLI's `ultracode`/`max` are both collapsed to `xhigh` upstream). Only the
+ * non-standard `xhigh` is problematic for third-party endpoints — `low|medium|high`
+ * are the standard OpenAI values and always pass through.
+ *
+ * - 'suppress'      : never emit reasoning_effort (e.g. MiniMax).
+ * - 'downgrade'     : cap xhigh -> 'max' (DeepSeek's accepted ceiling); rest pass.
+ * - 'openai-native' : endpoint understands the full vocabulary (incl. xhigh) — pass.
+ * - 'passthrough'   : explicit no-normalization escape hatch — pass.
+ * - undefined/other : UNIVERSAL SAFE DEFAULT for any OpenAI-style endpoint without
+ *                     an explicit policy — cap xhigh -> 'high' (the standard OpenAI
+ *                     ceiling) so we never 400 on an unknown backend; rest pass.
+ *
+ * Returns the value to write, or `undefined` to signal "omit the field".
+ */
+function resolveReasoningEffortForBody(
+  policy: ReasoningEffortPolicy | undefined,
   effort: 'low' | 'medium' | 'high' | 'xhigh',
-): 'high' | 'max' {
-  return effort === 'xhigh' ? 'max' : 'high'
+): 'low' | 'medium' | 'high' | 'xhigh' | 'max' | undefined {
+  switch (policy) {
+    case 'suppress':
+      return undefined
+    case 'downgrade':
+      return effort === 'xhigh' ? 'max' : effort
+    case 'openai-native':
+    case 'passthrough':
+      return effort
+    default:
+      return effort === 'xhigh' ? 'high' : effort
+  }
 }
 
 function formatRetryAfterHint(response: Response): string {
@@ -1851,7 +1883,18 @@ class OpenAIShimMessages {
      // or `?reasoning=<level>` query on the model string). OpenAI, Codex, and
      // most OpenAI-compatible endpoints read it from this top-level field.
     if (request.reasoning) {
-      body.reasoning_effort = request.reasoning.effort
+      // Single decision point: the policy decides what reasoning_effort to emit
+      // (or to omit it). Default behavior caps the non-standard 'xhigh' so any
+      // OpenAI-compatible endpoint without an explicit policy never 400s.
+      const decidedEffort = resolveReasoningEffortForBody(
+        shimConfig.reasoningEffortPolicy,
+        request.reasoning.effort,
+      )
+      if (decidedEffort === undefined) {
+        delete body.reasoning_effort
+      } else {
+        body.reasoning_effort = decidedEffort
+      }
     }
     // Convert max_tokens to max_completion_tokens for OpenAI API compatibility.
     // Azure OpenAI requires max_completion_tokens and does not accept max_tokens.
@@ -1921,7 +1964,17 @@ class OpenAIShimMessages {
       if (deepSeekThinkingType === 'enabled') {
         const effort = request.reasoning?.effort
         if (effort) {
-          body.reasoning_effort = normalizeDeepSeekReasoningEffort(effort)
+          // Same single helper. Default to 'downgrade' for the deepseek-compatible
+          // thinking path so xhigh -> max even if a descriptor omits the policy.
+          const decidedEffort = resolveReasoningEffortForBody(
+            shimConfig.reasoningEffortPolicy ?? 'downgrade',
+            effort,
+          )
+          if (decidedEffort === undefined) {
+            delete body.reasoning_effort
+          } else {
+            body.reasoning_effort = decidedEffort
+          }
         }
       }
     }

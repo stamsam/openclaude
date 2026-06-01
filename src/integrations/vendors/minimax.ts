@@ -15,6 +15,8 @@ export default defineVendor({
   transportConfig: {
     kind: 'openai-compatible',
     openaiShim: {
+      // MiniMax does not take a reasoning_effort field — omit it entirely.
+      reasoningEffortPolicy: 'suppress',
       supportsApiFormatSelection: false,
       supportsAuthHeaders: false,
     },

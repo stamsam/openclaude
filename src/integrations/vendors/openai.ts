@@ -15,6 +15,8 @@ export default defineVendor({
   transportConfig: {
     kind: 'openai-compatible',
     openaiShim: {
+      // Real OpenAI/Codex accept the full effort range incl. xhigh — pass through.
+      reasoningEffortPolicy: 'openai-native',
       supportsApiFormatSelection: true,
       supportsAuthHeaders: true,
     },

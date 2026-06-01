@@ -38,9 +38,25 @@ export interface OpenAIShimTransportConfig {
   requireReasoningContentOnAssistantMessages?: boolean
   reasoningContentFallback?: '' | 'omit'
   thinkingRequestFormat?: 'none' | 'deepseek-compatible'
+  // How the shim should treat Anthropic-side effort values when emitting
+  // body.reasoning_effort to an OpenAI-compatible backend.
+  // - 'openai-native': real OpenAI/Codex; pass through, supports 'xhigh'.
+  // - 'downgrade'    : keep the field but cap at the highest level the
+  //                    backend accepts (e.g. 'xhigh' -> 'max' for DeepSeek).
+  // - 'suppress'     : never emit reasoning_effort for ultracode-driven
+  //                    effort on this provider.
+  // - 'passthrough'  : emit whatever the client sent, no normalization.
+  // Undefined preserves existing default behavior.
+  reasoningEffortPolicy?: ReasoningEffortPolicy
   maxTokensField?: OpenAIShimTokenField
   removeBodyFields?: string[]
 }
+
+export type ReasoningEffortPolicy =
+  | 'openai-native'
+  | 'downgrade'
+  | 'suppress'
+  | 'passthrough'
 
 export interface CapabilityFlags {
   supportsVision?: boolean
