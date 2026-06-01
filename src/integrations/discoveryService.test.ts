@@ -294,12 +294,11 @@ describe('discoverModelsForRoute', () => {
     ) as unknown as typeof globalThis.fetch)
 
     const second = await discoverModelsForRoute('ollama', { forceRefresh: true })
-    expect(second).toMatchObject({
-      source: 'stale-cache',
-      stale: true,
-      models: [{ id: 'llama3.1:8b', apiName: 'llama3.1:8b' }],
-    })
+    expect(second).toMatchObject({ source: 'stale-cache', stale: true })
     expect(second?.error?.message).toContain('Ollama is not reachable')
+    const modelIds = second?.models?.map((m: { id: string }) => m.id) ?? []
+    expect(modelIds).toContain('llama3.1:8b')
+    expect(modelIds).toContain('minimax-m3-cloud')
   })
 
   test('hybrid routes keep curated descriptor entries ahead of discovered duplicates', async () => {

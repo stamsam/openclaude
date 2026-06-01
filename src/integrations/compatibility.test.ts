@@ -43,6 +43,7 @@ const EXPECTED_PRESETS = [
   'omlx-anthropic',
   'omlx',
   'sams-auto-router',
+  'opencode-zen',
 ] as const satisfies readonly ProviderPreset[]
 
 describe('compatibility mappings', () => {

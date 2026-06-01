@@ -11,6 +11,17 @@ const minimaxM2Capabilities = {
 
 export default [
   defineModel({
+    id: 'minimax-m3',
+    label: 'MiniMax M3',
+    brandId: 'minimax',
+    vendorId: 'minimax',
+    classification: ['chat', 'reasoning', 'vision', 'coding'],
+    defaultModel: 'MiniMax-M3',
+    capabilities: minimaxM2Capabilities,
+    contextWindow: 204_800,
+    maxOutputTokens: 131_072,
+  }),
+  defineModel({
     id: 'minimax-m2',
     label: 'MiniMax M2',
     brandId: 'minimax',

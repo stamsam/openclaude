@@ -39,6 +39,7 @@ export default defineVendor({
   catalog: {
     source: 'static',
     models: [
+      { id: 'minimax-m3', apiName: 'MiniMax-M3', label: 'MiniMax M3', modelDescriptorId: 'minimax-m3' },
       { id: 'minimax-m2', apiName: 'MiniMax-M2', label: 'MiniMax M2', modelDescriptorId: 'minimax-m2' },
       { id: 'minimax-m2.1', apiName: 'MiniMax-M2.1', label: 'MiniMax M2.1', modelDescriptorId: 'minimax-m2.1' },
       { id: 'minimax-m2.1-highspeed', apiName: 'MiniMax-M2.1-highspeed', label: 'MiniMax M2.1 Highspeed', modelDescriptorId: 'minimax-m2.1-highspeed' },

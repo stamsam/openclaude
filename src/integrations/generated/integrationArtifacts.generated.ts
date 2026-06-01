@@ -27,6 +27,7 @@ import gatewayMistral from '../gateways/mistral.js'
 import gatewayNvidiaNim from '../gateways/nvidia-nim.js'
 import gatewayOllama from '../gateways/ollama.js'
 import gatewayOmlx from '../gateways/omlx.js'
+import gatewayOpencodeZen from '../gateways/opencode-zen.js'
 import gatewayOpenrouter from '../gateways/openrouter.js'
 import gatewaySamsAutoRouter from '../gateways/sams-auto-router.js'
 import gatewayTogether from '../gateways/together.js'
@@ -60,7 +61,7 @@ import modelQwen from '../models/qwen.js'
 import modelXai from '../models/xai.js'
 
 export const VENDOR_DESCRIPTORS = [vendorAnthropic, vendorBankr, vendorDeepseek, vendorGemini, vendorMinimax, vendorMoonshot, vendorOpenai, vendorXai, vendorZai] as const satisfies readonly VendorDescriptor[]
-export const GATEWAY_DESCRIPTORS = [gatewayAtomicChat, gatewayAzureOpenai, gatewayBedrock, gatewayCerebras, gatewayCustom, gatewayDashscopeCn, gatewayDashscopeIntl, gatewayGithub, gatewayGroq, gatewayHicap, gatewayKimiCode, gatewayLmstudio, gatewayMistral, gatewayNvidiaNim, gatewayOllama, gatewayOmlx, gatewayOpenrouter, gatewaySamsAutoRouter, gatewayTogether, gatewayVertex] as const satisfies readonly GatewayDescriptor[]
+export const GATEWAY_DESCRIPTORS = [gatewayAtomicChat, gatewayAzureOpenai, gatewayBedrock, gatewayCerebras, gatewayCustom, gatewayDashscopeCn, gatewayDashscopeIntl, gatewayGithub, gatewayGroq, gatewayHicap, gatewayKimiCode, gatewayLmstudio, gatewayMistral, gatewayNvidiaNim, gatewayOllama, gatewayOmlx, gatewayOpencodeZen, gatewayOpenrouter, gatewaySamsAutoRouter, gatewayTogether, gatewayVertex] as const satisfies readonly GatewayDescriptor[]
 export const ANTHROPIC_PROXY_DESCRIPTORS = [anthropicproxyOmlx] as const satisfies readonly AnthropicProxyDescriptor[]
 export const BRAND_DESCRIPTORS = [brandClaude, brandDeepseek, brandGemini, brandGlm, brandGpt, brandKimi, brandLlama, brandMinimax, brandMistral, brandNemotron, brandOpenaiCompatibleAlias, brandQwen, brandXai] as const satisfies readonly BrandDescriptor[]
 export const MODEL_DESCRIPTOR_GROUPS = [modelClaude, modelDeepseek, modelGemini, modelGlm, modelGpt, modelKimi, modelLlama, modelMinimax, modelMistral, modelNemotron, modelOpenaiCompatibleAlias, modelQwen, modelXai] as const satisfies readonly (readonly ModelDescriptor[])[]
@@ -341,6 +342,17 @@ export const PROVIDER_PRESET_MANIFEST = [
     ]
   },
   {
+    "preset": "opencode-zen",
+    "routeKind": "gateway",
+    "routeId": "opencode-zen",
+    "vendorId": "openai",
+    "gatewayId": "opencode-zen",
+    "description": "OpenCode Zen OpenAI-compatible endpoint",
+    "apiKeyEnvVars": [
+      "ZEN_API_KEY"
+    ]
+  },
+  {
     "preset": "openrouter",
     "routeKind": "gateway",
     "routeId": "openrouter",
@@ -438,6 +450,7 @@ export const ORDERED_PROVIDER_PRESETS = [
   "kimi-code",
   "nvidia-nim",
   "openai",
+  "opencode-zen",
   "openrouter",
   "together",
   "xai",

@@ -98,8 +98,8 @@ function mergeOpenAIShimConfig(
 ): OpenAIShimTransportConfig {
   return {
     ...baseConfig,
-    ...entryConfig,
     ...inferredConfig,
+    ...entryConfig,
     removeBodyFields: mergeRemoveBodyFields(
       baseConfig?.removeBodyFields,
       entryConfig?.removeBodyFields,

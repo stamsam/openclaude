@@ -1094,11 +1094,18 @@ export async function verifyAutoModeGateAccess(
     disableFastMode?: boolean
   }>('tengu_auto_mode_config', {})
   const enabledState = parseAutoModeEnabledState(autoModeConfig?.enabled)
+  // Non-ant users without GrowthBook data: default to enabled so auto mode
+  // works for local users (ollama, openai-compatible, etc.) without requiring
+  // tengu_auto_mode_config to be set up. Settings-disable still takes effect.
+  const effectiveEnabledState: AutoModeEnabledState =
+    autoModeConfig?.enabled === undefined && process.env.USER_TYPE !== 'ant'
+      ? 'enabled'
+      : enabledState
   const disabledBySettings = isAutoModeDisabledBySettings()
   // Treat settings-disable the same as GrowthBook 'disabled' for circuit-breaker
   // semantics — blocks SDK/explicit re-entry via isAutoModeGateEnabled().
   autoModeStateModule?.setAutoModeCircuitBroken(
-    enabledState === 'disabled' || disabledBySettings,
+    effectiveEnabledState === 'disabled' || disabledBySettings,
   )
 
   // Carousel availability: not circuit-broken, not disabled-by-settings,
@@ -1117,16 +1124,16 @@ export async function verifyAutoModeGateAccess(
   const modelSupported =
     modelSupportsAutoMode(mainModel) && !disableFastModeBreakerFires
   let carouselAvailable = false
-  if (enabledState !== 'disabled' && !disabledBySettings && modelSupported) {
+  if (effectiveEnabledState !== 'disabled' && !disabledBySettings && modelSupported) {
     carouselAvailable =
-      enabledState === 'enabled' || hasAutoModeOptInAnySource()
+      effectiveEnabledState === 'enabled' || hasAutoModeOptInAnySource()
   }
   // canEnterAuto gates explicit entry (--permission-mode auto, defaultMode: auto)
   // — explicit entry IS an opt-in, so we only block on circuit breaker + settings + model
   const canEnterAuto =
-    enabledState !== 'disabled' && !disabledBySettings && modelSupported
+    effectiveEnabledState !== 'disabled' && !disabledBySettings && modelSupported
   logForDebugging(
-    `[auto-mode] verifyAutoModeGateAccess: enabledState=${enabledState} disabledBySettings=${disabledBySettings} model=${mainModel} modelSupported=${modelSupported} disableFastModeBreakerFires=${disableFastModeBreakerFires} carouselAvailable=${carouselAvailable} canEnterAuto=${canEnterAuto}`,
+    `[auto-mode] verifyAutoModeGateAccess: enabledState=${enabledState} effectiveEnabledState=${effectiveEnabledState} disabledBySettings=${disabledBySettings} model=${mainModel} modelSupported=${modelSupported} disableFastModeBreakerFires=${disableFastModeBreakerFires} carouselAvailable=${carouselAvailable} canEnterAuto=${canEnterAuto}`,
   )
 
   // Capture CLI-flag intent now (doesn't depend on context).

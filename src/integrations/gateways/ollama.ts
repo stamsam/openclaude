@@ -29,11 +29,14 @@ export default defineGateway({
     vendorId: 'openai',
   },
   catalog: {
-    source: 'dynamic',
+    source: 'hybrid',
     discovery: { kind: 'ollama' },
     discoveryCacheTtl: '1d',
     discoveryRefreshMode: 'manual',
     allowManualRefresh: true,
+    models: [
+      { id: 'minimax-m3-cloud', apiName: 'minimax-m3:cloud', label: 'MiniMax M3 (Ollama Cloud)', modelDescriptorId: 'minimax-m3' },
+    ],
   },
   usage: { supported: false },
 })

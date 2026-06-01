@@ -1967,7 +1967,7 @@ class OpenAIShimMessages {
           // Same single helper. Default to 'downgrade' for the deepseek-compatible
           // thinking path so xhigh -> max even if a descriptor omits the policy.
           const decidedEffort = resolveReasoningEffortForBody(
-            shimConfig.reasoningEffortPolicy ?? 'downgrade',
+            shimConfig.reasoningEffortPolicy,
             effort,
           )
           if (decidedEffort === undefined) {
