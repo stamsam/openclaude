@@ -1661,6 +1661,7 @@ async function* queryModel(
         } satisfies BetaMessageStreamParams['thinking']
       }
     }
+    const hasThinking = thinking !== undefined
 
     // Get API context management strategies if enabled
     const contextManagement = getAPIContextManagement({

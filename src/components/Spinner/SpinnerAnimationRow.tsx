@@ -17,7 +17,6 @@ import { useStalledAnimation } from './useStalledAnimation.js';
 import { hueToRgb, interpolateColor, toRGBColor } from './utils.js';
 const SEP_WIDTH = stringWidth(' · ');
 const THINKING_BARE_WIDTH = stringWidth('thinking');
-const ULTRACODE_WIDTH = stringWidth('ultracode');
 const SHOW_TOKENS_AFTER_MS = 30_000;
 const STOP_CONTROL_WIDTH = stringWidth(' [stop] ');
 
@@ -175,8 +174,11 @@ export function SpinnerAnimationRow({
   const tokensText = hasRunningTeammates ? `${tokenCount} tokens` : `${figures.arrowDown} ${tokenCount} tokens`;
   const tokensWidth = stringWidth(tokensText);
 
+  const effortBadgeText = ultracodeActive ? 'ultracode' : effortSuffix.includes('max effort') ? 'xhigh' : null;
+  const effortBadgeWidth = effortBadgeText ? stringWidth(effortBadgeText) : 0;
+
   // === Thinking text (may shrink to fit) ===
-  let thinkingText = thinkingStatus === 'thinking' ? `thinking${effortSuffix}` : typeof thinkingStatus === 'number' ? `thought for ${Math.max(1, Math.round(thinkingStatus / 1000))}s` : null;
+  let thinkingText = thinkingStatus === 'thinking' ? `thinking${effortBadgeText ? '' : effortSuffix}` : typeof thinkingStatus === 'number' ? `thought for ${Math.max(1, Math.round(thinkingStatus / 1000))}s` : null;
   let thinkingWidthValue = thinkingText ? stringWidth(thinkingText) : 0;
 
   // === Progressive width gating ===
@@ -189,17 +191,17 @@ export function SpinnerAnimationRow({
   const wantsThinking = thinkingStatus !== null;
   const wantsTimerAndTokens = verbose || hasRunningTeammates || effectiveElapsedMs > SHOW_TOKENS_AFTER_MS;
   const availableSpace = columns - (onStop ? STOP_CONTROL_WIDTH : 0) - messageWidth - parensWidth;
-  const showUltracode = ultracodeActive && availableSpace > ULTRACODE_WIDTH;
-  const usedAfterUltracode = showUltracode ? ULTRACODE_WIDTH + sep : 0;
-  let showThinking = wantsThinking && availableSpace > usedAfterUltracode + thinkingWidthValue;
+  const showEffortBadge = effortBadgeText !== null && availableSpace > effortBadgeWidth;
+  const usedAfterEffortBadge = showEffortBadge ? effortBadgeWidth + sep : 0;
+  let showThinking = wantsThinking && availableSpace > usedAfterEffortBadge + thinkingWidthValue;
   if (!showThinking && wantsThinking && thinkingStatus === 'thinking' && effortSuffix) {
-    if (availableSpace > usedAfterUltracode + THINKING_BARE_WIDTH) {
+    if (availableSpace > usedAfterEffortBadge + THINKING_BARE_WIDTH) {
       thinkingText = 'thinking';
       thinkingWidthValue = THINKING_BARE_WIDTH;
       showThinking = true;
     }
   }
-  const usedAfterThinking = usedAfterUltracode + (showThinking ? thinkingWidthValue + sep : 0);
+  const usedAfterThinking = usedAfterEffortBadge + (showThinking ? thinkingWidthValue + sep : 0);
   const showTimer = wantsTimerAndTokens && availableSpace > usedAfterThinking + timerWidth;
   const usedAfterTimer = usedAfterThinking + (showTimer ? timerWidth + sep : 0);
   const showTokens = wantsTimerAndTokens && totalTokens > 0 && availableSpace > usedAfterTimer + tokensWidth;
@@ -211,15 +213,15 @@ export function SpinnerAnimationRow({
   const thinkingElapsedSec = (time - THINKING_DELAY_MS) / 1000;
   const thinkingOpacity = time < THINKING_DELAY_MS ? 0 : (Math.sin(thinkingElapsedSec * Math.PI * 2 / THINKING_GLOW_PERIOD_S) + 1) / 2;
   const thinkingShimmerColor = toRGBColor(interpolateColor(THINKING_INACTIVE, THINKING_INACTIVE_SHIMMER, thinkingOpacity));
-  const ultracodeColor = toRGBColor(hueToRgb(time / 18));
+  const effortBadgeColor = toRGBColor(hueToRgb(time / 18));
 
   // === Build status parts ===
   const parts = [...(spinnerSuffix ? [<Text dimColor key="suffix">
             {spinnerSuffix}
-          </Text>] : []), ...(showUltracode ? [reducedMotion ? <Text key="ultracode" color="claude">
-              ultracode
-            </Text> : <Text key="ultracode" color={ultracodeColor}>
-              ultracode
+          </Text>] : []), ...(showEffortBadge && effortBadgeText ? [reducedMotion ? <Text key="effort-badge" color="claude">
+              {effortBadgeText}
+            </Text> : <Text key="effort-badge" color={effortBadgeColor}>
+              {effortBadgeText}
             </Text>] : []), ...(showTimer ? [<Text dimColor key="elapsedTime">
             {timerText}
           </Text>] : []), ...(showTokens ? [<Box flexDirection="row" key="tokens">
