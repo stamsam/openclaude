@@ -1,9 +1,10 @@
 import chalk from 'chalk'
 import * as React from 'react'
+import { EffortPicker, type EffortPickerValue } from '../../components/EffortPicker.js'
 import { ModelPicker } from '../../components/ModelPicker.js'
 import { useAppState, useSetAppState } from '../../state/AppState.js'
 import type { LocalJSXCommandOnDone } from '../../types/command.js'
-import { getEffortEnvOverride, type EffortLevel } from '../../utils/effort.js'
+import { getEffortEnvOverride, getEffortValueDescription, type EffortLevel } from '../../utils/effort.js'
 import { isModelAllowed } from '../../utils/model/modelAllowlist.js'
 import { getDefaultMainLoopModelSetting, renderDefaultModelSetting } from '../../utils/model/model.js'
 import { getModelOptions } from '../../utils/model/modelOptions.js'
@@ -26,6 +27,50 @@ function formatEnabledMessage(model: string | null): string {
 }
 
 export function UltracodePicker({
+  onDone,
+}: {
+  onDone: LocalJSXCommandOnDone
+}): React.ReactNode {
+  const mainLoopModel = useAppState(s => s.mainLoopModel)
+  const setAppState = useSetAppState()
+
+  function handleSelect(value: EffortPickerValue) {
+    if (value === 'ultracode') {
+      setAppState(prev => ({
+        ...prev,
+        effortValue: 'max',
+        ultracodeActive: true,
+      }))
+      onDone(formatEnabledMessage(mainLoopModel))
+      return
+    }
+
+    const effortValue = value === 'xhigh' ? 'max' : value
+    setAppState(prev => ({
+      ...prev,
+      effortValue,
+      ultracodeActive: false,
+    }))
+    const description = effortValue
+      ? getEffortValueDescription(effortValue)
+      : 'Use default effort level for your model'
+    onDone(`Set effort level to ${effortValue ?? 'auto'}: ${description}`)
+  }
+
+  function handleCancel() {
+    onDone('Cancelled')
+  }
+
+  return (
+    <EffortPicker
+      initialFocus="ultracode"
+      onSelect={handleSelect}
+      onCancel={handleCancel}
+    />
+  )
+}
+
+function UltracodeModelPicker({
   onDone,
 }: {
   onDone: LocalJSXCommandOnDone
@@ -68,6 +113,9 @@ export async function call(
   args?: string,
 ): Promise<React.ReactNode> {
   const model = args?.trim()
+  if (model && ['model', 'models', 'select'].includes(model.toLowerCase())) {
+    return <UltracodeModelPicker onDone={onDone} />
+  }
   if (model) {
     return <SetUltracodeModelAndClose model={model === 'default' ? null : model} onDone={onDone} />
   }

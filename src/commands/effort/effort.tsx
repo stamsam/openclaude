@@ -4,7 +4,7 @@ import { useMainLoopModel } from '../../hooks/useMainLoopModel.js';
 import { type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS, logEvent } from '../../services/analytics/index.js';
 import { useAppState, useSetAppState } from '../../state/AppState.js';
 import type { LocalJSXCommandOnDone } from '../../types/command.js';
-import { type EffortValue, getDisplayedEffortLevel, getEffortEnvOverride, getEffortValueDescription, isEffortLevel, isOpenAIEffortLevel, modelUsesOpenAIEffort, openAIEffortToStandard, toPersistableEffort } from '../../utils/effort.js';
+import { type EffortValue, getDisplayedEffortLevel, getEffortEnvOverride, getEffortValueDescription, isEffortLevel, isOpenAIEffortLevel, openAIEffortToStandard, toPersistableEffort } from '../../utils/effort.js';
 import { EffortPicker } from '../../components/EffortPicker.js';
 import { updateSettingsForSource } from '../../utils/settings/settings.js';
 import { UltracodePicker } from '../ultracode/ultracode.js';
@@ -233,11 +233,22 @@ export async function call(onDone: LocalJSXCommandOnDone, _context: unknown, arg
 
 function EffortPickerWrapper({ onDone }: { onDone: LocalJSXCommandOnDone }) {
   const setAppState = useSetAppState();
-  const model = useMainLoopModel();
-  const usesOpenAIEffort = modelUsesOpenAIEffort(model);
 
-  function handleSelect(effort: EffortValue | undefined) {
-    const persistable = toPersistableEffort(effort);
+  function handleSelect(effort: EffortValue | 'xhigh' | 'ultracode' | undefined) {
+    if (effort === 'ultracode') {
+      logEvent('tengu_effort_command', {
+        effort: 'ultracode' as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS
+      });
+      setAppState(prev => ({
+        ...prev,
+        effortValue: 'max',
+        ultracodeActive: true
+      }));
+      onDone('Set effort level to ultracode (this session only): xhigh/max effort plus workflow orchestration reminders');
+      return;
+    }
+    const normalizedEffort = effort === 'xhigh' ? 'max' : effort;
+    const persistable = toPersistableEffort(normalizedEffort);
     if (persistable !== undefined) {
       updateSettingsForSource('userSettings', {
         effortLevel: persistable
@@ -248,12 +259,12 @@ function EffortPickerWrapper({ onDone }: { onDone: LocalJSXCommandOnDone }) {
     });
     setAppState(prev => ({
       ...prev,
-      effortValue: effort,
+      effortValue: normalizedEffort,
       ultracodeActive: false
     }));
-    const description = effort ? getEffortValueDescription(effort) : 'Use default effort level for your model';
+    const description = normalizedEffort ? getEffortValueDescription(normalizedEffort) : 'Use default effort level for your model';
     const suffix = persistable !== undefined ? '' : ' (this session only)';
-    onDone(`Set effort level to ${effort ?? 'auto'}${suffix}: ${description}`);
+    onDone(`Set effort level to ${normalizedEffort ?? 'auto'}${suffix}: ${description}`);
   }
 
   function handleCancel() {
