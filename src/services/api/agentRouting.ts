@@ -13,6 +13,11 @@ export interface ProviderOverride {
   apiKey: string
 }
 
+export interface AgentRunModelRouting {
+  mainLoopModel: string
+  providerOverride?: ProviderOverride
+}
+
 /**
  * Normalize an agent identifier for case-insensitive, hyphen/underscore-agnostic matching.
  */
@@ -71,5 +76,59 @@ export function resolveAgentProvider(
     model: modelName,
     baseURL: modelConfig.base_url,
     apiKey: modelConfig.api_key,
+  }
+}
+
+export function resolveAgentModelProvider(
+  modelName: string | undefined,
+  settings: SettingsJson | null,
+): ProviderOverride | null {
+  if (!settings?.agentModels || !modelName) return null
+
+  const trimmedModelName = modelName.trim()
+  const modelConfig = settings.agentModels[trimmedModelName]
+  if (!modelConfig) return null
+
+  return {
+    model: trimmedModelName,
+    baseURL: modelConfig.base_url,
+    apiKey: modelConfig.api_key,
+  }
+}
+
+export function resolveAgentRunModelRouting({
+  resolvedAgentModel,
+  toolSpecifiedModel,
+  agentName,
+  subagentType,
+  agentDefinitionModel,
+  settings,
+}: {
+  resolvedAgentModel: string
+  toolSpecifiedModel?: string
+  agentName?: string
+  subagentType?: string
+  agentDefinitionModel?: string
+  settings: SettingsJson | null
+}): AgentRunModelRouting {
+  const toolRequestedModel = toolSpecifiedModel?.trim()
+  if (toolRequestedModel) {
+    const providerOverride = resolveAgentModelProvider(
+      toolRequestedModel,
+      settings,
+    )
+    return {
+      mainLoopModel: providerOverride?.model ?? resolvedAgentModel,
+      ...(providerOverride && { providerOverride }),
+    }
+  }
+
+  const providerOverride =
+    resolveAgentProvider(agentName, subagentType, settings) ??
+    resolveAgentModelProvider(agentDefinitionModel, settings)
+
+  return {
+    mainLoopModel: providerOverride?.model ?? resolvedAgentModel,
+    ...(providerOverride && { providerOverride }),
   }
 }

@@ -1,5 +1,8 @@
 import { describe, expect, test } from 'bun:test'
-import { resolveAgentProvider } from './agentRouting.js'
+import {
+  resolveAgentProvider,
+  resolveAgentRunModelRouting,
+} from './agentRouting.js'
 import type { SettingsJson } from '../../utils/settings/types.js'
 
 const baseSettings = {
@@ -121,5 +124,48 @@ describe('resolveAgentProvider', () => {
   test('name only (no subagentType)', () => {
     const result = resolveAgentProvider('frontend-dev', undefined, baseSettings)
     expect(result?.model).toBe('deepseek-chat')
+  })
+})
+
+describe('resolveAgentRunModelRouting', () => {
+  test('routes configured model keys from agent definition model', () => {
+    const settings = {
+      ...baseSettings,
+      agentRouting: {},
+    } as unknown as SettingsJson
+
+    expect(
+      resolveAgentRunModelRouting({
+        resolvedAgentModel: 'sonnet',
+        agentDefinitionModel: 'deepseek-chat',
+        settings,
+      }),
+    ).toEqual({
+      mainLoopModel: 'deepseek-chat',
+      providerOverride: {
+        model: 'deepseek-chat',
+        baseURL: 'https://api.deepseek.com/v1',
+        apiKey: 'sk-ds',
+      },
+    })
+  })
+
+  test('tool-specified configured model takes priority over routing default', () => {
+    expect(
+      resolveAgentRunModelRouting({
+        resolvedAgentModel: 'gpt-4o',
+        toolSpecifiedModel: 'deepseek-chat',
+        agentName: 'unknown-name',
+        subagentType: 'unknown-type',
+        settings: baseSettings,
+      }),
+    ).toEqual({
+      mainLoopModel: 'deepseek-chat',
+      providerOverride: {
+        model: 'deepseek-chat',
+        baseURL: 'https://api.deepseek.com/v1',
+        apiKey: 'sk-ds',
+      },
+    })
   })
 })

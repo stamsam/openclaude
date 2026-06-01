@@ -211,6 +211,14 @@ test('openai validation does not accept unrelated minimax credentials', async ()
   )
 })
 
+test('openai validation allows likely remote Ollama endpoints without OPENAI_API_KEY', async () => {
+  process.env.CLAUDE_CODE_USE_OPENAI = '1'
+  process.env.OPENAI_BASE_URL = 'https://ollama.example.com:11434/v1'
+  delete process.env.OPENAI_API_KEY
+
+  await expect(getProviderValidationError(process.env)).resolves.toBeNull()
+})
+
 test('openrouter validation accepts OPENROUTER_API_KEY without OPENAI_API_KEY', async () => {
   process.env.CLAUDE_CODE_USE_OPENAI = '1'
   process.env.OPENAI_BASE_URL = 'https://openrouter.ai/api/v1'

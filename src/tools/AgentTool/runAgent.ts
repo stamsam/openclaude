@@ -57,7 +57,7 @@ import { clearSessionHooks } from '../../utils/hooks/sessionHooks.js'
 import { executeSubagentStartHooks } from '../../utils/hooks.js'
 import { createUserMessage } from '../../utils/messages.js'
 import { getAgentModel } from '../../utils/model/agent.js'
-import { resolveAgentProvider } from '../../services/api/agentRouting.js'
+import { resolveAgentRunModelRouting } from '../../services/api/agentRouting.js'
 import { getInitialSettings } from '../../utils/settings/settings.js'
 import type { ModelAlias } from '../../utils/model/aliases.js'
 import {
@@ -349,13 +349,15 @@ export async function* runAgent({
     permissionMode,
   )
 
-  // Resolve per-agent provider routing from settings
-  const providerOverride = resolveAgentProvider(
-    agentName,
-    agentDefinition.agentType,
-    getInitialSettings(),
-  )
-  const effectiveModel = providerOverride ? providerOverride.model : resolvedAgentModel
+  const { mainLoopModel: effectiveModel, providerOverride } =
+    resolveAgentRunModelRouting({
+      resolvedAgentModel,
+      toolSpecifiedModel: model,
+      agentName,
+      subagentType: agentDefinition.agentType,
+      agentDefinitionModel: agentDefinition.model,
+      settings: getInitialSettings(),
+    })
 
   const agentId = override?.agentId ? override.agentId : createAgentId()
 
@@ -497,14 +499,21 @@ export async function* runAgent({
         ? agentDefinition.effort
         : state.effortValue
 
+    const modelStateChanged =
+      state.mainLoopModel !== effectiveModel ||
+      state.mainLoopModelForSession !== effectiveModel
+
     if (
       toolPermissionContext === state.toolPermissionContext &&
-      effortValue === state.effortValue
+      effortValue === state.effortValue &&
+      !modelStateChanged
     ) {
       return state
     }
     return {
       ...state,
+      mainLoopModel: effectiveModel,
+      mainLoopModelForSession: effectiveModel,
       toolPermissionContext,
       effortValue,
     }

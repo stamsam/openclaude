@@ -21,6 +21,7 @@ const ENV_KEYS = [
   'ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTED_CAPABILITIES',
   'ANTHROPIC_DEFAULT_HAIKU_MODEL',
   'ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTED_CAPABILITIES',
+  'CLAUDE_CODE_DISABLE_THINKING',
   'USER_TYPE',
 ]
 
@@ -48,7 +49,9 @@ afterEach(() => {
 
 async function importFreshThinkingModule() {
   mock.restore()
+  const originalProviders = await import('./model/providers.js')
   mock.module('./model/providers.js', () => ({
+    ...originalProviders,
     getAPIProvider: () => 'openai',
   }))
   const nonce = `${Date.now()}-${Math.random()}`
