@@ -350,9 +350,7 @@ export async function handlePromptSubmit(
       return
     }
 
-    // Prompt submissions during generation should guide the next turn without
-    // interrupting the current one. Keep the explicit interrupt path only for
-    // non-prompt inputs that opt into that behavior.
+    // Non-prompt inputs keep the interruptible-tool behavior.
     if (mode !== 'prompt' && params.hasInterruptibleToolInProgress) {
       logForDebugging(
         `[interrupt] Aborting current turn: streamMode=${params.streamMode}`,

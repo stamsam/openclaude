@@ -1,4 +1,3 @@
-import chalk from 'chalk'
 import { writeSync } from 'fs'
 import memoize from 'lodash-es/memoize.js'
 import { onExit } from 'signal-exit'
@@ -8,6 +7,16 @@ import {
   getIsScrollDraining,
   getLastMainRequestId,
   getSessionId,
+  getTotalAPIDuration,
+  getTotalDuration,
+  getTotalCacheCreationInputTokens,
+  getTotalCacheReadInputTokens,
+  getTotalEstimatedOutputTokens,
+  getTotalInputTokens,
+  getTotalOutputTokens,
+  getTotalToolCallCount,
+  getTotalToolDuration,
+  getTotalToolFailureCount,
   isSessionPersistenceDisabled,
 } from '../bootstrap/state.js'
 import instances from '../ink/instances.js'
@@ -40,6 +49,7 @@ import { runCleanupFunctions } from './cleanupRegistry.js'
 import { logForDebugging } from './debug.js'
 import { logForDiagnosticsNoPII } from './diagLogs.js'
 import { isEnvTruthy } from './envUtils.js'
+import { formatExitSummary } from './exitSummary.js'
 import { getCurrentSessionTitle, sessionIdExists } from './sessionStorage.js'
 import { sleep } from './sleep.js'
 import { profileReport } from './startupProfiler.js'
@@ -140,15 +150,15 @@ function cleanupTerminalModes(skipUnmount: boolean = false): void {
   }
 }
 
-let resumeHintPrinted = false
+let exitSummaryPrinted = false
 
 /**
- * Print a hint about how to resume the session.
+ * Print the terminal exit summary and resume hint.
  * Only shown for interactive sessions with persistence enabled.
  */
-function printResumeHint(): void {
+function printExitSummary(reason: ExitReason): void {
   // Only print once (failsafe timer may call this again after normal shutdown)
-  if (resumeHintPrinted) {
+  if (exitSummaryPrinted) {
     return
   }
   // Only show with TTY, interactive sessions, and persistence
@@ -175,13 +185,31 @@ function printResumeHint(): void {
         resumeArg = sessionId
       }
 
-      writeSync(
-        1,
-        chalk.dim(
-          `\nResume this session with:\nopenclaude --resume ${resumeArg}\n`,
-        ),
-      )
-      resumeHintPrinted = true
+      const inputTokens = getTotalInputTokens()
+      const outputTokens = getTotalOutputTokens()
+      const estimatedOutputTokens = getTotalEstimatedOutputTokens()
+
+      writeSync(1, '\n' + formatExitSummary({
+        sessionId,
+        resumeCommand: `openclaude --resume ${resumeArg}`,
+        wallDurationMs: getTotalDuration(),
+        apiDurationMs: getTotalAPIDuration(),
+        toolDurationMs: getTotalToolDuration(),
+        toolCallCount: getTotalToolCallCount(),
+        toolFailureCount: getTotalToolFailureCount(),
+        inputTokens,
+        outputTokens,
+        estimatedOutputTokens:
+          outputTokens === 0 && estimatedOutputTokens > 0
+            ? estimatedOutputTokens
+            : undefined,
+        cacheReadInputTokens: getTotalCacheReadInputTokens(),
+        cacheCreationInputTokens: getTotalCacheCreationInputTokens(),
+      }, {
+        columns: process.stdout.columns,
+        reason,
+      }) + '\n')
+      exitSummaryPrinted = true
     } catch {
       // Ignore write errors
     }
@@ -355,7 +383,7 @@ export function gracefulShutdownSync(
     .catch(error => {
       logForDebugging(`Graceful shutdown failed: ${error}`, { level: 'error' })
       cleanupTerminalModes()
-      printResumeHint()
+      printExitSummary(reason)
       forceExit(exitCode)
     })
     // Prevent unhandled rejection: forceExit re-throws in test mode,
@@ -376,7 +404,7 @@ export function isShuttingDown(): boolean {
 /** Reset shutdown state - only for use in tests */
 export function resetShutdownState(): void {
   shutdownInProgress = false
-  resumeHintPrinted = false
+  exitSummaryPrinted = false
   if (failsafeTimer !== undefined) {
     clearTimeout(failsafeTimer)
     failsafeTimer = undefined
@@ -427,7 +455,7 @@ export async function gracefulShutdown(
   failsafeTimer = setTimeout(
     code => {
       cleanupTerminalModes(true)
-      printResumeHint()
+      printExitSummary(reason)
       forceExit(code)
     },
     Math.max(5000, sessionEndTimeoutMs + 3500),
@@ -444,7 +472,7 @@ export async function gracefulShutdown(
   // hint would only appear after cleanup functions, hooks, and analytics
   // flush — which can take several seconds.
   cleanupTerminalModes(true)
-  printResumeHint()
+  printExitSummary(reason)
 
   // Flush session data first — this is the most critical cleanup. If the
   // terminal is dead (SIGHUP, SSH disconnect), hooks and analytics may hang

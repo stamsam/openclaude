@@ -7,11 +7,13 @@ import type { LocalJSXCommandOnDone } from '../../types/command.js';
 import { type EffortValue, getDisplayedEffortLevel, getEffortEnvOverride, getEffortValueDescription, isEffortLevel, isOpenAIEffortLevel, modelUsesOpenAIEffort, openAIEffortToStandard, toPersistableEffort } from '../../utils/effort.js';
 import { EffortPicker } from '../../components/EffortPicker.js';
 import { updateSettingsForSource } from '../../utils/settings/settings.js';
+import { UltracodePicker } from '../ultracode/ultracode.js';
 const COMMON_HELP_ARGS = ['help', '-h', '--help'];
 type EffortCommandResult = {
   message: string;
   effortUpdate?: {
     value: EffortValue | undefined;
+    ultracodeActive?: boolean;
   };
 };
 function setEffortValue(effortValue: EffortValue): EffortCommandResult {
@@ -40,14 +42,16 @@ function setEffortValue(effortValue: EffortValue): EffortCommandResult {
       return {
         message: `Not applied: CLAUDE_CODE_EFFORT_LEVEL=${envRaw} overrides effort this session, and ${effortValue} is session-only (nothing saved)`,
         effortUpdate: {
-          value: effortValue
+          value: effortValue,
+          ultracodeActive: false
         }
       };
     }
     return {
       message: `CLAUDE_CODE_EFFORT_LEVEL=${envRaw} overrides this session — clear it and ${effortValue} takes over`,
       effortUpdate: {
-        value: effortValue
+        value: effortValue,
+        ultracodeActive: false
       }
     };
   }
@@ -56,11 +60,36 @@ function setEffortValue(effortValue: EffortValue): EffortCommandResult {
   return {
     message: `Set effort level to ${effortValue}${suffix}: ${description}`,
     effortUpdate: {
-      value: effortValue
+      value: effortValue,
+      ultracodeActive: false
     }
   };
 }
-export function showCurrentEffort(appStateEffort: EffortValue | undefined, model: string): EffortCommandResult {
+function setUltracode(): EffortCommandResult {
+  logEvent('tengu_effort_command', {
+    effort: 'ultracode' as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS
+  });
+  return {
+    message: 'Set effort level to ultracode (this session only): xhigh/max effort plus workflow orchestration reminders',
+    effortUpdate: {
+      value: 'max',
+      ultracodeActive: true
+    }
+  };
+}
+export function showCurrentEffort(appStateEffort: EffortValue | undefined, model: string, ultracodeActive = false): EffortCommandResult {
+  if (ultracodeActive) {
+    const envOverride = getEffortEnvOverride();
+    if (envOverride !== undefined && envOverride !== null && envOverride !== 'max') {
+      const envRaw = process.env.CLAUDE_CODE_EFFORT_LEVEL;
+      return {
+        message: `Current effort level: ultracode is active, but CLAUDE_CODE_EFFORT_LEVEL=${envRaw} controls effort this session; workflow orchestration reminders remain on`
+      };
+    }
+    return {
+      message: 'Current effort level: ultracode (xhigh/max effort plus workflow orchestration reminders)'
+    };
+  }
   const envOverride = getEffortEnvOverride();
   const effectiveValue = envOverride === null ? undefined : envOverride ?? appStateEffort;
   if (effectiveValue === undefined) {
@@ -94,14 +123,16 @@ function unsetEffortLevel(): EffortCommandResult {
     return {
       message: `Cleared effort from settings, but CLAUDE_CODE_EFFORT_LEVEL=${envRaw} still controls this session`,
       effortUpdate: {
-        value: undefined
+        value: undefined,
+        ultracodeActive: false
       }
     };
   }
   return {
     message: 'Effort level set to auto',
     effortUpdate: {
-      value: undefined
+      value: undefined,
+      ultracodeActive: false
     }
   };
 }
@@ -109,6 +140,9 @@ export function executeEffort(args: string): EffortCommandResult {
   const normalized = args.toLowerCase();
   if (normalized === 'auto' || normalized === 'unset') {
     return unsetEffortLevel();
+  }
+  if (normalized === 'ultracode') {
+    return setUltracode();
   }
   if (isEffortLevel(normalized)) {
     return setEffortValue(normalized);
@@ -118,7 +152,7 @@ export function executeEffort(args: string): EffortCommandResult {
     return setEffortValue(openAIEffortToStandard(normalized));
   }
   return {
-    message: `Invalid argument: ${args}. Valid options are: low, medium, high, max, xhigh, auto`
+    message: `Invalid argument: ${args}. Valid options are: low, medium, high, max, xhigh, ultracode, auto`
   };
 }
 function ShowCurrentEffort(t0) {
@@ -126,15 +160,19 @@ function ShowCurrentEffort(t0) {
     onDone
   } = t0;
   const effortValue = useAppState(_temp);
+  const ultracodeActive = useAppState(_temp2);
   const model = useMainLoopModel();
   const {
     message
-  } = showCurrentEffort(effortValue, model);
+  } = showCurrentEffort(effortValue, model, ultracodeActive);
   onDone(message);
   return null;
 }
 function _temp(s) {
   return s.effortValue;
+}
+function _temp2(s) {
+  return s.ultracodeActive === true;
 }
 function ApplyEffortAndClose(t0) {
   const $ = _c(6);
@@ -154,7 +192,8 @@ function ApplyEffortAndClose(t0) {
       if (effortUpdate) {
         setAppState(prev => ({
           ...prev,
-          effortValue: effortUpdate.value
+          effortValue: effortUpdate.value,
+          ultracodeActive: effortUpdate.ultracodeActive ?? false
         }));
       }
       onDone(message);
@@ -176,11 +215,14 @@ function ApplyEffortAndClose(t0) {
 export async function call(onDone: LocalJSXCommandOnDone, _context: unknown, args?: string): Promise<React.ReactNode> {
   args = args?.trim() || '';
   if (COMMON_HELP_ARGS.includes(args)) {
-    onDone('Usage: /effort [low|medium|high|max|xhigh|auto]\n\nEffort levels:\n- low: Quick, straightforward implementation\n- medium: Balanced approach with standard testing\n- high: Comprehensive implementation with extensive testing\n- max: Maximum capability with deepest reasoning (Opus 4.6 only)\n- xhigh: Extra-high reasoning for OpenAI/Codex models (alias for max)\n- auto: Use the default effort level for your model');
+    onDone('Usage: /effort [low|medium|high|max|xhigh|ultracode|auto]\n\nEffort levels:\n- low: Quick, straightforward implementation\n- medium: Balanced approach with standard testing\n- high: Comprehensive implementation with extensive testing\n- max: Maximum capability with deepest reasoning (Opus 4.6 only)\n- xhigh: Extra-high reasoning for OpenAI/Codex models (alias for max)\n- ultracode: Session-only xhigh/max effort plus workflow orchestration reminders\n- auto: Use the default effort level for your model');
     return;
   }
   if (args === 'current' || args === 'status') {
     return <ShowCurrentEffort onDone={onDone} />;
+  }
+  if (args.toLowerCase() === 'ultracode') {
+    return <UltracodePicker onDone={onDone} />;
   }
   if (!args) {
     return <EffortPickerWrapper onDone={onDone} />;
@@ -206,7 +248,8 @@ function EffortPickerWrapper({ onDone }: { onDone: LocalJSXCommandOnDone }) {
     });
     setAppState(prev => ({
       ...prev,
-      effortValue: effort
+      effortValue: effort,
+      ultracodeActive: false
     }));
     const description = effort ? getEffortValueDescription(effort) : 'Use default effort level for your model';
     const suffix = persistable !== undefined ? '' : ' (this session only)';

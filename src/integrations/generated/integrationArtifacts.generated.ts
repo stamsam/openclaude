@@ -28,6 +28,7 @@ import gatewayNvidiaNim from '../gateways/nvidia-nim.js'
 import gatewayOllama from '../gateways/ollama.js'
 import gatewayOmlx from '../gateways/omlx.js'
 import gatewayOpenrouter from '../gateways/openrouter.js'
+import gatewaySamsAutoRouter from '../gateways/sams-auto-router.js'
 import gatewayTogether from '../gateways/together.js'
 import gatewayVertex from '../gateways/vertex.js'
 import anthropicproxyOmlx from '../anthropicProxies/omlx.js'
@@ -59,7 +60,7 @@ import modelQwen from '../models/qwen.js'
 import modelXai from '../models/xai.js'
 
 export const VENDOR_DESCRIPTORS = [vendorAnthropic, vendorBankr, vendorDeepseek, vendorGemini, vendorMinimax, vendorMoonshot, vendorOpenai, vendorXai, vendorZai] as const satisfies readonly VendorDescriptor[]
-export const GATEWAY_DESCRIPTORS = [gatewayAtomicChat, gatewayAzureOpenai, gatewayBedrock, gatewayCerebras, gatewayCustom, gatewayDashscopeCn, gatewayDashscopeIntl, gatewayGithub, gatewayGroq, gatewayHicap, gatewayKimiCode, gatewayLmstudio, gatewayMistral, gatewayNvidiaNim, gatewayOllama, gatewayOmlx, gatewayOpenrouter, gatewayTogether, gatewayVertex] as const satisfies readonly GatewayDescriptor[]
+export const GATEWAY_DESCRIPTORS = [gatewayAtomicChat, gatewayAzureOpenai, gatewayBedrock, gatewayCerebras, gatewayCustom, gatewayDashscopeCn, gatewayDashscopeIntl, gatewayGithub, gatewayGroq, gatewayHicap, gatewayKimiCode, gatewayLmstudio, gatewayMistral, gatewayNvidiaNim, gatewayOllama, gatewayOmlx, gatewayOpenrouter, gatewaySamsAutoRouter, gatewayTogether, gatewayVertex] as const satisfies readonly GatewayDescriptor[]
 export const ANTHROPIC_PROXY_DESCRIPTORS = [anthropicproxyOmlx] as const satisfies readonly AnthropicProxyDescriptor[]
 export const BRAND_DESCRIPTORS = [brandClaude, brandDeepseek, brandGemini, brandGlm, brandGpt, brandKimi, brandLlama, brandMinimax, brandMistral, brandNemotron, brandOpenaiCompatibleAlias, brandQwen, brandXai] as const satisfies readonly BrandDescriptor[]
 export const MODEL_DESCRIPTOR_GROUPS = [modelClaude, modelDeepseek, modelGemini, modelGlm, modelGpt, modelKimi, modelLlama, modelMinimax, modelMistral, modelNemotron, modelOpenaiCompatibleAlias, modelQwen, modelXai] as const satisfies readonly (readonly ModelDescriptor[])[]
@@ -180,6 +181,26 @@ export const PROVIDER_PRESET_MANIFEST = [
     "description": "Hicap OpenAI-compatible gateway",
     "apiKeyEnvVars": [
       "HICAP_API_KEY"
+    ],
+    "modelEnvVars": [
+      "OPENAI_MODEL"
+    ]
+  },
+  {
+    "preset": "sams-auto-router",
+    "routeKind": "gateway",
+    "routeId": "sams-auto-router",
+    "vendorId": "openai",
+    "gatewayId": "sams-auto-router",
+    "description": "Local 4B-35B oMLX auto-router",
+    "label": "Sam's Auto Router",
+    "name": "Sam's Auto Router 4B-35B",
+    "apiKeyEnvVars": [
+      "OPENAI_API_KEY"
+    ],
+    "baseUrlEnvVars": [
+      "OPENAI_BASE_URL",
+      "OPENAI_API_BASE"
     ],
     "modelEnvVars": [
       "OPENAI_MODEL"
@@ -405,6 +426,7 @@ export const ORDERED_PROVIDER_PRESETS = [
   "gemini",
   "groq",
   "hicap",
+  "sams-auto-router",
   "lmstudio",
   "atomic-chat",
   "omlx-anthropic",

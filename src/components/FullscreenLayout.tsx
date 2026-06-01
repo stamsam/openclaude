@@ -260,13 +260,13 @@ export function computeUnseenDivider(messages: readonly Message[], dividerIndex:
 }
 
 /**
- * Layout wrapper for the REPL. In fullscreen mode, puts scrollable
+ * Layout wrapper for the REPL. In flicker-free mode, puts scrollable
  * content in a sticky-scroll box and pins bottom content via flexbox.
- * Outside fullscreen mode, renders content sequentially so the existing
+ * Outside flicker-free mode, renders content sequentially so the existing
  * main-screen scrollback rendering works unchanged.
  *
- * Fullscreen mode defaults on for ants (CLAUDE_CODE_NO_FLICKER=0 to opt out)
- * and off for external users (CLAUDE_CODE_NO_FLICKER=1 to opt in).
+ * Flicker-free mode defaults on for interactive sessions. Use /tui classic,
+ * --no-alt-screen, or CLAUDE_CODE_NO_FLICKER=0 to opt out for a terminal.
  * The <AlternateScreen> wrapper
  * (alt buffer + mouse tracking + height constraint) lives at REPL's root
  * so nothing can accidentally render outside it.

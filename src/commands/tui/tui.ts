@@ -6,21 +6,21 @@ import {
   isTmuxControlMode,
 } from '../../utils/fullscreen.js'
 
-const USAGE = `Usage: /tui [fullscreen|default]
+const USAGE = `Usage: /tui [flicker-free|classic]
 
 /tui              Show the active renderer
-/tui fullscreen   Enable flicker-free fullscreen rendering
-/tui default      Use the classic terminal scrollback renderer`
+/tui flicker-free  Enable fixed prompt and smooth scroll
+/tui classic       Use terminal scrollback`
 
 function envOverrideMessage(): string | null {
   if (isEnvTruthy(process.env.CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN)) {
     return 'CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1 is set, so the classic renderer stays forced on for this process.'
   }
   if (isEnvTruthy(process.env.CLAUDE_CODE_NO_FLICKER)) {
-    return 'CLAUDE_CODE_NO_FLICKER=1 is set, so fullscreen stays forced on for this process.'
+    return 'CLAUDE_CODE_NO_FLICKER=1 is set, so flicker-free TUI stays forced on for this process.'
   }
   if (isEnvDefinedFalsy(process.env.CLAUDE_CODE_NO_FLICKER)) {
-    return 'CLAUDE_CODE_NO_FLICKER=0 is set, so fullscreen stays forced off for this process.'
+    return 'CLAUDE_CODE_NO_FLICKER=0 is set, so flicker-free TUI stays forced off for this process.'
   }
   return null
 }
@@ -29,7 +29,7 @@ function rendererBlockMessage(): string | null {
   const override = envOverrideMessage()
   if (override) return override
   if (isTmuxControlMode()) {
-    return 'tmux control mode is active, so fullscreen is disabled for this terminal. Start tmux without -CC or set CLAUDE_CODE_NO_FLICKER=1 to override.'
+    return 'tmux control mode is active, so flicker-free TUI is disabled for this terminal. Start tmux without -CC or set CLAUDE_CODE_NO_FLICKER=1 to override.'
   }
   return null
 }
@@ -38,10 +38,14 @@ function formatStatus(): string {
   const configured = getGlobalConfig().flickerFreeMode
   const active = isFullscreenEnvEnabled()
   const configText =
-    configured === undefined ? 'unset' : configured ? 'fullscreen' : 'default'
+    configured === undefined
+      ? 'default (flicker-free)'
+      : configured
+        ? 'flicker-free'
+        : 'classic'
   const override = rendererBlockMessage()
   return [
-    `TUI renderer: ${active ? 'fullscreen' : 'default'}`,
+    `TUI renderer: ${active ? 'flicker-free' : 'classic'}`,
     `Saved setting: ${configText}`,
     override,
   ]
@@ -56,7 +60,13 @@ export const call: LocalCommandCall = async args => {
     return { type: 'text', value: formatStatus() }
   }
 
-  if (mode === 'fullscreen' || mode === 'on' || mode === 'no-flicker') {
+  if (
+    mode === 'flicker-free' ||
+    mode === 'flickerfree' ||
+    mode === 'fullscreen' ||
+    mode === 'on' ||
+    mode === 'no-flicker'
+  ) {
     saveGlobalConfig(current => ({
       ...current,
       flickerFreeMode: true,
@@ -67,8 +77,8 @@ export const call: LocalCommandCall = async args => {
       type: 'text',
       value: [
         active
-          ? 'Fullscreen rendering enabled.'
-          : 'Fullscreen rendering saved, but the active renderer is still default.',
+          ? 'Flicker-free TUI enabled.'
+          : 'Flicker-free TUI saved, but the active renderer is still classic.',
         active
           ? 'The prompt will stay fixed at the bottom while messages scroll above it.'
           : null,
@@ -90,8 +100,8 @@ export const call: LocalCommandCall = async args => {
       type: 'text',
       value: [
         active
-          ? 'Default renderer saved, but the active renderer is still fullscreen.'
-          : 'Default renderer enabled.',
+          ? 'Classic renderer saved, but the active renderer is still flicker-free.'
+          : 'Classic terminal renderer enabled.',
         active ? null : 'Conversation output will use your terminal scrollback.',
         override,
       ]

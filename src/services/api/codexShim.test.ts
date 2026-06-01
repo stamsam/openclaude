@@ -1006,6 +1006,90 @@ describe('Codex request translation', () => {
       'I should note that the user role requires a briefly concise friendly response format.',
     )
   })
+
+  async function collectToolArgs(responseText: string): Promise<string> {
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode(responseText))
+        controller.close()
+      },
+    })
+
+    const argsParts: string[] = []
+    for await (const event of codexStreamToAnthropic(
+      new Response(stream),
+      'gpt-5.3-codex-spark',
+    )) {
+      const delta = (event as { delta?: { type?: string; partial_json?: string } }).delta
+      if (
+        delta?.type === 'input_json_delta' &&
+        typeof delta.partial_json === 'string'
+      ) {
+        argsParts.push(delta.partial_json)
+      }
+    }
+    return argsParts.join('')
+  }
+
+  test('recovers Codex tool args delivered only via function_call_arguments.done', async () => {
+    const args = '{"path":"./openclaude-codex-repro","pattern":"**/*.md"}'
+    const responseText = [
+      'event: response.output_item.added',
+      `data: {"type":"response.output_item.added","item":{"id":"fc_1","call_id":"call_1","type":"function_call","name":"Glob","arguments":""},"output_index":0,"sequence_number":0}`,
+      '',
+      'event: response.function_call_arguments.done',
+      `data: {"type":"response.function_call_arguments.done","item_id":"fc_1","arguments":${JSON.stringify(args)},"output_index":0,"sequence_number":1}`,
+      '',
+      'event: response.output_item.done',
+      `data: {"type":"response.output_item.done","item":{"id":"fc_1","call_id":"call_1","type":"function_call","name":"Glob","arguments":${JSON.stringify(args)}},"output_index":0,"sequence_number":2}`,
+      '',
+      'event: response.completed',
+      'data: {"type":"response.completed","response":{"id":"resp_1","status":"completed","model":"gpt-5.3-codex-spark","output":[],"usage":{"input_tokens":2,"output_tokens":3}},"sequence_number":3}',
+      '',
+    ].join('\n')
+
+    expect(await collectToolArgs(responseText)).toBe(args)
+  })
+
+  test('recovers Codex tool args from output_item.done when no arg deltas arrive', async () => {
+    const args = '{"command":"ls -la"}'
+    const responseText = [
+      'event: response.output_item.added',
+      `data: {"type":"response.output_item.added","item":{"id":"fc_1","call_id":"call_1","type":"function_call","name":"Bash","arguments":""},"output_index":0,"sequence_number":0}`,
+      '',
+      'event: response.output_item.done',
+      `data: {"type":"response.output_item.done","item":{"id":"fc_1","call_id":"call_1","type":"function_call","name":"Bash","arguments":${JSON.stringify(args)}},"output_index":0,"sequence_number":1}`,
+      '',
+      'event: response.completed',
+      'data: {"type":"response.completed","response":{"id":"resp_1","status":"completed","model":"gpt-5.3-codex-spark","output":[],"usage":{"input_tokens":2,"output_tokens":3}},"sequence_number":2}',
+      '',
+    ].join('\n')
+
+    expect(await collectToolArgs(responseText)).toBe(args)
+  })
+
+  test('does not duplicate Codex tool args when delta and done both include them', async () => {
+    const args = '{"path":"./x","pattern":"**/*.ts"}'
+    const responseText = [
+      'event: response.output_item.added',
+      `data: {"type":"response.output_item.added","item":{"id":"fc_1","call_id":"call_1","type":"function_call","name":"Glob","arguments":""},"output_index":0,"sequence_number":0}`,
+      '',
+      'event: response.function_call_arguments.delta',
+      `data: {"type":"response.function_call_arguments.delta","item_id":"fc_1","delta":${JSON.stringify(args)},"output_index":0,"sequence_number":1}`,
+      '',
+      'event: response.function_call_arguments.done',
+      `data: {"type":"response.function_call_arguments.done","item_id":"fc_1","arguments":${JSON.stringify(args)},"output_index":0,"sequence_number":2}`,
+      '',
+      'event: response.output_item.done',
+      `data: {"type":"response.output_item.done","item":{"id":"fc_1","call_id":"call_1","type":"function_call","name":"Glob","arguments":${JSON.stringify(args)}},"output_index":0,"sequence_number":3}`,
+      '',
+      'event: response.completed',
+      'data: {"type":"response.completed","response":{"id":"resp_1","status":"completed","model":"gpt-5.3-codex-spark","output":[],"usage":{"input_tokens":2,"output_tokens":3}},"sequence_number":4}',
+      '',
+    ].join('\n')
+
+    expect(await collectToolArgs(responseText)).toBe(args)
+  })
 })
 
 describe('convertSystemPrompt', () => {

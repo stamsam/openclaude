@@ -416,6 +416,8 @@ export async function setup(
       last_session_cost: projectConfig.lastCost,
       last_session_api_duration: projectConfig.lastAPIDuration,
       last_session_tool_duration: projectConfig.lastToolDuration,
+      last_session_tool_call_count: projectConfig.lastToolCallCount,
+      last_session_tool_failure_count: projectConfig.lastToolFailureCount,
       last_session_duration: projectConfig.lastDuration,
       last_session_lines_added: projectConfig.lastLinesAdded,
       last_session_lines_removed: projectConfig.lastLinesRemoved,

@@ -27,7 +27,9 @@ import {
   getTotalLinesAdded,
   getTotalLinesRemoved,
   getTotalOutputTokens,
+  getTotalToolCallCount,
   getTotalToolDuration,
+  getTotalToolFailureCount,
   getTotalWebSearchRequests,
   getUsageForModel,
   hasUnknownModelCost,
@@ -92,6 +94,8 @@ type StoredCostState = {
   totalAPIDuration: number
   totalAPIDurationWithoutRetries: number
   totalToolDuration: number
+  totalToolCallCount: number | undefined
+  totalToolFailureCount: number | undefined
   totalLinesAdded: number
   totalLinesRemoved: number
   lastDuration: number | undefined
@@ -134,6 +138,8 @@ export function getStoredSessionCosts(
     totalAPIDurationWithoutRetries:
       projectConfig.lastAPIDurationWithoutRetries ?? 0,
     totalToolDuration: projectConfig.lastToolDuration ?? 0,
+    totalToolCallCount: projectConfig.lastToolCallCount,
+    totalToolFailureCount: projectConfig.lastToolFailureCount,
     totalLinesAdded: projectConfig.lastLinesAdded ?? 0,
     totalLinesRemoved: projectConfig.lastLinesRemoved ?? 0,
     lastDuration: projectConfig.lastDuration,
@@ -166,6 +172,8 @@ export function saveCurrentSessionCosts(fpsMetrics?: FpsMetrics): void {
     lastAPIDuration: getTotalAPIDuration(),
     lastAPIDurationWithoutRetries: getTotalAPIDurationWithoutRetries(),
     lastToolDuration: getTotalToolDuration(),
+    lastToolCallCount: getTotalToolCallCount(),
+    lastToolFailureCount: getTotalToolFailureCount(),
     lastDuration: getTotalDuration(),
     lastLinesAdded: getTotalLinesAdded(),
     lastLinesRemoved: getTotalLinesRemoved(),

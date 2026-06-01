@@ -6,11 +6,14 @@ This is not subagents and not agent teams. Each Agent View row is a whole backgr
 
 ## Commands
 
-Open the dashboard:
+Open the Agent View/home dashboard:
 
 ```bash
+openclaude-neo
 openclaude agents
 ```
+
+Use `openclaude-neo` for the dashboard-first workflow. It starts in Agent View by default and is the quickest way to launch, attach to, and monitor background sessions. Use `openclaude` when you want the normal chat-first CLI for provider setup, slash commands, `/server`, `/telegram`, or focused single-session work.
 
 Start a background session from the shell:
 
@@ -23,12 +26,16 @@ openclaude --bg "fix tests" --provider openrouter --model openrouter/free
 Manage a session:
 
 ```bash
+openclaude-neo attach <id>
+openclaude-neo logs <id>
 openclaude attach <id>
 openclaude logs <id>
 openclaude stop <id>
 openclaude respawn <id>
 openclaude rm <id>
 ```
+
+`openclaude-neo` also passes through `stop`, `respawn`, and `rm`.
 
 Inside an interactive session:
 
@@ -66,11 +73,11 @@ Keyboard shortcuts:
 
 Every prompt typed in Agent View creates a separate background session. It is not sent as a follow-up to the selected row.
 
-## Fullscreen Rendering
+## Flicker-Free Rendering
 
-Agent View participates in OpenClaude's `/tui fullscreen` renderer. In a normal chat, press `left` on an empty prompt to open Agent View as a fullscreen overlay instead of rendering it inside the prompt area. The dashboard keeps its header fixed, clips the session list in the middle, and keeps the new-session input fixed at the bottom.
+Agent View participates in OpenClaude's flicker-free TUI renderer by default. In a normal chat, press `left` on an empty prompt to open Agent View as a fixed dashboard overlay instead of rendering it inside the prompt area. The dashboard keeps its header fixed, clips the session list in the middle, and keeps the new-session input fixed at the bottom.
 
-Running `openclaude agents` directly also uses the alternate-screen fullscreen renderer when `/tui fullscreen` or `CLAUDE_CODE_NO_FLICKER=1` is active.
+Running `openclaude agents` directly uses the same renderer. Use `/tui classic`, `openclaude agents --no-alt-screen`, or `CLAUDE_CODE_NO_FLICKER=0` when you want classic terminal scrollback instead.
 
 Agent rows preserve their own model/provider metadata for context reporting. When OpenClaude knows a row's context window it shows `CTX N%`; when a local or custom provider does not expose the window it shows `CTX ?` instead of borrowing the main chat's model or displaying a fake zero.
 

@@ -81,6 +81,8 @@ export type ProjectConfig = {
   lastAPIDuration?: number
   lastAPIDurationWithoutRetries?: number
   lastToolDuration?: number
+  lastToolCallCount?: number
+  lastToolFailureCount?: number
   lastCost?: number
   lastDuration?: number
   lastLinesAdded?: number
@@ -497,7 +499,7 @@ export type GlobalConfig = {
   // Fullscreen in-app text selection behavior
   copyOnSelect?: boolean // Auto-copy to clipboard on mouse-up (undefined → true; lets cmd+c "work" via no-op)
 
-  // Flicker-free fullscreen mode (equivalent to CLAUDE_CODE_NO_FLICKER=1 env var).
+  // Flicker-free TUI mode (equivalent to CLAUDE_CODE_NO_FLICKER=1 env var).
   // When true, enables alt-screen + virtualized scroll for all users.
   // Env var still takes precedence: =0 always off, =1 always on.
   flickerFreeMode?: boolean

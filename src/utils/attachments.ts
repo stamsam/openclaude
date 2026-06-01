@@ -684,6 +684,16 @@ export type Attachment =
       level: 'high'
     }
   | {
+      type: 'ultra_effort_enter'
+      reminderType: 'full' | 'sparse'
+    }
+  | {
+      type: 'ultra_effort_exit'
+    }
+  | {
+      type: 'workflow_keyword_request'
+    }
+  | {
       type: 'deferred_tools_delta'
       addedNames: string[]
       addedLines: string[]
@@ -983,6 +993,14 @@ export async function getAttachments(
         ),
         maybe('verify_plan_reminder', async () =>
           getVerifyPlanReminderAttachment(messages, toolUseContext),
+        ),
+        maybe('ultra_effort', async () =>
+          Promise.resolve(getUltraEffortAttachments(messages, toolUseContext)),
+        ),
+        maybe('workflow_keyword_request', async () =>
+          Promise.resolve(
+            getWorkflowKeywordRequestAttachment(input, toolUseContext),
+          ),
         ),
       ]
     : []
@@ -1450,6 +1468,116 @@ function getUltrathinkEffortAttachment(input: string | null): Attachment[] {
   }
   logEvent('tengu_ultrathink', {})
   return [{ type: 'ultrathink_effort', level: 'high' }]
+}
+
+const ULTRACODE_ATTACHMENT_CONFIG = {
+  TURNS_BETWEEN_ATTACHMENTS: 5,
+  FULL_REMINDER_EVERY_N_ATTACHMENTS: 4,
+} as const
+
+function getUltraEffortAttachmentTurnCount(messages: Message[]): {
+  turnCount: number
+  foundUltraEffortAttachment: boolean
+} {
+  let turnsSinceLastAttachment = 0
+  let foundUltraEffortAttachment = false
+
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const message = messages[i]
+    if (
+      message?.type === 'user' &&
+      !message.isMeta &&
+      !hasToolResultContent(message.message.content)
+    ) {
+      turnsSinceLastAttachment++
+    } else if (
+      message?.type === 'attachment' &&
+      message.attachment.type === 'ultra_effort_enter'
+    ) {
+      foundUltraEffortAttachment = true
+      break
+    } else if (
+      message?.type === 'attachment' &&
+      message.attachment.type === 'ultra_effort_exit'
+    ) {
+      break
+    }
+  }
+
+  return { turnCount: turnsSinceLastAttachment, foundUltraEffortAttachment }
+}
+
+function countUltraEffortAttachmentsSinceLastExit(messages: Message[]): number {
+  let count = 0
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const message = messages[i]
+    if (message?.type === 'attachment') {
+      if (message.attachment.type === 'ultra_effort_exit') break
+      if (message.attachment.type === 'ultra_effort_enter') count++
+    }
+  }
+  return count
+}
+
+function lastUltraEffortAttachmentState(
+  messages: Message[] | undefined,
+): 'enter' | 'exit' | undefined {
+  for (let i = (messages?.length ?? 0) - 1; i >= 0; i--) {
+    const message = messages?.[i]
+    if (message?.type !== 'attachment') continue
+    if (message.attachment.type === 'ultra_effort_enter') return 'enter'
+    if (message.attachment.type === 'ultra_effort_exit') return 'exit'
+  }
+  return undefined
+}
+
+function getUltraEffortAttachments(
+  messages: Message[] | undefined,
+  toolUseContext: ToolUseContext,
+): Attachment[] {
+  const ultracodeActive = toolUseContext.getAppState().ultracodeActive === true
+  const lastState = lastUltraEffortAttachmentState(messages)
+
+  if (!ultracodeActive) {
+    return lastState === 'enter' ? [{ type: 'ultra_effort_exit' }] : []
+  }
+
+  if (messages && messages.length > 0) {
+    const { turnCount, foundUltraEffortAttachment } =
+      getUltraEffortAttachmentTurnCount(messages)
+    if (
+      foundUltraEffortAttachment &&
+      turnCount < ULTRACODE_ATTACHMENT_CONFIG.TURNS_BETWEEN_ATTACHMENTS
+    ) {
+      return []
+    }
+  }
+
+  const attachmentCount =
+    countUltraEffortAttachmentsSinceLastExit(messages ?? []) + 1
+  const reminderType: 'full' | 'sparse' =
+    attachmentCount %
+      ULTRACODE_ATTACHMENT_CONFIG.FULL_REMINDER_EVERY_N_ATTACHMENTS ===
+    1
+      ? 'full'
+      : 'sparse'
+
+  return [{ type: 'ultra_effort_enter', reminderType }]
+}
+
+function getWorkflowKeywordRequestAttachment(
+  input: string | null,
+  toolUseContext: ToolUseContext,
+): Attachment[] {
+  if (!input || !/\bworkflows?\b/i.test(input)) return []
+  const settings = toolUseContext.getAppState().settings
+  if (
+    settings.disableWorkflows === true ||
+    settings.workflowKeywordTriggerEnabled === false
+  ) {
+    return []
+  }
+  return [{ type: 'workflow_keyword_request' }]
 }
 
 // Exported for compact.ts — the gate must be identical at both call sites.

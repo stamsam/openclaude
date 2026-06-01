@@ -46,7 +46,8 @@ type CancelRequestHandlerProps = {
   isMessageSelectorVisible: boolean
   screen: Screen
   abortSignal?: AbortSignal
-  popCommandFromQueue?: () => void
+  popCommandFromQueue?: () => boolean
+  clearRestoredQueuedInput?: () => boolean
   vimMode?: VimMode
   isLocalJSXCommand?: boolean
   isSearchingHistory?: boolean
@@ -55,6 +56,7 @@ type CancelRequestHandlerProps = {
   inputValue?: string
   streamMode?: SpinnerMode
   isActive?: boolean
+  isProcessing?: boolean
 }
 
 /**
@@ -70,6 +72,7 @@ export function CancelRequestHandler(props: CancelRequestHandlerProps): null {
     screen,
     abortSignal,
     popCommandFromQueue,
+    clearRestoredQueuedInput,
     vimMode,
     isLocalJSXCommand,
     isSearchingHistory,
@@ -78,6 +81,7 @@ export function CancelRequestHandler(props: CancelRequestHandlerProps): null {
     inputValue,
     streamMode,
     isActive = true,
+    isProcessing = false,
   } = props
   const store = useAppStateStore()
   const setAppState = useSetAppState()
@@ -94,21 +98,31 @@ export function CancelRequestHandler(props: CancelRequestHandlerProps): null {
         streamMode as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
     }
 
-    // Priority 1: If there's an active task running, cancel it first
-    // This takes precedence over queue management so users can always interrupt Claude
-    if (abortSignal !== undefined && !abortSignal.aborted) {
+    // Priority 1: If there's queued input, pull it back for editing first.
+    // This keeps Escape predictable for queue editing even while Claude runs.
+    if (hasCommandsInQueue()) {
+      if (popCommandFromQueue) {
+        if (popCommandFromQueue()) {
+          return
+        }
+      }
+    }
+
+    // Priority 1.5: after Escape pulls queued text back, the next Escape clears
+    // that restored input before the third Escape cancels the active turn.
+    if (clearRestoredQueuedInput?.()) {
+      return
+    }
+
+    // Priority 2: If there's an active task running, cancel it.
+    if (
+      (abortSignal !== undefined && !abortSignal.aborted) ||
+      isProcessing
+    ) {
       logEvent('tengu_cancel', cancelProps)
       setToolUseConfirmQueue(() => [])
       onCancel()
       return
-    }
-
-    // Priority 2: Pop queue when Claude is idle (no running task to cancel)
-    if (hasCommandsInQueue()) {
-      if (popCommandFromQueue) {
-        popCommandFromQueue()
-        return
-      }
     }
 
     // Fallback: nothing to cancel or pop (shouldn't reach here if isActive is correct)
@@ -117,7 +131,9 @@ export function CancelRequestHandler(props: CancelRequestHandlerProps): null {
     onCancel()
   }, [
     abortSignal,
+    isProcessing,
     popCommandFromQueue,
+    clearRestoredQueuedInput,
     setToolUseConfirmQueue,
     onCancel,
     streamMode,
@@ -128,7 +144,8 @@ export function CancelRequestHandler(props: CancelRequestHandlerProps): null {
   // Overlays (ModelPicker, ThinkingToggle, etc.) register themselves via useRegisterOverlay
   // Local JSX commands (like /model, /btw) handle their own input
   const isOverlayActive = useIsOverlayActive()
-  const canCancelRunningTask = abortSignal !== undefined && !abortSignal.aborted
+  const canCancelRunningTask =
+    (abortSignal !== undefined && !abortSignal.aborted) || isProcessing
   const hasQueuedCommands = queuedCommandsLength > 0
   // When in bash/background mode with empty input, escape should exit the mode
   // rather than cancel the request. Let PromptInput handle mode exit.

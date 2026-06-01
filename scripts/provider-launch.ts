@@ -25,6 +25,9 @@ import {
   listOllamaModels,
 } from './provider-discovery.ts'
 
+const SAMS_AUTO_ROUTER_MODEL = 'Sams auto router 4B-35B'
+const SAMS_AUTO_ROUTER_BASE_URL = 'http://127.0.0.1:8001/v1'
+
 type LaunchOptions = {
   requestedProfile: ProviderProfile | 'auto' | null
   passthroughArgs: string[]
@@ -52,7 +55,7 @@ function parseLaunchOptions(argv: string[]): LaunchOptions {
       continue
     }
 
-    if ((lower === 'auto' || lower === 'openai' || lower === 'ollama' || lower === 'omlx' || lower === 'omlx-anthropic' || lower === 'codex' || lower === 'cerebras' || lower === 'gemini' || lower ==='mistral' || lower === 'atomic-chat') && requestedProfile === 'auto') {
+    if ((lower === 'auto' || lower === 'openai' || lower === 'ollama' || lower === 'omlx' || lower === 'omlx-anthropic' || lower === 'sams-auto-router' || lower === 'codex' || lower === 'cerebras' || lower === 'gemini' || lower ==='mistral' || lower === 'atomic-chat') && requestedProfile === 'auto') {
       requestedProfile = lower as ProviderProfile | 'auto'
       continue
     }
@@ -139,6 +142,8 @@ function printSummary(profile: ProviderProfile): void {
     console.log('Using configured Cerebras provider settings.')
   } else if (profile === 'atomic-chat') {
     console.log('Using configured Atomic Chat provider settings.')
+  } else if (profile === 'sams-auto-router') {
+    console.log("Using configured Sam's Auto Router provider settings.")
   } else if (profile === 'omlx' || profile === 'omlx-anthropic') {
     console.log('Using configured oMLX provider settings.')
   } else if (profile === 'ollama') {
@@ -167,12 +172,13 @@ async function main(): Promise<void> {
   const options = parseLaunchOptions(process.argv.slice(2))
   const requestedProfile = options.requestedProfile
   if (!requestedProfile) {
-    console.error('Usage: bun run scripts/provider-launch.ts [openai|ollama|omlx|omlx-anthropic|codex|cerebras|gemini|mistral|atomic-chat|auto] [--fast] [--goal <latency|balanced|coding>] [-- <cli args>]')
+    console.error('Usage: bun run scripts/provider-launch.ts [openai|ollama|omlx|omlx-anthropic|sams-auto-router|codex|cerebras|gemini|mistral|atomic-chat|auto] [--fast] [--goal <latency|balanced|coding>] [-- <cli args>]')
     process.exit(1)
   }
 
   const persisted = loadPersistedProfile()
   let profile: ProviderProfile
+  let envSeed: ProfileFile | null = null
   let resolvedOllamaModel: string | null = null
   let resolvedOmlxModel: string | null = null
 
@@ -234,9 +240,26 @@ async function main(): Promise<void> {
     }
   }
 
+  if (
+    profile === 'sams-auto-router' &&
+    (persisted?.profile !== 'sams-auto-router' || !persisted?.env?.OPENAI_MODEL)
+  ) {
+    envSeed = {
+      profile,
+      env: {
+        CLAUDE_CODE_USE_OPENAI: '1',
+        OPENAI_BASE_URL: SAMS_AUTO_ROUTER_BASE_URL,
+        OPENAI_API_KEY: 'local',
+        OPENAI_MODEL: SAMS_AUTO_ROUTER_MODEL,
+        OPENAI_API_FORMAT: 'chat_completions',
+      },
+      createdAt: new Date().toISOString(),
+    }
+  }
+
   const env = await buildLaunchEnv({
     profile,
-    persisted,
+    persisted: envSeed ?? persisted,
     goal: options.goal,
     getOllamaChatBaseUrl,
     resolveOllamaDefaultModel: async () => resolvedOllamaModel || 'llama3.1:8b',

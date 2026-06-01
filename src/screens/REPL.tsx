@@ -2,7 +2,7 @@ import { c as _c } from "react-compiler-runtime";
 // biome-ignore-all assist/source/organizeImports: internal-only import markers must not be reordered
 import { feature } from 'bun:bundle';
 import { spawnSync } from 'child_process';
-import { snapshotOutputTokensForTurn, getCurrentTurnTokenBudget, getTurnOutputTokens, getBudgetContinuationCount, getTotalInputTokens } from '../bootstrap/state.js';
+import { snapshotOutputTokensForTurn, getCurrentTurnTokenBudget, getTurnOutputTokens, getBudgetContinuationCount, getTotalInputTokens, addEstimatedOutputTokens } from '../bootstrap/state.js';
 import { parseTokenBudget } from '../utils/tokenBudget.js';
 import { count } from '../utils/array.js';
 import { dirname, join } from 'path';
@@ -293,7 +293,7 @@ import type { RemoteSessionConfig } from '../remote/RemoteSessionManager.js';
 import { REMOTE_SAFE_COMMANDS } from '../commands.js';
 import type { RemoteMessageContent } from '../utils/teleport/api.js';
 import { FullscreenLayout, useUnseenDivider, computeUnseenDivider } from '../components/FullscreenLayout.js';
-import { isFullscreenEnvEnabled, maybeGetTmuxMouseHint, isMouseTrackingEnabled } from '../utils/fullscreen.js';
+import { isFullscreenEnvEnabled, maybeGetTmuxMouseHint, isMouseTrackingEnabled, isMouseClicksDisabled } from '../utils/fullscreen.js';
 import { AlternateScreen } from '../ink/components/AlternateScreen.js';
 import { ScrollKeybindingHandler } from '../components/ScrollKeybindingHandler.js';
 import { useMessageActions, MessageActionsKeybindings, MessageActionsBar, type MessageActionsState, type MessageActionsNav, type MessageActionCaps } from '../components/messageActions.js';
@@ -673,6 +673,7 @@ export function REPL({
   const ultraplanPendingChoice = useAppState(s => s.ultraplanPendingChoice);
   const ultraplanLaunchPending = useAppState(s => s.ultraplanLaunchPending);
   const viewingAgentTaskId = useAppState(s => s.viewingAgentTaskId);
+  const viewSelectionMode = useAppState(s => s.viewSelectionMode);
   const setAppState = useSetAppState();
 
   // Bootstrap: retained local_agent that hasn't loaded disk yet → read
@@ -1555,6 +1556,7 @@ export function REPL({
     // Updating lastTokenTime here ensures the denominator includes both
     // streaming time AND subagent execution time, preventing inflation.
     if (responseLengthRef.current > prev) {
+      addEstimatedOutputTokens((responseLengthRef.current - prev) / 4);
       const entries = apiMetricsRef.current;
       if (entries.length > 0) {
         const lastEntry = entries.at(-1)!;
@@ -2255,12 +2257,12 @@ export function REPL({
         item.reject(new Error('Prompt cancelled by user'));
       }
       setPromptQueue([]);
-      abortController?.abort('user-cancel');
+      abortControllerRef.current?.abort('user-cancel');
     } else if (activeRemote.isRemoteMode) {
       // Remote mode: send interrupt signal to CCR
       activeRemote.cancelRequest();
     } else {
-      abortController?.abort('user-cancel');
+      abortControllerRef.current?.abort('user-cancel');
     }
 
     // Clear the controller so subsequent Escape presses don't see a stale
@@ -2274,9 +2276,11 @@ export function REPL({
   }
 
   // Function to handle queued command when canceling a permission request
+  const restoredQueuedInputRef = useRef(false);
   const handleQueuedCommandOnCancel = useCallback(() => {
     const result = popAllEditable(inputValue, 0);
-    if (!result) return;
+    if (!result) return false;
+    restoredQueuedInputRef.current = true;
     setInputValue(result.text);
     setInputMode('prompt');
 
@@ -2292,7 +2296,20 @@ export function REPL({
         return newContents;
       });
     }
+    return true;
   }, [setInputValue, setInputMode, inputValue, setPastedContents]);
+  const clearRestoredQueuedInput = useCallback(() => {
+    if (!restoredQueuedInputRef.current || inputValue.length === 0) return false;
+    restoredQueuedInputRef.current = false;
+    setInputValue('');
+    setInputMode('prompt');
+    return true;
+  }, [inputValue, setInputMode, setInputValue]);
+  const stopCurrentTurnFromChip = useCallback(() => {
+    if (handleQueuedCommandOnCancel()) return;
+    if (clearRestoredQueuedInput()) return;
+    onCancel();
+  }, [clearRestoredQueuedInput, handleQueuedCommandOnCancel, onCancel]);
 
   // CancelRequestHandler props - rendered inside KeybindingSetup
   const cancelRequestProps = {
@@ -2303,6 +2320,7 @@ export function REPL({
     screen,
     abortSignal: abortController?.signal,
     popCommandFromQueue: handleQueuedCommandOnCancel,
+    clearRestoredQueuedInput,
     vimMode,
     isLocalJSXCommand: toolJSX?.isLocalJSXCommand,
     isSearchingHistory,
@@ -2310,7 +2328,8 @@ export function REPL({
     inputMode,
     inputValue,
     streamMode,
-    isActive: !agentViewOpen
+    isActive: !agentViewOpen,
+    isProcessing: isLoading
   };
   useEffect(() => {
     const totalCost = getTotalCost();
@@ -2521,7 +2540,7 @@ export function REPL({
       return resolveAgentTools(mainThreadAgentDefinition, merged, false, true).resolvedTools;
     };
     return {
-      abortController,
+      abortController: abortControllerRef.current ?? abortController,
       options: {
         commands,
         tools: computeTools(),
@@ -4722,7 +4741,11 @@ export function REPL({
           the modal's inner ScrollBox is not keyboard-driven. onScroll
           stays suppressed while a modal is showing so scroll doesn't
           stamp divider/pill state. */}
-    <ScrollKeybindingHandler scrollRef={scrollRef} isActive={!agentViewOpen && isFullscreenEnvEnabled() && (centeredModal != null || !focusedInputDialog || focusedInputDialog === 'tool-permission')} onScroll={centeredModal || toolPermissionOverlay || viewedAgentTask ? undefined : composedOnScroll} />
+    <ScrollKeybindingHandler scrollRef={scrollRef}
+      // Keep transcript wheel/PgUp/PgDn active in fullscreen even with prompt
+      // focus so trackpad scroll consistently targets message history.
+      isActive={!agentViewOpen && isFullscreenEnvEnabled()}
+      onScroll={centeredModal || toolPermissionOverlay || viewedAgentTask ? undefined : composedOnScroll} />
     {feature('MESSAGE_ACTIONS') && isFullscreenEnvEnabled() && !disableMessageActions ? <MessageActionsKeybindings handlers={messageActionHandlers} isActive={!agentViewOpen && cursor !== null} /> : null}
     <CancelRequestHandler {...cancelRequestProps} />
     <MCPConnectionManager key={remountKey} dynamicMcpConfig={dynamicMcpConfig} isStrictMcpConfig={strictMcpConfig}>
@@ -4755,7 +4778,7 @@ export function REPL({
         {"external" === 'ant' && <TungstenLiveMonitor />}
         {feature('WEB_BROWSER_TOOL') ? WebBrowserPanelModule && <WebBrowserPanelModule.WebBrowserPanel /> : null}
         <Box flexGrow={1} />
-        {showSpinner && <SpinnerWithVerb mode={streamMode} spinnerTip={spinnerTip} responseLengthRef={responseLengthRef} apiMetricsRef={apiMetricsRef} overrideMessage={spinnerMessage} spinnerSuffix={stopHookSpinnerSuffix} verbose={verbose} loadingStartTimeRef={loadingStartTimeRef} totalPausedMsRef={totalPausedMsRef} pauseStartTimeRef={pauseStartTimeRef} overrideColor={spinnerColor} overrideShimmerColor={spinnerShimmerColor} hasActiveTools={inProgressToolUseIDs.size > 0} leaderIsIdle={!isLoading} />}
+        {showSpinner && <SpinnerWithVerb mode={streamMode} spinnerTip={spinnerTip} responseLengthRef={responseLengthRef} apiMetricsRef={apiMetricsRef} overrideMessage={spinnerMessage} spinnerSuffix={stopHookSpinnerSuffix} verbose={verbose} loadingStartTimeRef={loadingStartTimeRef} totalPausedMsRef={totalPausedMsRef} pauseStartTimeRef={pauseStartTimeRef} overrideColor={spinnerColor} overrideShimmerColor={spinnerShimmerColor} hasActiveTools={inProgressToolUseIDs.size > 0} leaderIsIdle={!isLoading} onStop={isFullscreenEnvEnabled() && isMouseTrackingEnabled() && !isMouseClicksDisabled() && viewSelectionMode !== 'viewing-agent' ? stopCurrentTurnFromChip : undefined} />}
         {!showSpinner && !isLoading && !userInputOnProcessing && !hasRunningTeammates && isBriefOnly && !viewedAgentTask && <BriefIdleStatus />}
         {isFullscreenEnvEnabled() && <PromptInputQueuedCommands />}
       </>} bottom={<Box flexDirection={isBuddyEnabled() && companionNarrow ? 'column' : 'row'} width="100%" alignItems={isBuddyEnabled() && companionNarrow ? undefined : 'flex-end'}>

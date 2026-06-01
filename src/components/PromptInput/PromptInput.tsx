@@ -1775,6 +1775,10 @@ function PromptInput({
     isActive: !isLoading && speculation.status === 'active'
   });
 
+  // Escape sequence while queued/running:
+  // 1) pull queued prompt back, 2) clear input, 3) allow cancel handler.
+  const escapeQueueStepRef = useRef(false);
+
   // Footer indicator navigation keybindings. ↑/↓ live here (not in
   // handleHistoryUp/Down) because TextInput focus=false when a pill is
   // selected — its useInput is inactive, so this is the only path.
@@ -1910,7 +1914,10 @@ function PromptInput({
     context: 'Footer',
     isActive: !!footerItemSelected && !isModalOverlayActive
   });
-  useInput((char, key) => {
+  useInput((char, key, event) => {
+    if (!key.escape) {
+      escapeQueueStepRef.current = false;
+    }
     // Skip all input handling when a full-screen dialog is open. These dialogs
     // render via early return, but hooks run unconditionally — so without this
     // guard, Escape inside a dialog leaks to the double-press message-selector.
@@ -2001,6 +2008,18 @@ function PromptInput({
       const hasEditableCommand = queuedCommands.some(isQueuedCommandEditable);
       if (hasEditableCommand) {
         void popAllCommandsFromQueue();
+        escapeQueueStepRef.current = true;
+        event.stopImmediatePropagation();
+        return;
+      }
+
+      // After pulling queued text back into the input, the next Escape clears it.
+      if (escapeQueueStepRef.current && input.length > 0) {
+        removeNotification('escape-again-to-clear');
+        onChange('');
+        setCursorOffset(0);
+        escapeQueueStepRef.current = false;
+        event.stopImmediatePropagation();
         return;
       }
       if (messages.length > 0 && !input && !isLoading) {
@@ -2078,6 +2097,7 @@ function PromptInput({
         ...prev,
         mainLoopModel: model,
         mainLoopModelForSession: null,
+        ultracodeActive: false,
         // Turn off fast mode if switching to a model that doesn't support it
         ...(wasFastModeDisabled && {
           fastMode: false

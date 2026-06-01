@@ -86,7 +86,7 @@ export function conversationFromLog(raw: string): ConversationTurn[] {
       // Ignore raw diagnostic lines; the attach view should read like a thread.
     }
   }
-  return turns.slice(-8)
+  return turns
 }
 
 export function mergeConversationTurns(
@@ -96,7 +96,19 @@ export function mergeConversationTurns(
   const pending = optimisticTurns.filter(turn =>
     !logTurns.some(logTurn => logTurn.role === turn.role && logTurn.text === turn.text),
   )
-  return [...logTurns, ...pending].slice(-10)
+  return [...logTurns, ...pending]
+}
+
+export function findSearchMatchIndex(lines: string[], query: string): number {
+  const needle = query.trim().toLowerCase()
+  if (!needle) return -1
+  return lines.findIndex(line => line.toLowerCase().includes(needle))
+}
+
+function countSearchMatches(lines: string[], query: string): number {
+  const needle = query.trim().toLowerCase()
+  if (!needle) return 0
+  return lines.reduce((count, line) => count + (line.toLowerCase().includes(needle) ? 1 : 0), 0)
 }
 
 function uniqueOptions(options: PickerOption[]): PickerOption[] {
@@ -167,13 +179,15 @@ export function AgentAttachPanel({
   const [status, setStatus] = React.useState('')
   const [picker, setPicker] = React.useState<CommandPicker | null>(null)
   const [localNotices, setLocalNotices] = React.useState<string[]>([])
+  const [scrollFromBottom, setScrollFromBottom] = React.useState(0)
+  const [searchQuery, setSearchQuery] = React.useState('')
 
   const appendSystemOutput = React.useCallback((message: string) => {
     setLocalNotices(current => [...current.slice(-3), message])
   }, [])
 
   const refresh = React.useCallback(() => {
-    void Promise.all([loadJob(id), readJobLogTail(id, 8_000)]).then(([job, tail]) => {
+    void Promise.all([loadJob(id), readJobLogTail(id, 100_000)]).then(([job, tail]) => {
       setStatus(
         job
           ? [
@@ -198,6 +212,39 @@ export function AgentAttachPanel({
     if (!fullscreen) return
     instances.get(process.stdout)?.forceRedraw()
   }, [fullscreen, id])
+
+  const outputTurns = mergeConversationTurns(logTurns, optimisticTurns)
+  const output = outputTurns.length > 0
+    ? outputTurns.map(turn => `${turn.role}: ${turn.text}`).join('\n\n')
+    : 'No conversation output yet.'
+  const outputLines = output.split('\n')
+  const viewportRows = Math.max(3, rows - (fullscreen ? 9 : 8))
+  const maxScrollFromBottom = Math.max(0, outputLines.length - viewportRows)
+  const clampedScrollFromBottom = Math.min(scrollFromBottom, maxScrollFromBottom)
+  const visibleStart = Math.max(0, outputLines.length - viewportRows - clampedScrollFromBottom)
+  const visibleLines = outputLines.slice(visibleStart, visibleStart + viewportRows)
+  const searchMatchIndex = findSearchMatchIndex(outputLines, searchQuery)
+  const searchMatchCount = countSearchMatches(outputLines, searchQuery)
+  const scrollStatus = searchQuery
+    ? (searchMatchIndex >= 0 ? `search: "${searchQuery}" (${searchMatchCount})` : `search: "${searchQuery}" (0)`)
+    : maxScrollFromBottom === 0
+      ? 'full thread visible'
+      : clampedScrollFromBottom === 0
+        ? 'latest'
+        : `${clampedScrollFromBottom} lines above latest`
+
+  React.useEffect(() => {
+    setScrollFromBottom(value => Math.min(value, maxScrollFromBottom))
+  }, [maxScrollFromBottom])
+
+  React.useEffect(() => {
+    if (!searchQuery) return
+    const matchIndex = findSearchMatchIndex(outputLines, searchQuery)
+    if (matchIndex < 0) return
+    const centeredStart = Math.max(0, matchIndex - Math.floor(viewportRows / 2))
+    const nextScrollFromBottom = Math.max(0, outputLines.length - viewportRows - centeredStart)
+    setScrollFromBottom(nextScrollFromBottom)
+  }, [outputLines, searchQuery, viewportRows])
 
   const switchModel = React.useCallback((nextModel: string) => {
     void appendJobModelSwitch(id, nextModel)
@@ -235,7 +282,7 @@ export function AgentAttachPanel({
     event.stopImmediatePropagation()
 
     if (picker) {
-      if (key.escape || key.leftArrow) {
+      if (key.escape) {
         setPicker(null)
         return
       }
@@ -267,7 +314,18 @@ export function AgentAttachPanel({
       return
     }
 
-    if ((key.leftArrow || key.rightArrow || key.escape) && line.length === 0) {
+    if (line.length === 0 && (key.upArrow || key.downArrow || key.pageUp || key.pageDown || key.home || key.end)) {
+      const page = Math.max(4, Math.floor(rows * 0.6))
+      if (key.upArrow) setScrollFromBottom(value => value + 1)
+      else if (key.downArrow) setScrollFromBottom(value => Math.max(0, value - 1))
+      else if (key.pageUp) setScrollFromBottom(value => value + page)
+      else if (key.pageDown) setScrollFromBottom(value => Math.max(0, value - page))
+      else if (key.home) setScrollFromBottom(Number.MAX_SAFE_INTEGER)
+      else if (key.end) setScrollFromBottom(0)
+      return
+    }
+
+    if (key.escape && line.length === 0) {
       onBack()
       return
     }
@@ -329,7 +387,29 @@ export function AgentAttachPanel({
         switchProvider(option)
         return
       }
-      setOptimisticTurns(current => [...current.slice(-5), { role: 'You', text: message }])
+      if (message === '/search') {
+        setSearchQuery('')
+        setMessage('Search cleared')
+        return
+      }
+      if (message.startsWith('/search ')) {
+        const nextQuery = message.slice('/search '.length).trim()
+        setSearchQuery(nextQuery)
+        if (!nextQuery) {
+          setMessage('Search cleared')
+          return
+        }
+        const matchIndex = findSearchMatchIndex(outputLines, nextQuery)
+        if (matchIndex < 0) {
+          setMessage(`No matches for "${nextQuery}"`)
+          return
+        }
+        const centeredStart = Math.max(0, matchIndex - Math.floor(viewportRows / 2))
+        setScrollFromBottom(Math.max(0, outputLines.length - viewportRows - centeredStart))
+        setMessage(`Search → "${nextQuery}" (${countSearchMatches(outputLines, nextQuery)})`)
+        return
+      }
+      setOptimisticTurns(current => [...current, { role: 'You', text: message }])
       if (fullscreen) {
         instances.get(process.stdout)?.forceRedraw()
       }
@@ -354,10 +434,6 @@ export function AgentAttachPanel({
   })
 
   const frameHeight = fullscreen ? Math.max(12, rows) : undefined
-  const outputTurns = mergeConversationTurns(logTurns, optimisticTurns)
-  const output = outputTurns.length > 0
-    ? outputTurns.map(turn => `${turn.role}: ${turn.text}`).join('\n\n')
-    : 'No conversation output yet.'
 
   return (
     <Box flexDirection="column" paddingX={fullscreen ? 3 : 2} paddingTop={1} width="100%" height={frameHeight}>
@@ -372,7 +448,17 @@ export function AgentAttachPanel({
         </Box>
       )}
       <Box flexDirection="column" marginBottom={1} flexGrow={1} overflow="hidden">
-        <Text>{output.slice(-8_000)}</Text>
+        <Box flexDirection="column">
+          {visibleLines.map((line, index) => {
+            const absoluteIndex = visibleStart + index
+            const isSearchMatch = searchQuery ? line.toLowerCase().includes(searchQuery.trim().toLowerCase()) : false
+            return (
+              <Text key={`${absoluteIndex}-${line.slice(0, 16)}`} color={isSearchMatch ? 'yellow' : undefined}>
+                {line || ' '}
+              </Text>
+            )
+          })}
+        </Box>
         {localNotices.length > 0 ? (
           <Box flexDirection="column" marginTop={1}>
             {localNotices.map((notice, index) => (
@@ -402,7 +488,7 @@ export function AgentAttachPanel({
           <Text dimColor={!line}>{line || 'reply to this thread'}</Text>
         </Box>
         <Text dimColor>
-          enter send · /model · /provider · ←/esc back · esc clears text
+          enter send · ↑↓ scroll · pgup/pgdn · /search &lt;text&gt; · /model · /provider · esc back · {scrollStatus}
         </Text>
       </Box>
     </Box>

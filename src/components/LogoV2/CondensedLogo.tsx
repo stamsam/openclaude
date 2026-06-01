@@ -23,6 +23,7 @@ export function CondensedLogo() {
   } = useTerminalSize();
   const agent = useAppState(_temp);
   const effortValue = useAppState(_temp2);
+  const ultracodeActive = useAppState(_temp3);
   const model = useMainLoopModel();
   const modelDisplayName = renderModelSetting(model);
   const {
@@ -71,7 +72,7 @@ export function CondensedLogo() {
   useEffect(t2, t3);
   const textWidth = Math.max(columns - 15, 20);
   const truncatedVersion = truncate(version, Math.max(textWidth - 13, 6));
-  const effortSuffix = getEffortSuffix(model, effortValue);
+  const effortSuffix = getEffortSuffix(model, effortValue, ultracodeActive);
   const {
     shouldSplit,
     truncatedModel,
@@ -155,6 +156,9 @@ export function CondensedLogo() {
 }
 function _temp2(s_0) {
   return s_0.effortValue;
+}
+function _temp3(s_0) {
+  return s_0.ultracodeActive === true;
 }
 function _temp(s) {
   return s.agent;

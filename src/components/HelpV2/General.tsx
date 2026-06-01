@@ -16,7 +16,7 @@ export function General(): React.ReactElement {
         <Box>
           <Text bold>New surfaces</Text>
         </Box>
-        <Text dimColor>/tui fullscreen for flicker-free fullscreen rendering</Text>
+        <Text dimColor>/tui flicker-free for fixed prompt and smooth scroll</Text>
         <Text dimColor>/logo to pick the startup/header mascot</Text>
         <Text dimColor>
           /bg or openclaude --bg to start detached background sessions

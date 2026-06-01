@@ -14,10 +14,12 @@ import { GlimmerMessage } from './GlimmerMessage.js';
 import { SpinnerGlyph } from './SpinnerGlyph.js';
 import type { SpinnerMode } from './types.js';
 import { useStalledAnimation } from './useStalledAnimation.js';
-import { interpolateColor, toRGBColor } from './utils.js';
+import { hueToRgb, interpolateColor, toRGBColor } from './utils.js';
 const SEP_WIDTH = stringWidth(' · ');
 const THINKING_BARE_WIDTH = stringWidth('thinking');
+const ULTRACODE_WIDTH = stringWidth('ultracode');
 const SHOW_TOKENS_AFTER_MS = 30_000;
+const STOP_CONTROL_WIDTH = stringWidth(' [stop] ');
 
 // Thinking shimmer constants. Previously lived in a separate ThinkingShimmerText
 // component with its own useAnimationFrame(50) — inlined here to reuse our
@@ -67,6 +69,8 @@ export type SpinnerAnimationRowProps = {
   // Thinking (state owned by parent, mode-dependent)
   thinkingStatus: 'thinking' | number | null;
   effortSuffix: string;
+  ultracodeActive?: boolean;
+  onStop?: () => void;
 };
 
 /**
@@ -99,7 +103,9 @@ export function SpinnerAnimationRow({
   foregroundedTeammate,
   leaderIsIdle = false,
   thinkingStatus,
-  effortSuffix
+  effortSuffix,
+  ultracodeActive = false,
+  onStop
 }: SpinnerAnimationRowProps): React.ReactNode {
   const [viewportRef, time] = useAnimationFrame(reducedMotion ? null : 50);
 
@@ -182,16 +188,18 @@ export function SpinnerAnimationRow({
   const parensWidth = 4;
   const wantsThinking = thinkingStatus !== null;
   const wantsTimerAndTokens = verbose || hasRunningTeammates || effectiveElapsedMs > SHOW_TOKENS_AFTER_MS;
-  const availableSpace = columns - messageWidth - parensWidth;
-  let showThinking = wantsThinking && availableSpace > thinkingWidthValue;
+  const availableSpace = columns - (onStop ? STOP_CONTROL_WIDTH : 0) - messageWidth - parensWidth;
+  const showUltracode = ultracodeActive && availableSpace > ULTRACODE_WIDTH;
+  const usedAfterUltracode = showUltracode ? ULTRACODE_WIDTH + sep : 0;
+  let showThinking = wantsThinking && availableSpace > usedAfterUltracode + thinkingWidthValue;
   if (!showThinking && wantsThinking && thinkingStatus === 'thinking' && effortSuffix) {
-    if (availableSpace > THINKING_BARE_WIDTH) {
+    if (availableSpace > usedAfterUltracode + THINKING_BARE_WIDTH) {
       thinkingText = 'thinking';
       thinkingWidthValue = THINKING_BARE_WIDTH;
       showThinking = true;
     }
   }
-  const usedAfterThinking = showThinking ? thinkingWidthValue + sep : 0;
+  const usedAfterThinking = usedAfterUltracode + (showThinking ? thinkingWidthValue + sep : 0);
   const showTimer = wantsTimerAndTokens && availableSpace > usedAfterThinking + timerWidth;
   const usedAfterTimer = usedAfterThinking + (showTimer ? timerWidth + sep : 0);
   const showTokens = wantsTimerAndTokens && totalTokens > 0 && availableSpace > usedAfterTimer + tokensWidth;
@@ -203,11 +211,16 @@ export function SpinnerAnimationRow({
   const thinkingElapsedSec = (time - THINKING_DELAY_MS) / 1000;
   const thinkingOpacity = time < THINKING_DELAY_MS ? 0 : (Math.sin(thinkingElapsedSec * Math.PI * 2 / THINKING_GLOW_PERIOD_S) + 1) / 2;
   const thinkingShimmerColor = toRGBColor(interpolateColor(THINKING_INACTIVE, THINKING_INACTIVE_SHIMMER, thinkingOpacity));
+  const ultracodeColor = toRGBColor(hueToRgb(time / 18));
 
   // === Build status parts ===
   const parts = [...(spinnerSuffix ? [<Text dimColor key="suffix">
             {spinnerSuffix}
-          </Text>] : []), ...(showTimer ? [<Text dimColor key="elapsedTime">
+          </Text>] : []), ...(showUltracode ? [reducedMotion ? <Text key="ultracode" color="claude">
+              ultracode
+            </Text> : <Text key="ultracode" color={ultracodeColor}>
+              ultracode
+            </Text>] : []), ...(showTimer ? [<Text dimColor key="elapsedTime">
             {timerText}
           </Text>] : []), ...(showTokens ? [<Box flexDirection="row" key="tokens">
             {!hasRunningTeammates && <SpinnerModeGlyph mode={mode} />}
@@ -228,7 +241,10 @@ export function SpinnerAnimationRow({
           <Byline>{parts}</Byline>
           <Text dimColor>)</Text>
         </> : null;
-  return <FullWidthRow>
+  const stopControl = onStop ? <Box marginTop={1} paddingX={1} onClick={onStop}>
+      <Text color="warning">[stop]</Text>
+    </Box> : null;
+  return <FullWidthRow right={stopControl}>
       <Box ref={viewportRef} flexDirection="row" flexWrap="nowrap" marginTop={1}>
         <SpinnerGlyph frame={frame} messageColor={messageColor} stalledIntensity={overrideColor ? 0 : stalledIntensity} reducedMotion={reducedMotion} time={time} />
         <GlimmerMessage message={message} mode={mode} messageColor={messageColor} glimmerIndex={glimmerIndex} flashOpacity={flashOpacity} shimmerColor={shimmerColor} stalledIntensity={overrideColor ? 0 : stalledIntensity} />

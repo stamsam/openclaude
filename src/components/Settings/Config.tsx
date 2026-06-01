@@ -209,7 +209,8 @@ export function Config({
     setAppState(prev => ({
       ...prev,
       mainLoopModel: value,
-      mainLoopModelForSession: null
+      mainLoopModelForSession: null,
+      ultracodeActive: false
     }));
     setChanges(prev_0 => {
       const valStr = modelDisplayString(value) + (isBilledAsExtraUsage(value, false, isOpus1mMergeEnabled()) ? ' · Billed as extra usage' : '');
@@ -648,8 +649,8 @@ export function Config({
       });
     }
   },
-  // Copy-on-select is only meaningful with in-app selection (fullscreen
-  // alt-screen mode). In inline mode the terminal emulator owns selection.
+  // Copy-on-select is only meaningful with in-app selection (flicker-free
+  // alt-screen mode). In classic mode the terminal emulator owns selection.
   ...(isFullscreenEnvEnabled() ? [{
     id: 'copyOnSelect',
     label: 'Copy on select',
@@ -672,7 +673,7 @@ export function Config({
   }] : []), {
     id: 'flickerFreeMode',
     label: 'Flicker-free mode',
-    value: globalConfig.flickerFreeMode ?? (process.env.USER_TYPE === 'ant'),
+    value: globalConfig.flickerFreeMode ?? true,
     type: 'boolean' as const,
     onChange(flickerFreeMode: boolean) {
       saveGlobalConfig(current => ({

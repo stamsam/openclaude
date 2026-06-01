@@ -35,6 +35,9 @@ import {
   listOllamaModels,
 } from './provider-discovery.ts'
 
+const SAMS_AUTO_ROUTER_MODEL = 'Sams auto router 4B-35B'
+const SAMS_AUTO_ROUTER_BASE_URL = 'http://127.0.0.1:8001/v1'
+
 function parseArg(name: string): string | null {
   const args = process.argv.slice(2)
   const idx = args.indexOf(name)
@@ -44,7 +47,7 @@ function parseArg(name: string): string | null {
 
 function parseProviderArg(): ProviderProfile | 'auto' {
   const p = parseArg('--provider')?.toLowerCase()
-  if (p === 'openai' || p === 'ollama' || p === 'omlx' || p === 'omlx-anthropic' || p === 'codex' || p === 'cerebras' || p === 'gemini' || p === 'mistral' || p === 'atomic-chat') return p
+  if (p === 'openai' || p === 'ollama' || p === 'omlx' || p === 'omlx-anthropic' || p === 'sams-auto-router' || p === 'codex' || p === 'cerebras' || p === 'gemini' || p === 'mistral' || p === 'atomic-chat') return p
   return 'auto'
 }
 
@@ -191,6 +194,15 @@ async function main(): Promise<void> {
       baseUrl: argBaseUrl,
       getAtomicChatChatBaseUrl,
     })
+  } else if (selected === 'sams-auto-router') {
+    env = buildOpenAIProfileEnv({
+      goal,
+      model: argModel || SAMS_AUTO_ROUTER_MODEL,
+      baseUrl: argBaseUrl || SAMS_AUTO_ROUTER_BASE_URL,
+      apiKey: argApiKey || process.env.OPENAI_API_KEY || 'local',
+      apiFormat: 'chat_completions',
+      processEnv: process.env,
+    })!
   } else if (selected === 'cerebras') {
     const builtEnv = buildCerebrasProfileEnv({
       model: argModel || null,

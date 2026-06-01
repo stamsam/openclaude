@@ -64,10 +64,10 @@ goes further.
 - `/learn` stores durable reusable lessons and `/learn run` applies pending learning work.
 - Telegram session control keeps runtime pause/resume/model state in sync, reconnects after transient polling/focus interruptions, and keeps phone commands matched to the active CLI session.
 - `/benchmark` is split into a command module with local model benchmark helpers and tests.
-- `/tui fullscreen` enables flicker-free alternate-screen rendering with a persistent OpenClaude header, fixed prompt placement, virtualized scrollback, and honest env/tmux override reporting.
-- Goal/status footers now keep live elapsed time, token usage, and `CTX` context percentage visible in CLI, `/tui default`, and `/tui fullscreen`. Local providers without usage metadata fall back to streamed-token estimates, and unknown context windows show `CTX ?`.
+- `/tui flicker-free` is now the default renderer, with a persistent OpenClaude header, fixed prompt placement, virtualized scrollback, and honest env/tmux override reporting. Use `/tui classic` or `--no-alt-screen` for terminal scrollback.
+- Goal/status footers now keep live elapsed time, token usage, and `CTX` context percentage visible in CLI, `/tui classic`, and `/tui flicker-free`. Local providers without usage metadata fall back to streamed-token estimates, and unknown context windows show `CTX ?`.
 - `/logo` now picks the startup/header mascot, including Shiba, gorilla, shark, and the rest of the pixel mascot set.
-- Agent View adds `openclaude agents`, `openclaude --bg`, `attach`, `logs`, `stop`, `respawn`, and `rm` for managing detached background sessions from one terminal, with git worktree isolation when available. In fullscreen mode it now opens as a clean full-screen dashboard instead of leaking the current chat transcript behind it. Attached threads support interactive `/model` and `/provider` pickers for switching that thread without leaving the session, and dashboard rows keep their own model/provider context for `CTX` reporting. See [`docs/agent-view.md`](docs/agent-view.md).
+- Agent View adds `openclaude-neo` for a dashboard-first home, plus `openclaude agents`, `openclaude --bg`, `attach`, `logs`, `stop`, `respawn`, and `rm` for managing detached background sessions from one terminal, with git worktree isolation when available. In flicker-free mode it opens as a clean fixed dashboard instead of leaking the current chat transcript behind it. Attached threads support interactive `/model` and `/provider` pickers for switching that thread without leaving the session, and dashboard rows keep their own model/provider context for `CTX` reporting. See [`docs/agent-view.md`](docs/agent-view.md).
 - Practical feature backlog and comparison notes live in [`docs/planning/implementation-list.md`](docs/planning/implementation-list.md).
 
 ## Why OpenClaude
@@ -97,6 +97,21 @@ If `ripgrep` is missing, install it system-wide and confirm `rg --version` works
 ```bash
 openclaude
 ```
+
+Use `openclaude` for the normal chat-first CLI: provider setup, slash commands,
+single-session coding work, `/server`, `/telegram`, and direct prompts.
+
+For the dashboard-first workflow, start:
+
+```bash
+openclaude-neo
+```
+
+`openclaude-neo` opens the Agent View/home dashboard by default. Use it when you
+want to launch, attach to, and monitor multiple background OpenClaude sessions
+from one screen. It still passes through Agent View management commands such as
+`attach`, `logs`, `stop`, `respawn`, and `rm`. See
+[`docs/agent-view.md`](docs/agent-view.md).
 
 Inside OpenClaude:
 

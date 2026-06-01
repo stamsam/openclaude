@@ -159,3 +159,71 @@ bun test src/utils/providerProfile.test.ts src/utils/providerProfiles.test.ts sr
 - Do not push unless Sam explicitly asks.
 - Do not use `git add .`; stage only the intended files.
 - Do not revert local dirty files unless Sam explicitly asks.
+
+---
+
+## openclaude-neo / Home Dashboard (Agent Inbox)
+
+**Goal:** Transform `openclaude-neo` into a Home Dashboard (Agent Inbox) that shows current session + background agents grouped by inbox status with compact 2-line cards and a task prompt bar.
+
+### Architecture
+- `bin/openclaude-neo` → rewrites argv to `openclaude agents --home` via `bin/openclaude-neo-args.mjs`
+- `src/main.tsx` detects `--home` → calls `openHomeDashboard()` from `src/agentview/view.tsx`
+- `openHomeDashboard()` renders `<HomeDashboard>` wrapped in `<AppStateProvider><KeybindingSetup>`
+- `openclaude agents` without `--home` still opens original `AgentViewDashboard`
+
+### Files
+| File | Role |
+|------|------|
+| `src/agentview/HomeDashboard.tsx` | Main dashboard — inbox cards, grouping, prompt bar, keyboard shortcuts, inline AgentAttachPanel |
+| `src/agentview/AttachPanel.tsx` | Full-thread conversation viewer for background agents (used inline, no raw terminal mode) |
+| `src/agentview/view.tsx` | Entry points: `openHomeDashboard()` (neo), `openAgentView()` (original) |
+| `src/agentview/types.ts` | Added `InboxGroup`, `HandoffAction`, `InboxCard` types |
+| `src/main.tsx` | `agents --home` option handler |
+| `bin/openclaude-neo-args.mjs` | Argv rewrite logic |
+| `bin/openclaude-neo` | Launcher entry point |
+
+### Key Decisions
+- Standalone Ink render instead of REPL integration — avoids modifying ~5K-line REPL.tsx
+- Always `task` prompt mode (chat/target switching removed — standalone mode has no live REPL)
+- Version badge shows "v1" hardcoded (custom neo branding, not MACRO.DISPLAY_VERSION)
+- Header uses 🐙 emoji instead of TerminalMascot ascii art
+- Default TUI is flicker-free (`/tui flicker-free`)
+- Enter/space on agent card opens AgentAttachPanel inline (Ink-rendered conversation thread, not raw `attachToJob` terminal mode)
+- AgentAttachPanel shows full conversation with scrollback (no 8-turn truncation, reads 100k chars, viewport can scroll with ↑↓/pgup/pgdn/home/end)
+- `HomeDashboard` has helper coverage for `/providers` summary formatting
+- `AgentAttachPanel` has helper coverage for `/search` match lookup
+- `CurrentSessionPanel` opens the current transcript inline instead of exiting to shell
+- Navigation is now non-destructive: arrows select/scroll only, Esc clears input/help or backs out of panels, and `q` exits the dashboard
+
+### Slash Commands
+| Command | Action |
+|---------|--------|
+| `/model <name>` | Set default model for subsequent background agents |
+| `/provider <name>` | Set default provider for subsequent background agents |
+| `/providers` | List configured provider profiles |
+
+### Inbox Groups
+1. **Needs decision** (needs_input + failed) — `?` dot
+2. **Running** (working + idle) — `*` dot
+3. **Ready** (completed) — `+` dot
+4. **Done** (stopped) — `-` dot
+
+### Status
+- All features implemented and working
+- 47 tests passing (bin, Dashboard, store, AttachPanel, HomeDashboard helper)
+- Build/typecheck pass
+- Global npm link created so `openclaude-neo` works from any terminal
+
+### Blocked / Future
+- "Current session" now opens an inline transcript viewer; full REPL integration is still a separate future task
+- Action buttons (view diff, apply, archive): decorative without backend logic
+- Structured metadata for changed files/tests: currently heuristic string parsing from `latest_output_tail`
+
+### Commands
+```bash
+bun run build                    # generates dist/cli.mjs
+bun test bin/openclaude-neo-args.test.mjs bin/openclaude-neo.test.mjs src/agentview/Dashboard.test.tsx src/agentview/store.test.ts src/agentview/AttachPanel.test.ts src/agentview/HomeDashboard.test.ts
+openclaude-neo                   # launch dashboard
+openclaude agents                # original agent view (no --home)
+```

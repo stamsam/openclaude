@@ -1254,7 +1254,7 @@ async function checkPermissionsAndCallTool(
       },
     )
     const durationMs = Date.now() - startTime
-    addToToolDuration(durationMs)
+    addToToolDuration(durationMs, true)
 
     // Log tool content/output as span event if enabled
     if (result.data && typeof result.data === 'object') {
@@ -1621,7 +1621,7 @@ async function checkPermissionsAndCallTool(
     return resultingMessages
   } catch (error) {
     const durationMs = Date.now() - startTime
-    addToToolDuration(durationMs)
+    addToToolDuration(durationMs, false)
 
     endToolExecutionSpan({
       success: false,

@@ -74,6 +74,7 @@ export function LogoV2() {
   const showOverageCreditUpsell = useShowOverageCreditUpsell();
   const agent = useAppState(_temp);
   const effortValue = useAppState(_temp2);
+  const ultracodeActive = useAppState(_tempUltracode);
   const config = getGlobalConfig();
   let changelog;
   try {
@@ -168,7 +169,7 @@ export function LogoV2() {
     agentName: agentNameFromSettings
   } = getLogoDisplayData();
   const agentName = agent ?? agentNameFromSettings;
-  const effortSuffix = getEffortSuffix(model, effortValue);
+  const effortSuffix = getEffortSuffix(model, effortValue, ultracodeActive);
   const t9 = fullModelDisplayName + effortSuffix;
   let t10;
   if ($[13] !== t9) {
@@ -539,6 +540,9 @@ function _temp3(current) {
 }
 function _temp2(s_0) {
   return s_0.effortValue;
+}
+function _tempUltracode(s_0) {
+  return s_0.ultracodeActive === true;
 }
 function _temp(s) {
   return s.agent;

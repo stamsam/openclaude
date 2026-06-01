@@ -81,6 +81,15 @@ test('detects common local openai-compatible providers by hostname', async () =>
   ).toBe('vLLM')
 })
 
+test('detects Sam auto router from the default local router port', async () => {
+  const { getLocalOpenAICompatibleProviderLabel } =
+    await loadProviderDiscoveryModule()
+
+  expect(
+    getLocalOpenAICompatibleProviderLabel('http://127.0.0.1:8001/v1'),
+  ).toBe("Sam's Auto Router")
+})
+
 test('detects Moonshot AI from descriptor route metadata', async () => {
   const { getLocalOpenAICompatibleProviderLabel } =
     await loadProviderDiscoveryModule()

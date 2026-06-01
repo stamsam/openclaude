@@ -5,7 +5,8 @@
   "description": "OpenClaude opens coding-agent workflows to any LLM — OpenAI, Gemini, DeepSeek, Ollama, and 200+ models",
   "type": "module",
   "bin": {
-    "openclaude": "./bin/openclaude"
+    "openclaude": "./bin/openclaude",
+    "openclaude-neo": "./bin/openclaude-neo"
   },
   "exports": {
     "./package.json": "./package.json",
@@ -16,7 +17,9 @@
     }
   },
   "files": [
-    "bin/",
+    "bin/openclaude",
+    "bin/openclaude-neo",
+    "bin/openclaude-neo-args.mjs",
     "dist/cli.mjs",
     "dist/sdk.mjs",
     "src/entrypoints/sdk.d.ts",
@@ -38,6 +41,10 @@
     "dev:ollama:fast": "bun run scripts/provider-launch.ts ollama --fast --bare",
     "dev:omlx": "bun run scripts/provider-launch.ts omlx",
     "dev:omlx:fast": "bun run scripts/provider-launch.ts omlx --fast --bare",
+    "router:sam": "bun run scripts/sams-auto-router.ts",
+    "router:sam:install": "bun run scripts/sams-auto-router-launchagent.ts install",
+    "router:sam:uninstall": "bun run scripts/sams-auto-router-launchagent.ts uninstall",
+    "router:sam:status": "bun run scripts/sams-auto-router-launchagent.ts status",
     "dev:atomic-chat": "bun run scripts/provider-launch.ts atomic-chat",
     "profile:init": "bun run scripts/provider-bootstrap.ts",
     "profile:doctor": "bun run scripts/provider-doctor.ts",

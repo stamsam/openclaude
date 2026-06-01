@@ -1068,6 +1068,18 @@ describe('getProviderPresetDefaults', () => {
     expect(defaults.requiresApiKey).toBe(false)
   })
 
+  test('Sam auto-router preset defaults to the local router endpoint', async () => {
+    const { getProviderPresetDefaults } = await importFreshProviderProfileModules()
+
+    const defaults = getProviderPresetDefaults('sams-auto-router')
+
+    expect(defaults.provider).toBe('sams-auto-router')
+    expect(defaults.name).toBe("Sam's Auto Router 4B-35B")
+    expect(defaults.baseUrl).toBe('http://127.0.0.1:8001/v1')
+    expect(defaults.model).toBe('Sams auto router 4B-35B')
+    expect(defaults.requiresApiKey).toBe(false)
+  })
+
   test('kimi-code preset defaults to the Kimi Code coding endpoint', async () => {
     const { getProviderPresetDefaults } = await importFreshProviderProfileModules()
 

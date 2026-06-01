@@ -348,7 +348,7 @@ export function useTextInput({
     onSubmit?.(currentValue)
   }
 
-  function upOrHistoryUp() {
+  function upOrHistoryUp(allowHistoryFallback = true) {
     const cursor = getLiveCursor()
     if (disableCursorMovementForUpDownKeys) {
       onHistoryUp?.()
@@ -370,10 +370,12 @@ export function useTextInput({
     }
 
     // Can't move up at all - trigger history navigation
-    onHistoryUp?.()
+    if (allowHistoryFallback) {
+      onHistoryUp?.()
+    }
     return cursor
   }
-  function downOrHistoryDown() {
+  function downOrHistoryDown(allowHistoryFallback = true) {
     const cursor = getLiveCursor()
     if (disableCursorMovementForUpDownKeys) {
       onHistoryDown?.()
@@ -395,7 +397,9 @@ export function useTextInput({
     }
 
     // Can't move down at all - trigger history navigation
-    onHistoryDown?.()
+    if (allowHistoryFallback) {
+      onHistoryDown?.()
+    }
     return cursor
   }
 
@@ -455,9 +459,18 @@ export function useTextInput({
       case key.tab:
         return () => cursor
       case key.upArrow && !key.shift:
-        return upOrHistoryUp
+        return () => {
+          // Non-fullscreen uses terminal-native scrollback. Some terminal +
+          // trackpad combos translate wheel gestures into bare up/down arrows;
+          // avoid walking prompt history on empty input in that case.
+          const suppressHistoryFallback = !isFullscreenEnvEnabled() && getLiveValue().trim() === ''
+          return upOrHistoryUp(!suppressHistoryFallback)
+        }
       case key.downArrow && !key.shift:
-        return downOrHistoryDown
+        return () => {
+          const suppressHistoryFallback = !isFullscreenEnvEnabled() && getLiveValue().trim() === ''
+          return downOrHistoryDown(!suppressHistoryFallback)
+        }
       case key.leftArrow:
         return () => cursor.left()
       case key.rightArrow:

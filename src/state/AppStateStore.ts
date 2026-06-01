@@ -449,6 +449,8 @@ export type AppState = DeepImmutable<{
   advisorModel?: string
   // Effort value
   effortValue?: EffortValue
+  // Session-scoped ultracode mode: max/xhigh effort plus workflow reminders.
+  ultracodeActive?: boolean
   // Set synchronously in launchUltraplan before the detached flow starts.
   // Prevents duplicate launches during the ~5s window before
   // ultraplanSessionUrl is set by teleportToRemote. Cleared by launchDetached
@@ -603,6 +605,7 @@ export function getDefaultAppState(): AppState {
     authVersion: 0,
     initialMessage: null,
     effortValue: undefined,
+    ultracodeActive: false,
     activeOverlays: new Set<string>(),
     fastMode: false,
   }

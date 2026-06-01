@@ -134,6 +134,9 @@ export function parseEffortValue(value: unknown): EffortValue | undefined {
   if (isEffortLevel(str)) {
     return str
   }
+  if (isOpenAIEffortLevel(str)) {
+    return openAIEffortToStandard(str)
+  }
   const numericValue = parseInt(str, 10)
   if (!isNaN(numericValue) && isValidNumericEffort(numericValue)) {
     return numericValue
@@ -254,7 +257,9 @@ export function getDisplayedEffortLevel(
 export function getEffortSuffix(
   model: string,
   effortValue: EffortValue | undefined,
+  ultracodeActive = false,
 ): string {
+  if (ultracodeActive) return ' with ultracode'
   if (effortValue === undefined) return ''
   const resolved = resolveAppliedEffort(model, effortValue)
   if (resolved === undefined) return ''

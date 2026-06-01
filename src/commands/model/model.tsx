@@ -471,6 +471,7 @@ function ModelPickerWrapper({
       ...prev,
       mainLoopModel: model,
       mainLoopModelForSession: null,
+      ultracodeActive: false,
     }))
 
     let message = `Set model to ${chalk.bold(renderModelLabel(model))}`
@@ -728,6 +729,7 @@ function SetModelAndClose({
         ...prev,
         mainLoopModel: modelValue,
         mainLoopModelForSession: null,
+        ultracodeActive: false,
       }))
 
       let message = `Set model to ${chalk.bold(renderModelLabel(modelValue))}`

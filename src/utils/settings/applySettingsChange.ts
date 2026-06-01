@@ -74,6 +74,9 @@ export function applySettingsChange(
     const prevEffort = prev.settings.effortLevel
     const newEffort = newSettings.effortLevel
     const effortChanged = prevEffort !== newEffort
+    const prevUltracode = prev.settings.ultracode
+    const newUltracode = newSettings.ultracode
+    const ultracodeChanged = prevUltracode !== newUltracode
 
     return {
       ...prev,
@@ -86,6 +89,9 @@ export function applySettingsChange(
       // be true and we'd wipe a session-scoped value held in effortValue.
       ...(effortChanged && newEffort !== undefined
         ? { effortValue: newEffort }
+        : {}),
+      ...(ultracodeChanged && newUltracode !== undefined
+        ? { ultracodeActive: newUltracode, ...(newUltracode ? { effortValue: 'max' as const } : {}) }
         : {}),
     }
   })

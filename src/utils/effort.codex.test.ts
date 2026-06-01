@@ -95,11 +95,12 @@ test('gpt-5.3-codex-spark stays without effort controls', async () => {
 })
 
 test('toPersistableEffort normalizes xhigh to max so it survives settings write', async () => {
-  const { toPersistableEffort } = await importFreshEffortModule({
+  const { parseEffortValue, toPersistableEffort } = await importFreshEffortModule({
     provider: 'openai',
     supportsCodexReasoningEffort: true,
   })
 
+  expect(parseEffortValue('xhigh')).toBe('max')
   expect(toPersistableEffort('xhigh')).toBe('max')
   expect(toPersistableEffort('max')).toBe('max')
   expect(toPersistableEffort('high')).toBe('high')

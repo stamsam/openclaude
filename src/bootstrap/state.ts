@@ -52,6 +52,8 @@ type State = {
   totalAPIDuration: number
   totalAPIDurationWithoutRetries: number
   totalToolDuration: number
+  totalToolCallCount: number
+  totalToolFailureCount: number
   turnHookDurationMs: number
   turnToolDurationMs: number
   turnClassifierDurationMs: number
@@ -63,6 +65,7 @@ type State = {
   totalLinesAdded: number
   totalLinesRemoved: number
   hasUnknownModelCost: boolean
+  totalEstimatedOutputTokens: number
   cwd: string
   modelUsage: { [modelName: string]: ModelUsage }
   mainLoopModelOverride: ModelSetting | undefined
@@ -281,6 +284,8 @@ function getInitialState(): State {
     totalAPIDuration: 0,
     totalAPIDurationWithoutRetries: 0,
     totalToolDuration: 0,
+    totalToolCallCount: 0,
+    totalToolFailureCount: 0,
     turnHookDurationMs: 0,
     turnToolDurationMs: 0,
     turnClassifierDurationMs: 0,
@@ -292,6 +297,7 @@ function getInitialState(): State {
     totalLinesAdded: 0,
     totalLinesRemoved: 0,
     hasUnknownModelCost: false,
+    totalEstimatedOutputTokens: 0,
     cwd: resolvedCwd,
     modelUsage: {},
     mainLoopModelOverride: undefined,
@@ -657,8 +663,20 @@ export function getTotalToolDuration(): number {
   return STATE.totalToolDuration
 }
 
-export function addToToolDuration(duration: number): void {
+export function getTotalToolCallCount(): number {
+  return STATE.totalToolCallCount
+}
+
+export function getTotalToolFailureCount(): number {
+  return STATE.totalToolFailureCount
+}
+
+export function addToToolDuration(duration: number, success = true): void {
   STATE.totalToolDuration += duration
+  STATE.totalToolCallCount++
+  if (!success) {
+    STATE.totalToolFailureCount++
+  }
   STATE.turnToolDurationMs += duration
   STATE.turnToolCount++
 }
@@ -781,6 +799,15 @@ export function getTotalInputTokens(): number {
 
 export function getTotalOutputTokens(): number {
   return sumBy(Object.values(STATE.modelUsage), 'outputTokens')
+}
+
+export function addEstimatedOutputTokens(tokens: number): void {
+  if (!Number.isFinite(tokens) || tokens <= 0) return
+  STATE.totalEstimatedOutputTokens += tokens
+}
+
+export function getTotalEstimatedOutputTokens(): number {
+  return Math.round(STATE.totalEstimatedOutputTokens)
 }
 
 export function getTotalCacheReadInputTokens(): number {
@@ -940,10 +967,13 @@ export function resetCostState(): void {
   STATE.totalAPIDuration = 0
   STATE.totalAPIDurationWithoutRetries = 0
   STATE.totalToolDuration = 0
+  STATE.totalToolCallCount = 0
+  STATE.totalToolFailureCount = 0
   STATE.startTime = Date.now()
   STATE.totalLinesAdded = 0
   STATE.totalLinesRemoved = 0
   STATE.hasUnknownModelCost = false
+  STATE.totalEstimatedOutputTokens = 0
   STATE.modelUsage = {}
   STATE.promptId = null
 }
@@ -957,6 +987,8 @@ export function setCostStateForRestore({
   totalAPIDuration,
   totalAPIDurationWithoutRetries,
   totalToolDuration,
+  totalToolCallCount,
+  totalToolFailureCount,
   totalLinesAdded,
   totalLinesRemoved,
   lastDuration,
@@ -966,6 +998,8 @@ export function setCostStateForRestore({
   totalAPIDuration: number
   totalAPIDurationWithoutRetries: number
   totalToolDuration: number
+  totalToolCallCount: number | undefined
+  totalToolFailureCount: number | undefined
   totalLinesAdded: number
   totalLinesRemoved: number
   lastDuration: number | undefined
@@ -975,6 +1009,8 @@ export function setCostStateForRestore({
   STATE.totalAPIDuration = totalAPIDuration
   STATE.totalAPIDurationWithoutRetries = totalAPIDurationWithoutRetries
   STATE.totalToolDuration = totalToolDuration
+  STATE.totalToolCallCount = totalToolCallCount ?? 0
+  STATE.totalToolFailureCount = totalToolFailureCount ?? 0
   STATE.totalLinesAdded = totalLinesAdded
   STATE.totalLinesRemoved = totalLinesRemoved
 
@@ -1802,4 +1838,3 @@ export function isReplBridgeActive(): boolean {
 export function getReplBridgeHandle(): null {
   return null
 }
-

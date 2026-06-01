@@ -119,6 +119,7 @@ const aliasModels: readonly AliasModel[] = [
   ['codellama:13b', 'Code Llama 13B', 16_384, 4_096],
   ['qwen3:8b', 'Qwen 3 8B', 128_000, 8_192],
   ['qwen3-max-2026-01-23', 'Qwen 3 Max 2026-01-23', 262_144, 32_768],
+  ['sams-auto-router-4b-35b', 'Sams Auto Router 4B-35B', 16_384, 4_096],
 ]
 
 export default aliasModels.map(([id, label, contextWindow, maxOutputTokens]) =>

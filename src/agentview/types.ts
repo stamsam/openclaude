@@ -52,3 +52,18 @@ export type LaunchBackgroundJobOptions = {
   agent?: string
   permissionMode?: string
 }
+
+export type InboxGroup = 'needs_decision' | 'running' | 'ready' | 'done'
+
+export type HandoffAction = 'view_diff' | 'apply' | 'reply' | 'respawn' | 'archive'
+
+export type InboxCard = {
+  job: BackgroundJob
+  group: InboxGroup
+  summaryLine: string
+  findings?: string
+  changedFiles?: string[]
+  testsRun?: string
+  riskLevel?: 'low' | 'medium' | 'high'
+  actions: HandoffAction[]
+}

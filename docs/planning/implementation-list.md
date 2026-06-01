@@ -131,7 +131,7 @@ Requested output:
   footer to update, then complete, pause, clear, or end the session and verify
   the goal timer/token footer stops instead of continuing after the session.
 - `/goal` + Agent View: while a goal turn is running, open Agent View from CLI,
-  `/tui default`, and `/tui fullscreen`. Verify the goal continues running, the
+  `/tui classic`, and `/tui flicker-free`. Verify the goal continues running, the
   footer still shows elapsed time/tokens/`CTX`, and dashboard rows report each
   thread's own model/provider context (`CTX N%` or `CTX ?`).
 - `/goal` plan semantics: have the assistant emit a `GOAL_PLAN:` block with all

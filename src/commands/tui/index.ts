@@ -4,7 +4,7 @@ const tui = {
   type: 'local',
   name: 'tui',
   description: 'Show or switch the terminal renderer',
-  argumentHint: '[fullscreen|default]',
+  argumentHint: '[flicker-free|classic]',
   supportsNonInteractive: false,
   load: () => import('./tui.js'),
 } satisfies Command

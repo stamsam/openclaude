@@ -116,10 +116,13 @@ function PromptInputQueuedCommandsImpl(): React.ReactNode {
   if (viewingAgent || messages === null) {
     return null;
   }
+  const queueBanner = queuedPromptCount === 1
+    ? '1 message queued for next turn'
+    : `${queuedPromptCount} messages queued for next turn`;
   return <Box marginTop={1} flexDirection="column">
       {queuedPromptCount > 0 && <Box marginLeft={2} marginBottom={1}>
           <Text dimColor>
-            {queuedPromptCount === 1 ? '1 message queued for next turn' : `${queuedPromptCount} messages queued for next turn`}
+            {queueBanner}
           </Text>
         </Box>}
       {messages.map((message, i) => <QueuedMessageProvider key={i} isFirst={i === 0} useBriefLayout={useBriefLayout}>

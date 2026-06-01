@@ -714,10 +714,35 @@ export const SettingsSchema = lazySchema(() =>
             'enabled automatically for supported models.',
         ),
       effortLevel: z
-        .enum(['low', 'medium', 'high', 'max'])
+        .preprocess(
+          value => (value === 'xhigh' ? 'max' : value),
+          z.enum(['low', 'medium', 'high', 'max']),
+        )
         .optional()
         .catch(undefined)
         .describe('Persisted effort level for supported models.'),
+      ultracode: z
+        .boolean()
+        .optional()
+        .describe(
+          'Enable ultracode for the current session: xhigh/max effort plus workflow orchestration reminders.',
+        ),
+      enableWorkflows: z
+        .boolean()
+        .optional()
+        .describe('Enable local workflow orchestration features when available.'),
+      disableWorkflows: z
+        .boolean()
+        .optional()
+        .describe('Disable local workflow orchestration features.'),
+      workflowKeywordTriggerEnabled: z
+        .boolean()
+        .optional()
+        .describe('Attach workflow orchestration guidance when the user mentions workflow or workflows.'),
+      skipWorkflowUsageWarning: z
+        .boolean()
+        .optional()
+        .describe('Suppress workflow usage warnings.'),
       advisorModel: z
         .string()
         .optional()

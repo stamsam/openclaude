@@ -42,6 +42,7 @@ const EXPECTED_PRESETS = [
   'atomic-chat',
   'omlx-anthropic',
   'omlx',
+  'sams-auto-router',
 ] as const satisfies readonly ProviderPreset[]
 
 describe('compatibility mappings', () => {

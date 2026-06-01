@@ -207,6 +207,13 @@ export function getLocalOpenAICompatibleProviderLabel(baseUrl?: string): string 
     ) {
       return 'oMLX'
     }
+    if (
+      haystack.includes('sams-auto-router') ||
+      ((host === '127.0.0.1:8001' || host === 'localhost:8001') &&
+        (path === '/' || path === '/v1' || path.startsWith('/v1/')))
+    ) {
+      return "Sam's Auto Router"
+    }
     if (haystack.includes('localai')) {
       return 'LocalAI'
     }

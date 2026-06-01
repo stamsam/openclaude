@@ -24,6 +24,7 @@ type Props = {
   modelLine?: string
   statusLine?: string
   title?: string
+  compact?: boolean
 }
 
 function mascotWidth(mascot: TerminalMascot): number {
@@ -40,11 +41,41 @@ export function OpenClaudeHeader({
   modelLine,
   statusLine,
   title = 'OpenClaude',
+  compact = false,
 }: Props): React.ReactNode {
   const model = useMainLoopModel()
   const effortValue = useAppState(s => s.effortValue)
+  const ultracodeActive = useAppState(s => s.ultracodeActive === true)
   const agent = useAppState(s => s.agent)
   const { columns } = useTerminalSize()
+  const compactVersion =
+    typeof MACRO === 'undefined'
+      ? 'dev'
+      : MACRO.DISPLAY_VERSION ?? MACRO.VERSION
+  if (compact) {
+    const textWidth = Math.max(20, columns - 4)
+    const displayModel =
+      modelLine ?? `${renderModelSetting(model)}${getEffortSuffix(model, effortValue, ultracodeActive)}`
+    const displayCwd = truncatePath(cwd ?? process.cwd(), Math.min(54, textWidth))
+    const detailLine = truncate([displayModel, agent ? `@${agent}` : undefined, displayCwd].filter(Boolean).join(' · '), textWidth)
+    const safeStatusLine = statusLine ? truncate(statusLine, textWidth) : undefined
+    const showStatusInline = Boolean(safeStatusLine && textWidth >= 72)
+    const titleWidth = showStatusInline
+      ? Math.max(16, textWidth - safeStatusLine!.length - 2)
+      : textWidth
+    const titleLine = truncate(`${title} v${compactVersion}`, titleWidth)
+    return (
+      <Box flexDirection="column" flexShrink={0} paddingLeft={1} paddingTop={1} marginBottom={0}>
+        <Text>
+          <Text bold>{titleLine}</Text>
+          {showStatusInline ? <Text dimColor>  {safeStatusLine}</Text> : null}
+        </Text>
+        {!showStatusInline && safeStatusLine ? <Text dimColor>{safeStatusLine}</Text> : null}
+        <Text dimColor>{detailLine}</Text>
+      </Box>
+    )
+  }
+
   const {
     version,
     cwd: defaultCwd,
@@ -52,7 +83,7 @@ export function OpenClaudeHeader({
     agentName: agentNameFromSettings,
   } = getLogoDisplayData()
   const displayModel =
-    modelLine ?? `${renderModelSetting(model)}${getEffortSuffix(model, effortValue)}`
+    modelLine ?? `${renderModelSetting(model)}${getEffortSuffix(model, effortValue, ultracodeActive)}`
   const mascot = resolveTerminalMascot(getGlobalConfig().logoMascot)
   const textWidth = Math.max(20, columns - mascotWidth(mascot) - 6)
   const displayCwd = truncatePath(cwd ?? defaultCwd, Math.min(54, textWidth))

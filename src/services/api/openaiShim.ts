@@ -1869,7 +1869,7 @@ class OpenAIShimMessages {
       body.max_completion_tokens = maxCompletionTokensValue
     }
 
-    if (requestStream && !isLocalProviderUrl(request.baseUrl)) {
+    if (requestStream && request.transport !== 'responses') {
       body.stream_options = { include_usage: true }
     }
 
@@ -2157,6 +2157,7 @@ class OpenAIShimMessages {
     let requestUrl = buildRequestUrl(activeBaseUrl)
     const attemptedLocalBaseUrls = new Set<string>([activeBaseUrl])
     let didRetryWithoutTools = false
+    let didRetryWithoutStreamOptions = false
 
     const promoteNextLocalBaseUrl = (
       reason: 'endpoint_not_found' | 'localhost_resolution_failed',
@@ -2419,6 +2420,23 @@ class OpenAIShimMessages {
         failure.category === 'endpoint_not_found' &&
         promoteNextLocalBaseUrl('endpoint_not_found')
       ) {
+        continue
+      }
+
+      if (
+        !didRetryWithoutStreamOptions &&
+        body.stream_options !== undefined &&
+        response.status === 400 &&
+        /stream_options|include_usage/i.test(errorBody)
+      ) {
+        didRetryWithoutStreamOptions = true
+        delete body.stream_options
+        refreshSerializedBody()
+
+        logForDebugging(
+          `[OpenAIShim] self-heal retry reason=stream_options_unsupported method=POST url=${redactUrlForDiagnostics(requestUrl)} model=${request.resolvedModel}`,
+          { level: 'warn' },
+        )
         continue
       }
 

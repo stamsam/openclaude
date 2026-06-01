@@ -109,6 +109,13 @@ function resolveKnownLocalRouteIdFromBaseUrl(baseUrl?: string): string | null {
     ) {
       return path.includes('/v1') ? 'omlx' : 'omlx-anthropic'
     }
+    if (
+      haystack.includes('sams-auto-router') ||
+      ((host === '127.0.0.1:8001' || host === 'localhost:8001') &&
+        (path === '/' || path === '/v1' || path.startsWith('/v1/')))
+    ) {
+      return 'sams-auto-router'
+    }
   } catch {
     return null
   }

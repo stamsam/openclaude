@@ -4187,6 +4187,34 @@ You have exited auto mode. The user may now want to interact more directly. You 
         }),
       ])
     }
+    case 'ultra_effort_enter': {
+      const content =
+        attachment.reminderType === 'full'
+          ? `Ultracode is on: optimize for the most exhaustive, correct answer — not the fastest or cheapest. Use the Workflow tool on every substantive task; token cost is not a constraint. See the Workflow tool's Ultracode section and quality patterns. Solo only on conversational/trivial turns.`
+          : `Ultracode is still on — use the Workflow tool for substantive tasks.`
+      return wrapMessagesInSystemReminder([
+        createUserMessage({
+          content,
+          isMeta: true,
+        }),
+      ])
+    }
+    case 'ultra_effort_exit': {
+      return wrapMessagesInSystemReminder([
+        createUserMessage({
+          content: `Ultracode is off — the Workflow tool's standard opt-in rule applies again.`,
+          isMeta: true,
+        }),
+      ])
+    }
+    case 'workflow_keyword_request': {
+      return wrapMessagesInSystemReminder([
+        createUserMessage({
+          content: `The user included the keyword "workflow" or "workflows", which means you should use the Workflow tool to fulfill their request.`,
+          isMeta: true,
+        }),
+      ])
+    }
     case 'deferred_tools_delta': {
       const parts: string[] = []
       if (attachment.addedLines.length > 0) {

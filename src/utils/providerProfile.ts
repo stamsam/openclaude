@@ -135,6 +135,7 @@ export type ProviderProfile =
   | 'ollama'
   | 'omlx'
   | 'omlx-anthropic'
+  | 'sams-auto-router'
   | 'codex'
   | 'cerebras'
   | 'gemini'
@@ -320,6 +321,7 @@ export function isProviderProfile(value: unknown): value is ProviderProfile {
     value === 'ollama' ||
     value === 'omlx' ||
     value === 'omlx-anthropic' ||
+    value === 'sams-auto-router' ||
     value === 'codex' ||
     value === 'cerebras' ||
     value === 'gemini' ||

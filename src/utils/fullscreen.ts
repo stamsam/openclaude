@@ -106,16 +106,19 @@ export function _resetTmuxControlModeProbeForTesting(): void {
 }
 
 /**
- * Whether fullscreen (flicker-free) mode is enabled. Env var takes highest
- * precedence, then the `flickerFreeMode` config setting, then defaults to off.
- * Users can enable via `/config` instead of setting the env.
+ * Whether flicker-free TUI mode is enabled. Env var takes highest precedence,
+ * then the `flickerFreeMode` config setting, then defaults to on. Users can
+ * switch back to classic terminal scrollback via `/tui classic` or
+ * `--no-alt-screen`.
  *
  * Priority order:
+ *   --no-alt-screen /
+ *   CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1 → always off
  *   CLAUDE_CODE_NO_FLICKER=0  → always off
  *   CLAUDE_CODE_NO_FLICKER=1  → always on (overrides tmux -CC guard too)
  *   tmux -CC detected         → off (corrupts terminal state)
  *   config flickerFreeMode    → on/off per user preference
- *   default                   → off
+ *   default                   → on
  */
 export function isFullscreenEnvEnabled(): boolean {
   // Force classic renderer regardless of the saved tui setting. Useful when
@@ -132,16 +135,16 @@ export function isFullscreenEnvEnabled(): boolean {
     if (!loggedTmuxCcDisable) {
       loggedTmuxCcDisable = true
       logForDebugging(
-        'fullscreen disabled: tmux -CC (iTerm2 integration mode) detected · set CLAUDE_CODE_NO_FLICKER=1 to override',
+        'flicker-free TUI disabled: tmux -CC (iTerm2 integration mode) detected · set CLAUDE_CODE_NO_FLICKER=1 to override',
       )
     }
     return false
   }
-  // Config-based toggle: lets external users enable flicker-free mode via
-  // `/config` without having to set an env var.
+  // Config-based toggle: lets users explicitly save flicker-free or classic
+  // behavior via `/tui` or `/config`.
   const configValue = getGlobalConfig().flickerFreeMode
   if (configValue !== undefined) return configValue
-  return false
+  return true
 }
 
 /**

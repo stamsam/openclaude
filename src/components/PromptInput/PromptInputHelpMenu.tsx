@@ -118,7 +118,7 @@ export function PromptInputHelpMenu({
         <HelpLine dimColor={dimColor}>
           {externalEditorShortcut} to edit in $EDITOR
         </HelpLine>
-        <HelpLine dimColor={dimColor}>/tui for fullscreen renderer</HelpLine>
+        <HelpLine dimColor={dimColor}>/tui for flicker-free renderer</HelpLine>
         <HelpLine dimColor={dimColor}>/logo for mascot</HelpLine>
         {isKeybindingCustomizationEnabled() ? (
           <HelpLine dimColor={dimColor}>/keybindings to customize</HelpLine>
