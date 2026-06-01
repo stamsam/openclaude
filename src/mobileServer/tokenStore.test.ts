@@ -4,28 +4,21 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
   createMobileServerDeviceToken,
-  getMobileServerTokenStorePath,
   getOrCreateMobileServerToken,
   readMobileServerTokens,
   resetMobileServerTokens,
 } from './tokenStore.js'
 
-let previousConfigDir: string | undefined
 let testConfigDir: string | undefined
+let testStorePath: string
 
 describe('mobile server token store', () => {
   beforeEach(() => {
-    previousConfigDir = process.env.CLAUDE_CONFIG_DIR
     testConfigDir = mkdtempSync(join(tmpdir(), 'sam-mobile-token-store-'))
-    process.env.CLAUDE_CONFIG_DIR = testConfigDir
+    testStorePath = join(testConfigDir, 'mobile-server-devices.json')
   })
 
   afterEach(() => {
-    if (previousConfigDir === undefined) {
-      delete process.env.CLAUDE_CONFIG_DIR
-    } else {
-      process.env.CLAUDE_CONFIG_DIR = previousConfigDir
-    }
     if (testConfigDir) {
       rmSync(testConfigDir, { recursive: true, force: true })
     }
@@ -35,25 +28,38 @@ describe('mobile server token store', () => {
     let sequence = 0
     const createToken = () => `sam-test-token-${++sequence}-abcdefghijkl`
 
-    const first = getOrCreateMobileServerToken(createToken)
+    const first = getOrCreateMobileServerToken(createToken, {
+      storePath: testStorePath,
+    })
     expect(first).toBe('sam-test-token-1-abcdefghijkl')
-    expect(getOrCreateMobileServerToken(createToken)).toBe(first)
+    expect(
+      getOrCreateMobileServerToken(createToken, { storePath: testStorePath }),
+    ).toBe(first)
 
-    const second = createMobileServerDeviceToken(createToken)
+    const second = createMobileServerDeviceToken(createToken, {
+      storePath: testStorePath,
+    })
     expect(second).toBe('sam-test-token-2-abcdefghijkl')
-    expect(readMobileServerTokens()).toEqual([first, second])
+    expect(readMobileServerTokens({ storePath: testStorePath })).toEqual([
+      first,
+      second,
+    ])
 
-    const reset = resetMobileServerTokens(createToken)
+    const reset = resetMobileServerTokens(createToken, {
+      storePath: testStorePath,
+    })
     expect(reset).toBe('sam-test-token-3-abcdefghijkl')
-    expect(readMobileServerTokens()).toEqual([reset])
+    expect(readMobileServerTokens({ storePath: testStorePath })).toEqual([
+      reset,
+    ])
   })
 
   test('ignores corrupt stores and malformed token records', () => {
-    writeFileSync(getMobileServerTokenStorePath(), '{', 'utf8')
-    expect(readMobileServerTokens()).toEqual([])
+    writeFileSync(testStorePath, '{', 'utf8')
+    expect(readMobileServerTokens({ storePath: testStorePath })).toEqual([])
 
     writeFileSync(
-      getMobileServerTokenStorePath(),
+      testStorePath,
       JSON.stringify({
         version: 1,
         devices: [
@@ -63,13 +69,17 @@ describe('mobile server token store', () => {
       }),
       'utf8',
     )
-    expect(readMobileServerTokens()).toEqual(['sam-valid_token-123456789'])
+    expect(readMobileServerTokens({ storePath: testStorePath })).toEqual([
+      'sam-valid_token-123456789',
+    ])
   })
 
   test('writes token store with private file permissions', () => {
-    resetMobileServerTokens(() => 'sam-private-mode-token')
+    resetMobileServerTokens(() => 'sam-private-mode-token', {
+      storePath: testStorePath,
+    })
 
-    const mode = statSync(getMobileServerTokenStorePath()).mode & 0o777
+    const mode = statSync(testStorePath).mode & 0o777
     expect(mode).toBe(0o600)
   })
 })

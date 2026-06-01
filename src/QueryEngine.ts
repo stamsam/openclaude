@@ -140,6 +140,14 @@ function countUsageTokens(usage: NonNullableUsage): number {
   )
 }
 
+function recordLearningBestEffort(promise: Promise<void>): void {
+  promise.catch(error => {
+    logForDebugging(
+      `learning record skipped: ${error instanceof Error ? error.message : String(error)}`,
+    )
+  })
+}
+
 export type QueryEngineConfig = {
   cwd: string
   tools: Tools
@@ -224,11 +232,11 @@ export class QueryEngine {
     options?: { uuid?: string; isMeta?: boolean },
   ): AsyncGenerator<SDKMessage, void, unknown> {
     const sessionId = getSessionId()
-    void recordLearningSessionEvent(sessionId, {
+    recordLearningBestEffort(recordLearningSessionEvent(sessionId, {
       type: 'session.start',
       cwd: this.config.cwd,
       model: this.config.userSpecifiedModel ?? getMainLoopModel(),
-    })
+    }))
 
     const {
       cwd,
@@ -453,11 +461,13 @@ export class QueryEngine {
       const evidence = redactLearningText(
         messagesFromUserInput.map(msg => JSON.stringify(msg)).join('\n'),
       )
-      void recordLearningSessionEvent(sessionId, {
+      recordLearningBestEffort(recordLearningSessionEvent(sessionId, {
         type: 'user.messages',
         count: messagesFromUserInput.length,
-      })
-      void recordPassiveLearningCandidate(sessionId, evidence, 'user message accepted')
+      }))
+      recordLearningBestEffort(
+        recordPassiveLearningCandidate(sessionId, evidence, 'user message accepted'),
+      )
     }
 
     // Update params to reflect updates from processing /slash commands
@@ -665,11 +675,11 @@ export class QueryEngine {
         ),
         uuid: randomUUID(),
       }
-      void recordLearningSessionEvent(sessionId, {
+      recordLearningBestEffort(recordLearningSessionEvent(sessionId, {
         type: 'session.end',
         mode: 'local-command',
         result: resultText ?? '',
-      })
+      }))
       return
     }
 
@@ -833,11 +843,13 @@ export class QueryEngine {
           this.mutableMessages.push(message)
           if (JSON.stringify(message).includes('tool_result')) {
             const evidence = redactLearningText(JSON.stringify(message))
-            void recordLearningSessionEvent(sessionId, {
+            recordLearningBestEffort(recordLearningSessionEvent(sessionId, {
               type: 'tool.results',
               bytes: evidence.length,
-            })
-            void recordPassiveLearningCandidate(sessionId, evidence, 'tool result observed')
+            }))
+            recordLearningBestEffort(
+              recordPassiveLearningCandidate(sessionId, evidence, 'tool result observed'),
+            )
           }
           yield* normalizeMessage(message)
           break
@@ -1141,11 +1153,11 @@ export class QueryEngine {
     }
 
     if (!isResultSuccessful(result, lastStopReason)) {
-      void recordLearningSessionEvent(sessionId, {
+      recordLearningBestEffort(recordLearningSessionEvent(sessionId, {
         type: 'session.end',
         mode: 'error',
         stop_reason: lastStopReason,
-      })
+      }))
       yield {
         type: 'result',
         subtype: 'error_during_execution',
@@ -1198,12 +1210,12 @@ export class QueryEngine {
       isApiError = Boolean(result.isApiErrorMessage)
     }
 
-    void recordLearningSessionEvent(sessionId, {
+    recordLearningBestEffort(recordLearningSessionEvent(sessionId, {
       type: 'session.end',
       mode: 'success',
       stop_reason: lastStopReason,
       result: textResult,
-    })
+    }))
 
     yield {
       type: 'result',

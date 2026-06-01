@@ -16,47 +16,68 @@ type DeviceTokenStore = {
   devices: DeviceTokenRecord[]
 }
 
+type TokenStoreOptions = {
+  storePath?: string
+}
+
 export function getMobileServerTokenStorePath(): string {
   return join(getClaudeConfigHomeDir(), TOKEN_STORE_FILE)
 }
 
-export function readMobileServerTokens(): string[] {
-  return readMobileServerTokenRecords().map(device => device.token)
+export function readMobileServerTokens(options?: TokenStoreOptions): string[] {
+  return readMobileServerTokenRecords(options).map(device => device.token)
 }
 
-export function getOrCreateMobileServerToken(createToken: () => string): string {
-  const existing = readMobileServerTokenRecords()[0]?.token
+export function getOrCreateMobileServerToken(
+  createToken: () => string,
+  options?: TokenStoreOptions,
+): string {
+  const existing = readMobileServerTokenRecords(options)[0]?.token
   if (existing) return existing
-  return createMobileServerDeviceToken(createToken)
+  return createMobileServerDeviceToken(createToken, options)
 }
 
-export function createMobileServerDeviceToken(createToken: () => string): string {
-  const records = readMobileServerTokenRecords()
+export function createMobileServerDeviceToken(
+  createToken: () => string,
+  options?: TokenStoreOptions,
+): string {
+  const records = readMobileServerTokenRecords(options)
   const token = createToken()
   records.push({
     id: `device-${Date.now()}-${records.length + 1}`,
     token,
     createdAt: new Date().toISOString(),
   })
-  writeMobileServerTokenRecords(records)
+  writeMobileServerTokenRecords(records, options)
   return token
 }
 
-export function resetMobileServerTokens(createToken: () => string): string {
+export function resetMobileServerTokens(
+  createToken: () => string,
+  options?: TokenStoreOptions,
+): string {
   const token = createToken()
-  writeMobileServerTokenRecords([
-    {
-      id: `device-${Date.now()}-1`,
-      token,
-      createdAt: new Date().toISOString(),
-    },
-  ])
+  writeMobileServerTokenRecords(
+    [
+      {
+        id: `device-${Date.now()}-1`,
+        token,
+        createdAt: new Date().toISOString(),
+      },
+    ],
+    options,
+  )
   return token
 }
 
-function readMobileServerTokenRecords(): DeviceTokenRecord[] {
+function readMobileServerTokenRecords(
+  options?: TokenStoreOptions,
+): DeviceTokenRecord[] {
   try {
-    const raw = readFileSync(getMobileServerTokenStorePath(), 'utf8')
+    const raw = readFileSync(
+      options?.storePath ?? getMobileServerTokenStorePath(),
+      'utf8',
+    )
     const parsed = JSON.parse(raw) as Partial<DeviceTokenStore>
     if (!Array.isArray(parsed.devices)) return []
     return parsed.devices.filter(
@@ -71,8 +92,11 @@ function readMobileServerTokenRecords(): DeviceTokenRecord[] {
   }
 }
 
-function writeMobileServerTokenRecords(devices: DeviceTokenRecord[]): void {
-  const tokenPath = getMobileServerTokenStorePath()
+function writeMobileServerTokenRecords(
+  devices: DeviceTokenRecord[],
+  options?: TokenStoreOptions,
+): void {
+  const tokenPath = options?.storePath ?? getMobileServerTokenStorePath()
   mkdirSync(dirname(tokenPath), { recursive: true, mode: 0o700 })
   writeFileSync(
     tokenPath,

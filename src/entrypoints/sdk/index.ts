@@ -10,7 +10,6 @@
 
 import type { CallToolResult, ToolAnnotations } from '@modelcontextprotocol/sdk/types.js'
 import { QueryEngine } from '../../QueryEngine.js'
-import { getTools } from '../../tools.js'
 import { init } from '../init.js'
 
 // ============================================================================
@@ -27,8 +26,6 @@ function detectStubLeaks(): void {
   const criticalImports: Array<{ name: string; mod: Record<string, unknown> }> = [
     // QueryEngine is the core SDK engine — must never be a stub
     { name: 'QueryEngine', mod: QueryEngine as unknown as Record<string, unknown> },
-    // These are imported by this file and must be real modules, not stubs
-    { name: 'getTools', mod: getTools as unknown as Record<string, unknown> },
     { name: 'init', mod: init as unknown as Record<string, unknown> },
   ]
 

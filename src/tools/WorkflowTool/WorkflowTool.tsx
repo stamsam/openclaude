@@ -71,8 +71,8 @@ Quality patterns:
     return inputSchema()
   },
   isEnabled(context) {
-    const settings = context?.getAppState?.().settings
-    return settings.disableWorkflows !== true
+    const settings = context?.getAppState?.()?.settings
+    return settings?.disableWorkflows !== true
   },
   isConcurrencySafe() {
     return false

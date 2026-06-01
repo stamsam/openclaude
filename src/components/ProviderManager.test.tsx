@@ -5,6 +5,10 @@ import React from 'react'
 import stripAnsi from 'strip-ansi'
 
 import { createRoot } from '../ink.js'
+import {
+  getProviderPresetUiMetadata,
+  ORDERED_PROVIDER_PRESETS,
+} from '../integrations/index.js'
 import { KeybindingSetup } from '../keybindings/KeybindingProviderSetup.js'
 import { AppStateProvider } from '../state/AppState.js'
 
@@ -97,49 +101,20 @@ async function waitForCondition(
   throw new Error('Timed out waiting for ProviderManager test condition')
 }
 
-// Provider list is sorted from generated preset metadata by description, with
-// Codex OAuth injected into slot 7 and Custom always pinned last. Keep the
-// target-by-label indirection here so these tests survive future list edits
-// without hardcoding raw key counts.
-//
-// Order matches ProviderManager.renderPresetSelection() when
-// canUseCodexOAuth === true (default in mocked tests).
-const PRESET_ORDER = [
-  'Anthropic',
-  'Alibaba Coding Plan (China)',
-  'Alibaba Coding Plan',
-  'Azure OpenAI',
-  'Bankr',
-  'Cerebras',
-  'Codex OAuth',
-  'xAI Grok OAuth',
-  'DeepSeek',
-  'Google Gemini',
-  'Groq',
-  'Hicap',
-  'LM Studio',
-  'Atomic Chat',
-  'oMLX Anthropic',
-  'oMLX',
-  'Ollama',
-  'MiniMax',
-  'Mistral AI',
-  'Moonshot AI - API',
-  'Moonshot AI - Kimi Code',
-  'NVIDIA NIM',
-  'OpenAI',
-  'OpenRouter',
-  'Together AI',
-  'xAI',
-  'Z.AI - GLM Coding Plan',
-  'Custom',
-] as const
+function getPresetOrderForTest(): string[] {
+  const labels = ORDERED_PROVIDER_PRESETS.map(
+    preset => getProviderPresetUiMetadata(preset).label,
+  )
+  labels.splice(6, 0, 'Codex OAuth')
+  labels.splice(7, 0, 'xAI Grok OAuth')
+  return labels
+}
 
 async function navigateToPreset(
   stdin: { write: (data: string) => void },
-  label: (typeof PRESET_ORDER)[number],
+  label: string,
 ): Promise<void> {
-  const index = PRESET_ORDER.indexOf(label)
+  const index = getPresetOrderForTest().indexOf(label)
   if (index < 0) throw new Error(`Unknown preset label: ${label}`)
   for (let i = 0; i < index; i++) {
     stdin.write('j')
