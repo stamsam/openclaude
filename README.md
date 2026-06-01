@@ -8,6 +8,11 @@ Use OpenAI-compatible APIs, Gemini, GitHub Models, Codex OAuth, Codex, Ollama, A
 
 ## What's New
 
+- Ported selected Gitlawb/openclaude `v0.16.0` / `v0.16.1` runtime fixes into
+  this private fork: safer `!` shell output display, bounded markdown config
+  loading, remote Ollama validation without fake API keys, configured agent
+  model routing, unsupported-Ollama thinking guards, sandbox stderr fallback,
+  and OpenClaude process naming.
 - Synced selected Gitlawb/openclaude `v0.13.0` release work into this private
   fork without replacing the custom provider/mobile/local-model surfaces:
   Markdown/JSON conversation export, Bash sandbox fanout cap, Gemini raw
@@ -35,9 +40,19 @@ Fork map: [`docs/fork-map.md`](docs/fork-map.md)
 This fork keeps private features layered on top of the public
 [`Gitlawb/openclaude`](https://github.com/Gitlawb/openclaude) codebase instead
 of doing broad upstream merges. The latest update ports the useful pieces of
-upstream `v0.13.0` and keeps stronger private behavior where this fork already
-goes further.
+upstream `v0.16.0` / `v0.16.1` on top of the earlier `v0.13.0` sync and keeps
+stronger private behavior where this fork already goes further.
 
+- **Runtime reliability from v0.16:** keeps `!` shell command stdout visible,
+  batches markdown config loading with an oversized-file cap, falls back safely
+  when sandbox stderr annotation is unavailable, and sets the process title to
+  `openclaude`.
+- **Local/provider fixes from v0.16:** allows likely remote Ollama endpoints
+  without inventing `OPENAI_API_KEY`, disables thinking parameters for
+  unsupported Ollama models, and routes configured agent model overrides through
+  the actual subagent runtime.
+- **Ultracode polish:** keeps Faster, Smarter, `xhigh`, and `ultracode`
+  spinner/effort badges readable while preserving the v0.16 thinking guard.
 - **Conversation exports:** adds `/export` output modes for plain text,
   Markdown, and JSON, including direct filename support and interactive format
   selection.
