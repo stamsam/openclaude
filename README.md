@@ -30,6 +30,9 @@ Use OpenAI-compatible APIs, Gemini, GitHub Models, Codex OAuth, Codex, Ollama, A
 - Autonomous goal mode with `/goal <objective>` — set a verifiable goal and the agent immediately starts work without a second prompt. It loops autonomously (plan -> act -> review -> continue) across turns until complete. Includes token budget tracking, elapsed-time display, footer status, advisory plans, checkpoints, and auto-completion signals
 - Telegram bridge for live session control, including `/telegram setup`, `/btw`, `/pause`, `/resume`, and model switching from your phone
 - Local learning with `/learn` and `/learn run` for reusable memory and portable skills
+- **Auto permission mode** — Shift+Tab cycles into `▶▶ Auto`, which auto-approves safe actions and prompts for dangerous ones (rm -rf, git push --force, curl|sh, writing secrets). Backed by the local dangerous-action checker, no classifier API needed. Works with any provider.
+- **MiniMax M3 support** — New model in the MiniMax catalog (`minimax-m3`) plus MiniMax M3 on Ollama Cloud (`minimax-m3:cloud`)
+- **OpenCode Zen gateway** — Free MiniMax M3 access via `opencode.ai/zen/v1` with `ZEN_API_KEY` auth and `minimax-m3-free` model (the required `-free` suffix for Zen's free tier)
 - One CLI across cloud APIs, local models, provider profiles, and agent routing
 - Bundled VS Code extension for launch integration and theme support
 
@@ -71,6 +74,11 @@ stronger private behavior where this fork already goes further.
   mode.
 
 ## Current Fork Additions
+
+- **Auto permission mode for all providers** (Shift+Tab → `▶▶ Auto`): safe reads/writes auto-approve; dangerous patterns (`rm -rf`, `git push --force`, `curl | sh`, writing secrets/keys) still prompt. Uses the local dangerous-action checker — no Anthropic classifier API required, works with DeepSeek, Ollama, OpenAI-compatible, and all other providers.
+- **MiniMax M3** added to the MiniMax vendor catalog and available on Ollama Cloud as `minimax-m3:cloud`.
+- **OpenCode Zen** is a new OpenClaude gateway for free MiniMax M3 inference via `opencode.ai/zen/v1` with `ZEN_API_KEY` auth. Model id `minimax-m3-free` (required `-free` suffix).
+- **Reasoning effort handling hardened**: `?? 'downgrade'` fallback removed from the deepseek-compatible thinking path (both write sites now use the universal safe default consistently). Catalog-level `reasoningEffortPolicy` overrides now take priority over model-name-based inference.
 
 - `/goal <objective>` now starts the continuation turn automatically. Use `/goal plan` only when you explicitly want plan mode, `/goal act` to force another autonomous step, and `/goal checkpoint` / `/goal restore` around risky edits.
 - oMLX model discovery reads the local oMLX settings/API key, ignores stale non-oMLX cache entries, and refreshes `/model` from the live local server. Selecting an oMLX model applies the provider route for the current process, and `/model` can auto-unload the previous local model after switching.
@@ -299,7 +307,8 @@ Advanced and source-build guides:
 | Codex OAuth | `/provider` | Opens ChatGPT sign-in in your browser and stores Codex credentials securely |
 | xAI | `/provider` or env vars | Supports XAI_API_KEY and xAI OAuth browser flow |
 | Codex | `/provider` | Uses existing Codex CLI auth, OpenClaude secure storage, or env credentials |
-| Ollama | `/provider`, env vars, or `ollama launch` | Local inference with no API key |
+| OpenCode Zen | `/provider` or env vars | Free MiniMax M3 via `opencode.ai/zen/v1`. Set `ZEN_API_KEY`. Model id: `minimax-m3-free` (required `-free` suffix for Zen's free tier) |
+| Ollama | `/provider`, env vars, or `ollama launch` | Local inference with no API key. Cloud models like `minimax-m3:cloud` also available |
 | Atomic Chat | `/provider`, env vars, or `bun run dev:atomic-chat` | Local Model Provider; auto-detects loaded models |
 | Bedrock / Vertex / Foundry | env vars | Additional provider integrations for supported environments |
 
