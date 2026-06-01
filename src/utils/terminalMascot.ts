@@ -16,8 +16,9 @@ export type TerminalMascot =
   | 'snail'
   | 'bandit'
   | 'jelly'
+  | 'octopus'
 
-export const DEFAULT_TERMINAL_MASCOT: TerminalMascot = 'shiba'
+export const DEFAULT_TERMINAL_MASCOT: TerminalMascot = 'octopus'
 
 export const TERMINAL_MASCOTS: Record<TerminalMascot, readonly string[]> = {
   shiba: [
@@ -110,6 +111,12 @@ export const TERMINAL_MASCOTS: Record<TerminalMascot, readonly string[]> = {
     ' \\__/ ',
     ' ||||  ',
   ],
+  octopus: [
+    '  __   ',
+    '( oo ) ',
+    '  ww   ',
+    '~~|~|~~',
+  ],
 }
 
 export const TERMINAL_MASCOT_PIXELS: Partial<Record<TerminalMascot, readonly string[]>> = {
@@ -156,6 +163,19 @@ export const TERMINAL_MASCOT_PIXELS: Partial<Record<TerminalMascot, readonly str
     '..P..P.P..',
     '....P.....',
   ],
+  // Octopus: 10 cols × 8 rows. P = body purple, S = body shadow, W = highlight,
+  // K = eye-black. 4 tentacle strokes (T) on the bottom 3 rows for the wavy
+  // arms trailing under the mantle.
+  octopus: [
+    '..PPPPPP..',
+    '.PPWWWWPP.',
+    'PWKWPPKWP.',
+    '.PPWWWWPP.',
+    '..PPPPPP..',
+    '..T.T.T.T.',
+    '.T.T.T.T.T',
+    'T..T..T..T',
+  ],
 }
 
 export const TERMINAL_PIXEL_COLORS: Record<string, RGB> = {
@@ -187,6 +207,7 @@ export const TERMINAL_MASCOT_COLORS: Record<TerminalMascot, RGB> = {
   snail: [184, 137, 89],
   bandit: [115, 115, 112],
   jelly: [154, 103, 210],
+  octopus: [138, 79, 188],
 }
 
 export function getTerminalMascotRows(mascot: TerminalMascot): readonly string[] {
@@ -209,6 +230,7 @@ export const TERMINAL_MASCOT_LABELS: Record<TerminalMascot, string> = {
   snail: 'Snail',
   bandit: 'Bandit',
   jelly: 'Jellyfish',
+  octopus: 'Octopus',
 }
 
 export const TERMINAL_MASCOT_NAMES = Object.keys(TERMINAL_MASCOTS) as TerminalMascot[]

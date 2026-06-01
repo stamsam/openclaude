@@ -161,7 +161,7 @@ import { useSkillsChange } from '../hooks/useSkillsChange.js';
 import { useManagePlugins } from '../hooks/useManagePlugins.js';
 import { Messages } from '../components/Messages.js';
 import { TaskListV2 } from '../components/TaskListV2.js';
-import { TeammateViewHeader } from '../components/TeammateViewHeader.js';
+import { AgentViewHeader } from '../components/AgentViewHeader.js';
 import { useTasksV2WithCollapseEffect } from '../hooks/useTasksV2.js';
 import { maybeMarkProjectOnboardingComplete } from '../projectOnboardingState.js';
 import type { MCPServerConnection } from '../services/mcp/types.js';
@@ -4754,13 +4754,21 @@ export function REPL({
         jumpToNew(scrollRef.current);
       }} takeover={agentViewNode} scrollable={<>
         {viewedAgentTask && !viewedTeammateTask ? (
-          <LocalAgentViewHeader
-            task={viewedAgentTask}
+          <AgentViewHeader
+            agentName={viewedAgentTask.selectedAgent?.agentType ?? viewedAgentTask.agentType}
+            color="remember"
+            status={viewedAgentTask.status === 'running' ? 'running' : viewedAgentTask.status}
+            prompt={viewedAgentTask.prompt}
             hasMessages={displayedMessages.length > 0}
+            diskLoaded={viewedAgentTask.diskLoaded}
           />
-        ) : (
-          <TeammateViewHeader />
-        )}
+        ) : viewedTeammateTask ? (
+          <AgentViewHeader
+            agentName={viewedTeammateTask.identity.agentName}
+            color={viewedTeammateTask.identity.color}
+            prompt={viewedTeammateTask.prompt}
+          />
+        ) : null}
         <Messages messages={displayedMessages} tools={tools} commands={renderCommands} verbose={verbose} toolJSX={toolJSX} toolUseConfirmQueue={toolUseConfirmQueue} inProgressToolUseIDs={viewedTeammateTask ? viewedTeammateTask.inProgressToolUseIDs ?? new Set() : inProgressToolUseIDs} isMessageSelectorVisible={isMessageSelectorVisible} conversationId={conversationId} screen={screen} streamingToolUses={streamingToolUses} showAllInTranscript={showAllInTranscript} agentDefinitions={agentDefinitions} onOpenRateLimitOptions={handleOpenRateLimitOptions} isLoading={isLoading} streamingText={isLoading && !viewedAgentTask ? visibleStreamingText : null} isBriefOnly={viewedAgentTask ? false : isBriefOnly} unseenDivider={viewedAgentTask ? undefined : unseenDivider} scrollRef={isFullscreenEnvEnabled() ? scrollRef : undefined} trackStickyPrompt={isFullscreenEnvEnabled() ? true : undefined} cursor={cursor} setCursor={setCursor} cursorNavRef={cursorNavRef} />
         <AwsAuthStatusBox />
         {/* Hide the processing placeholder while a modal is showing —

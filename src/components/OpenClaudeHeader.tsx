@@ -8,7 +8,7 @@ import {
   truncatePath,
 } from '../utils/logoV2Utils.js'
 import { renderModelSetting } from '../utils/model/model.js'
-import { TerminalMascot } from './TerminalMascot.js'
+import { StatusBar } from './StatusBar.js'
 import { useAppState } from '../state/AppState.js'
 import { getGlobalConfig } from '../utils/config.js'
 import {
@@ -30,7 +30,10 @@ type Props = {
 function mascotWidth(mascot: TerminalMascot): number {
   const pixelRows = TERMINAL_MASCOT_PIXELS[mascot]
   if (pixelRows) {
-    return Math.max(...pixelRows.map(row => row.length)) * 2
+    // Pixel mascots use one terminal cell per pixel (rendered as a half-block
+    // glyph), paired top/bottom to form visual rows. width is the max row
+    // length in characters. Vertical cells = ceil(rowCount / 2).
+    return Math.max(...pixelRows.map(row => row.length))
   }
 
   return Math.max(...TERMINAL_MASCOTS[mascot].map(row => row.length))
@@ -57,13 +60,14 @@ export function OpenClaudeHeader({
     const displayModel =
       modelLine ?? `${renderModelSetting(model)}${getEffortSuffix(model, effortValue, ultracodeActive)}`
     const displayCwd = truncatePath(cwd ?? process.cwd(), Math.min(54, textWidth))
-    const detailLine = truncate([displayModel, agent ? `@${agent}` : undefined, displayCwd].filter(Boolean).join(' · '), textWidth)
+    const agentName = agent ? agent : undefined
     const safeStatusLine = statusLine ? truncate(statusLine, textWidth) : undefined
     const showStatusInline = Boolean(safeStatusLine && textWidth >= 72)
     const titleWidth = showStatusInline
       ? Math.max(16, textWidth - safeStatusLine!.length - 2)
       : textWidth
     const titleLine = truncate(`${title} v${compactVersion}`, titleWidth)
+
     return (
       <Box flexDirection="column" flexShrink={0} paddingLeft={1} paddingTop={1} marginBottom={0}>
         <Text>
@@ -71,7 +75,13 @@ export function OpenClaudeHeader({
           {showStatusInline ? <Text dimColor>  {safeStatusLine}</Text> : null}
         </Text>
         {!showStatusInline && safeStatusLine ? <Text dimColor>{safeStatusLine}</Text> : null}
-        <Text dimColor>{detailLine}</Text>
+        <StatusBar
+          model={displayModel}
+          cwd={displayCwd}
+          agent={agentName}
+          status={safeStatusLine && !showStatusInline ? safeStatusLine : undefined}
+          isIdle={!agent}
+        />
       </Box>
     )
   }

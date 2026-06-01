@@ -11,6 +11,7 @@ import { getTotalAPIDuration, getTotalCost, getTotalDuration, getTotalInputToken
 import { useMainLoopModel } from '../hooks/useMainLoopModel.js';
 import { type ReadonlySettings, useSettings } from '../hooks/useSettings.js';
 import { Ansi, Box, Text } from '../ink.js';
+import { Heartbeat } from './Heartbeat.js';
 import { getRawUtilization } from '../services/claudeAiLimits.js';
 import type { Message } from '../types/message.js';
 import type { StatusLineCommandInput } from '../types/statusLine.js';
@@ -313,7 +314,7 @@ function StatusLineInner({
   return <Box paddingX={paddingX} gap={2}>
       {statusLineText ? <Text dimColor wrap="truncate">
           <Ansi>{statusLineText}</Ansi>
-        </Text> : isFullscreenEnvEnabled() ? <Text> </Text> : null}
+        </Text> : isFullscreenEnvEnabled() ? <Heartbeat /> : null}
     </Box>;
 }
 

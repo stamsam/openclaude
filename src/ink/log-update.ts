@@ -42,6 +42,7 @@ const NEWLINE = { type: 'stdout', content: '\n' } as const
 
 export class LogUpdate {
   private state: State
+  private firstFrame = true
 
   constructor(private readonly options: Options) {
     this.state = {
@@ -114,6 +115,13 @@ export class LogUpdate {
   private getRenderOpsForDone(prev: Frame): Diff {
     this.state.previousOutput = ''
 
+    // Never emit cursorShow on the very first render after mount.
+    // App.componentDidMount writes HIDE_CURSOR; emitting cursorShow on the
+    // first frame produces the visible "[] " block the user sees on launch.
+    if (this.firstFrame) {
+      this.firstFrame = false
+      return []
+    }
     if (!prev.cursor.visible) {
       return [{ type: 'cursorShow' }]
     }

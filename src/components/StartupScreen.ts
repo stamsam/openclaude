@@ -169,13 +169,6 @@ export function detectProvider(modelOverride?: string): { name: string; model: s
   return { name: 'Anthropic', model: resolvedModel, baseUrl, isLocal }
 }
 
-// ─── Box drawing ──────────────────────────────────────────────────────────────
-
-function boxRow(content: string, width: number, rawLen: number, border: RGB): string {
-  const pad = Math.max(0, width - 2 - rawLen)
-  return `${ansiRgb(...border)}\u2502${RESET}${content}${' '.repeat(pad)}${ansiRgb(...border)}\u2502${RESET}`
-}
-
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 export function printStartupScreen(modelOverride?: string): void {
