@@ -374,6 +374,8 @@ export async function reviewLearning(paths = getLearningPaths()): Promise<string
   const promotable = items.filter(isPromotableCandidate)
   const heldBack = items.length - promotable.length
   const lines = ['Learning review:', '', ...learningScopeLines(paths), '']
+  lines.push('Promotion rules: memory/note = 2 repeats (high confidence), skills = 3 repeats (high confidence).')
+  lines.push('')
   let index = 1
   for (const item of promotable) lines.push(candidateLabel(item, index++), '')
   if (!promotable.length) lines.push('No promotable learning candidates found.', '')
@@ -495,6 +497,45 @@ export async function recordPassiveLearningCandidate(
       proposed_text: 'Reusable verification workflow for local project checks.',
       evidence_summary: evidence,
       target: 'skills/draft',
+      sensitive: false,
+      repeat_count: 1,
+    })
+  }
+
+  // Broader passive patterns for armored-awareness use case
+  const lower = safeText.toLowerCase()
+  if (/(?:smaller|weaker|tiny|local).*(?:model|llm)/.test(lower) || /armored|awareness|knowledge.*distill/.test(lower)) {
+    candidates.push({
+      candidate_type: 'memory',
+      confidence: 'high',
+      proposed_text: 'Session involves distilling knowledge to help smaller models.',
+      evidence_summary: evidence,
+      target: 'MEMORY.md',
+      sensitive: false,
+      repeat_count: 1,
+    })
+  }
+  if (/\b(project|repo|codebase).*(?:uses|relies on|written in)\b/i.test(safeText)) {
+    const techMatch = safeText.match(/\b(react|next\.js|typescript|python|bun|node|go|rust|swift)\b/i)
+    if (techMatch) {
+      candidates.push({
+        candidate_type: 'memory',
+        confidence: 'high',
+        proposed_text: `Project uses ${techMatch[1]}.`,
+        evidence_summary: evidence,
+        target: 'MEMORY.md',
+        sensitive: false,
+        repeat_count: 1,
+      })
+    }
+  }
+  if (/(?:prefers?|always|never|avoid)\b/i.test(safeText) && safeText.length < 200) {
+    candidates.push({
+      candidate_type: 'memory',
+      confidence: 'high',
+      proposed_text: safeText.trim(),
+      evidence_summary: evidence,
+      target: 'MEMORY.md',
       sensitive: false,
       repeat_count: 1,
     })
